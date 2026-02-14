@@ -1,0 +1,588 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:weylo/app/widgets/app_theme_system.dart';
+
+import '../controllers/profile_controller.dart';
+
+class ProfileView extends GetView<ProfileController> {
+  const ProfileView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Cover photo + Profile picture
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Cover photo
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppThemeSystem.primaryColor,
+                      AppThemeSystem.secondaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.camera_alt_rounded,
+                    size: 50,
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+              // Edit cover button
+              Positioned(
+                top: 16,
+                right: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      Get.snackbar(
+                        'Cover',
+                        'Modifier la photo de couverture',
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // Profile picture
+              Positioned(
+                bottom: -50,
+                left: 20,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppThemeSystem.darkBackgroundColor
+                          : Colors.white,
+                      width: 5,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: AppThemeSystem.primaryColor,
+                        child: const Icon(
+                          Icons.person,
+                          size: 50,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppThemeSystem.primaryColor,
+                                AppThemeSystem.secondaryColor,
+                              ],
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppThemeSystem.darkBackgroundColor
+                                  : Colors.white,
+                              width: 2,
+                            ),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.camera_alt,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            onPressed: () {
+                              Get.snackbar(
+                                'Photo',
+                                'Modifier la photo de profil',
+                                snackPosition: SnackPosition.BOTTOM,
+                              );
+                            },
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 60),
+
+          // Profile info
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'John Doe',
+                          style: context.textStyle(FontSizeType.h2).copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : AppThemeSystem.blackColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '@johndoe123',
+                          style: context.textStyle(FontSizeType.body2).copyWith(
+                            color: AppThemeSystem.grey600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppThemeSystem.primaryColor,
+                            AppThemeSystem.secondaryColor,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Get.snackbar(
+                              'Profil',
+                              'Modifier le profil',
+                              snackPosition: SnackPosition.BOTTOM,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Modifier',
+                                  style: context.textStyle(FontSizeType.body2).copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Bio
+                Text(
+                  '✨ Passionné de technologie et de design\n📍 Yaoundé, Cameroun\n🎨 UI/UX Designer',
+                  style: context.textStyle(FontSizeType.body2).copyWith(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : AppThemeSystem.blackColor,
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Stats
+                Row(
+                  children: [
+                    _buildProfileStat(context, '234', 'Publications'),
+                    const SizedBox(width: 20),
+                    _buildProfileStat(context, '1.2K', 'Abonnés'),
+                    const SizedBox(width: 20),
+                    _buildProfileStat(context, '567', 'Abonnements'),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // Tabs for posts/photos
+                DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      TabBar(
+                        indicatorColor: AppThemeSystem.primaryColor,
+                        labelColor: AppThemeSystem.primaryColor,
+                        unselectedLabelColor: AppThemeSystem.grey600,
+                        tabs: const [
+                          Tab(
+                            icon: Icon(Icons.grid_on_rounded),
+                            text: 'Publications',
+                          ),
+                          Tab(
+                            icon: Icon(Icons.bookmark_border_rounded),
+                            text: 'Enregistrés',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 400,
+                        child: TabBarView(
+                          children: [
+                            _buildPostsGrid(context),
+                            _buildSavedGrid(context),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Settings button
+                Center(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppThemeSystem.primaryColor,
+                          AppThemeSystem.secondaryColor,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Get.bottomSheet(
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? AppThemeSystem.darkCardColor
+                                    : Colors.white,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(20),
+                                  topRight: Radius.circular(20),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    width: 40,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: AppThemeSystem.grey400,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildMenuItem(
+                                    context,
+                                    Icons.settings_outlined,
+                                    'Paramètres',
+                                    () {
+                                      Get.back();
+                                    },
+                                  ),
+                                  _buildMenuItem(
+                                    context,
+                                    Icons.security_outlined,
+                                    'Confidentialité et sécurité',
+                                    () {
+                                      Get.back();
+                                    },
+                                  ),
+                                  _buildMenuItem(
+                                    context,
+                                    Icons.help_outline,
+                                    'Aide et support',
+                                    () {
+                                      Get.back();
+                                    },
+                                  ),
+                                  _buildMenuItem(
+                                    context,
+                                    Icons.info_outline,
+                                    'À propos',
+                                    () {
+                                      Get.back();
+                                    },
+                                  ),
+                                  const Divider(),
+                                  _buildMenuItem(
+                                    context,
+                                    Icons.logout,
+                                    'Déconnexion',
+                                    () {
+                                      Get.back();
+                                      Get.defaultDialog(
+                                        title: 'Déconnexion',
+                                        middleText: 'Voulez-vous vraiment vous déconnecter ?',
+                                        textConfirm: 'Oui',
+                                        textCancel: 'Non',
+                                        confirmTextColor: Colors.white,
+                                        onConfirm: () {
+                                          Get.back();
+                                          Get.snackbar(
+                                            'Déconnexion',
+                                            'Vous avez été déconnecté',
+                                            snackPosition: SnackPosition.BOTTOM,
+                                          );
+                                        },
+                                      );
+                                    },
+                                    isDestructive: true,
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(50),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.settings,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Paramètres',
+                                style: context.textStyle(FontSizeType.body1).copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileStat(BuildContext context, String value, String label) {
+    return InkWell(
+      onTap: () {
+        Get.snackbar(
+          label,
+          'Voir $label',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: context.textStyle(FontSizeType.h3).copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : AppThemeSystem.blackColor,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: context.textStyle(FontSizeType.caption).copyWith(
+              color: AppThemeSystem.grey600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostsGrid(BuildContext context) {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: 18,
+      itemBuilder: (context, index) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppThemeSystem.grey300,
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppThemeSystem.darkBackgroundColor
+                  : Colors.white,
+              width: 1,
+            ),
+          ),
+          child: InkWell(
+            onTap: () {
+              Get.snackbar(
+                'Post',
+                'Voir publication ${index + 1}',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+            child: Center(
+              child: Icon(
+                Icons.image_outlined,
+                size: 40,
+                color: AppThemeSystem.grey500,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavedGrid(BuildContext context) {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: 12,
+      itemBuilder: (context, index) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppThemeSystem.grey300,
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppThemeSystem.darkBackgroundColor
+                  : Colors.white,
+              width: 1,
+            ),
+          ),
+          child: InkWell(
+            onTap: () {
+              Get.snackbar(
+                'Enregistré',
+                'Voir publication enregistrée ${index + 1}',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
+            child: Stack(
+              children: [
+                Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    size: 40,
+                    color: AppThemeSystem.grey500,
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Icon(
+                    Icons.bookmark,
+                    color: AppThemeSystem.primaryColor,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context,
+    IconData icon,
+    String title,
+    VoidCallback onTap, {
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDestructive
+            ? AppThemeSystem.errorColor
+            : (Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : AppThemeSystem.blackColor),
+      ),
+      title: Text(
+        title,
+        style: context.textStyle(FontSizeType.body1).copyWith(
+          color: isDestructive
+              ? AppThemeSystem.errorColor
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : AppThemeSystem.blackColor),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: AppThemeSystem.grey600,
+      ),
+      onTap: onTap,
+    );
+  }
+}
