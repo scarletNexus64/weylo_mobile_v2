@@ -9,9 +9,9 @@ class AppThemeSystem {
   // ================================
 
   // 🎨 Palette inspirée du logo Weylo (dégradé rose/orange)
-static const Color primaryColor = Color(0xFFE63946);   // Rouge cerise vif
+static const Color primaryColor = Color.fromARGB(232, 226, 73, 5);   // Rouge cerise vif
 static const Color secondaryColor = Color(0xFFFF6B35);  // Orange tangerine
-static const Color tertiaryColor = Color(0xFFAE2D68);   // Magenta profond
+static const Color tertiaryColor = Color.fromARGB(255, 221, 51, 51);   // Magenta profond
 static const Color accentColor = Color(0xFFFFB703);      // Jaune doré
 static const Color neutralColor = Color(0xFF1D1D2C);     // Noir bleuté
 

@@ -1,23 +1,11 @@
 import 'package:get/get.dart';
 
+enum GroupTab { myGroups, discover }
+
 class GroupeController extends GetxController {
-  //TODO: Implement GroupeController
+  final selectedTab = GroupTab.myGroups.obs;
 
-  final count = 0.obs;
-  @override
-  void onInit() {
-    super.onInit();
+  void setTab(GroupTab tab) {
+    selectedTab.value = tab;
   }
-
-  @override
-  void onReady() {
-    super.onReady();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
-  }
-
-  void increment() => count.value++;
 }

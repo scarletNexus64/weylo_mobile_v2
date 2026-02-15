@@ -2,11 +2,11 @@ import 'package:get/get.dart';
 
 import '../controllers/feeds_controller.dart';
 
-class FeedsBinding extends Bindings {
+class ConfessionsBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<FeedsController>(
-      () => FeedsController(),
+    Get.lazyPut<ConfessionsController>(
+      () => ConfessionsController(),
     );
   }
 }

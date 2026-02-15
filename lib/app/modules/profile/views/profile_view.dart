@@ -216,26 +216,26 @@ class ProfileView extends GetView<ProfileController> {
                 const SizedBox(height: 16),
 
                 // Bio
-                Text(
-                  '✨ Passionné de technologie et de design\n📍 Yaoundé, Cameroun\n🎨 UI/UX Designer',
-                  style: context.textStyle(FontSizeType.body2).copyWith(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : AppThemeSystem.blackColor,
-                    height: 1.5,
-                  ),
-                ),
+                // Text(
+                //   '✨ Passionné de technologie et de design\n📍 Yaoundé, Cameroun\n🎨 UI/UX Designer',
+                //   style: context.textStyle(FontSizeType.body2).copyWith(
+                //     color: Theme.of(context).brightness == Brightness.dark
+                //         ? Colors.white
+                //         : AppThemeSystem.blackColor,
+                //     height: 1.5,
+                //   ),
+                // ),
 
-                const SizedBox(height: 20),
+                // const SizedBox(height: 20),
 
                 // Stats
                 Row(
                   children: [
                     _buildProfileStat(context, '234', 'Publications'),
                     const SizedBox(width: 20),
-                    _buildProfileStat(context, '1.2K', 'Abonnés'),
+                    _buildProfileStat(context, '1.2K', 'Likes'),
                     const SizedBox(width: 20),
-                    _buildProfileStat(context, '567', 'Abonnements'),
+                    _buildProfileStat(context, '567', 'Commentaires'),
                   ],
                 ),
 
@@ -295,124 +295,6 @@ class ProfileView extends GetView<ProfileController> {
                           offset: const Offset(0, 5),
                         ),
                       ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Get.bottomSheet(
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? AppThemeSystem.darkCardColor
-                                    : Colors.white,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(20),
-                                  topRight: Radius.circular(20),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  Container(
-                                    width: 40,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: AppThemeSystem.grey400,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildMenuItem(
-                                    context,
-                                    Icons.settings_outlined,
-                                    'Paramètres',
-                                    () {
-                                      Get.back();
-                                    },
-                                  ),
-                                  _buildMenuItem(
-                                    context,
-                                    Icons.security_outlined,
-                                    'Confidentialité et sécurité',
-                                    () {
-                                      Get.back();
-                                    },
-                                  ),
-                                  _buildMenuItem(
-                                    context,
-                                    Icons.help_outline,
-                                    'Aide et support',
-                                    () {
-                                      Get.back();
-                                    },
-                                  ),
-                                  _buildMenuItem(
-                                    context,
-                                    Icons.info_outline,
-                                    'À propos',
-                                    () {
-                                      Get.back();
-                                    },
-                                  ),
-                                  const Divider(),
-                                  _buildMenuItem(
-                                    context,
-                                    Icons.logout,
-                                    'Déconnexion',
-                                    () {
-                                      Get.back();
-                                      Get.defaultDialog(
-                                        title: 'Déconnexion',
-                                        middleText: 'Voulez-vous vraiment vous déconnecter ?',
-                                        textConfirm: 'Oui',
-                                        textCancel: 'Non',
-                                        confirmTextColor: Colors.white,
-                                        onConfirm: () {
-                                          Get.back();
-                                          Get.snackbar(
-                                            'Déconnexion',
-                                            'Vous avez été déconnecté',
-                                            snackPosition: SnackPosition.BOTTOM,
-                                          );
-                                        },
-                                      );
-                                    },
-                                    isDestructive: true,
-                                  ),
-                                  const SizedBox(height: 20),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(50),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 32,
-                            vertical: 16,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.settings,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Paramètres',
-                                style: context.textStyle(FontSizeType.body1).copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),

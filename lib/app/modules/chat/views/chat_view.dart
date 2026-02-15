@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 
 import '../controllers/chat_controller.dart';
+import '../../chat_detail/views/chat_detail_view.dart';
+import '../../chat_detail/bindings/chat_detail_binding.dart';
 
 class ChatView extends GetView<ChatController> {
   const ChatView({super.key});
@@ -13,39 +15,72 @@ class ChatView extends GetView<ChatController> {
       children: [
         // Segmented Button Filter
         _buildFilterSegment(context),
-        // Chat List
+        // Chat List with Waterfall Effect
         Expanded(
           child: Obx(() {
             // Force GetX to track selectedFilter by reading it here
             final currentFilter = controller.selectedFilter.value;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
 
-            return ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                // Simule le statut lu/non lu (les pairs sont non lus)
-                final isRead = index % 2 != 0;
+            return Stack(
+              children: [
+                // ListView
+                ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+                  itemCount: 10,
+                  itemBuilder: (context, index) {
+                    // Simule le statut lu/non lu (les pairs sont non lus)
+                    final isRead = index % 2 != 0;
 
-                // Filtre selon la sélection en utilisant currentFilter
-                bool shouldShow = true;
-                switch (currentFilter) {
-                  case ChatFilter.all:
-                    shouldShow = true;
-                    break;
-                  case ChatFilter.unread:
-                    shouldShow = !isRead;
-                    break;
-                  case ChatFilter.read:
-                    shouldShow = isRead;
-                    break;
-                }
+                    // Filtre selon la sélection en utilisant currentFilter
+                    bool shouldShow = true;
+                    switch (currentFilter) {
+                      case ChatFilter.all:
+                        shouldShow = true;
+                        break;
+                      case ChatFilter.unread:
+                        shouldShow = !isRead;
+                        break;
+                      case ChatFilter.read:
+                        shouldShow = isRead;
+                        break;
+                    }
 
-                if (!shouldShow) {
-                  return const SizedBox.shrink();
-                }
+                    if (!shouldShow) {
+                      return const SizedBox.shrink();
+                    }
 
-                return _buildChatCard(context, index, isGroup: false, isRead: isRead);
-              },
+                    return _buildChatCard(context, index, isGroup: false, isRead: isRead);
+                  },
+                ),
+                // Waterfall Gradient Effect
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 120,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            isDark
+                                ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+                                : AppThemeSystem.grey200.withValues(alpha: 0.4),
+                            isDark
+                                ? AppThemeSystem.grey700.withValues(alpha: 0.15)
+                                : AppThemeSystem.grey200.withValues(alpha: 0.2),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.4, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           }),
         ),
@@ -359,12 +394,18 @@ class ChatView extends GetView<ChatController> {
           ],
         ),
         onTap: () {
-          Get.snackbar(
-            'Chat',
-            isGroup
-                ? 'Ouvrir le groupe ${index + 1}'
-                : 'Ouvrir la conversation avec Contact ${index + 1}',
-            snackPosition: SnackPosition.BOTTOM,
+          final contactName = isGroup ? 'Groupe ${index + 1}' : 'Contact ${index + 1}';
+          final contactId = index.toString();
+
+          Get.to(
+            () => const ChatDetailView(),
+            binding: ChatDetailBinding(),
+            arguments: {
+              'contactName': contactName,
+              'contactId': contactId,
+            },
+            transition: Transition.rightToLeft,
+            duration: const Duration(milliseconds: 300),
           );
         },
       ),

@@ -9,7 +9,7 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   final currentTabIndex = 0.obs;
 
   // Tab names
-  final List<String> tabNames = ['Anonyme', 'Chat', 'Groupe', 'Feed', 'Profile'];
+  final List<String> tabNames = ['Anonyme', 'Chat', 'Groupe', 'Confession', 'Profile'];
 
   // Tab icons
   final List<IconData> tabIcons = [

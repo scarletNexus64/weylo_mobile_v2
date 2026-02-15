@@ -24,8 +24,8 @@ class HomeBinding extends Bindings {
     Get.lazyPut<GroupeController>(
       () => GroupeController(),
     );
-    Get.lazyPut<FeedsController>(
-      () => FeedsController(),
+    Get.lazyPut<ConfessionsController>(
+      () => ConfessionsController(),
     );
     Get.lazyPut<ProfileController>(
       () => ProfileController(),

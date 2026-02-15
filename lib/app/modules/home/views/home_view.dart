@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/modules/anonymepage/views/anonymepage_view.dart';
 import 'package:weylo/app/modules/chat/views/chat_view.dart';
+import 'package:weylo/app/modules/feeds/views/feeds_view.dart';
 import 'package:weylo/app/modules/groupe/views/groupe_view.dart';
 import 'package:weylo/app/modules/profile/views/profile_view.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
@@ -9,8 +10,6 @@ import 'package:weylo/app/widgets/burning_flame_icon.dart';
 import 'package:weylo/app/widgets/custom_icons.dart';
 
 import '../controllers/home_controller.dart';
-
-part '_feed_tab.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -271,7 +270,7 @@ class HomeView extends GetView<HomeController> {
             AnonymepageView(),
             ChatView(),
             GroupeView(),
-            _FeedTab(),
+            ConfessionsView(),
             ProfileView(),
           ],
         ),

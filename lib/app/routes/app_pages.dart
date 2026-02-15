@@ -97,8 +97,8 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.FEEDS,
-      page: () => const FeedsView(),
-      binding: FeedsBinding(),
+      page: () => const ConfessionsView(),
+      binding: ConfessionsBinding(),
     ),
     GetPage(
       name: _Paths.ANONYMEPAGE,
