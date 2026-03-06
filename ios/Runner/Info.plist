@@ -45,5 +45,31 @@
     <true/>
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
+
+    <!-- Deep Linking Configuration -->
+    <key>FlutterDeepLinkingEnabled</key>
+    <true/>
+
+    <!-- URL Types for Custom Schemes -->
+    <key>CFBundleURLTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>app.weylo</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>weylo</string>
+        </array>
+      </dict>
+    </array>
+
+    <!-- Permissions pour accès galerie -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Weylo a besoin d'accéder à vos photos pour créer des stories</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Weylo a besoin d'accéder à vos photos pour créer des stories</string>
+
   </dict>
 </plist>

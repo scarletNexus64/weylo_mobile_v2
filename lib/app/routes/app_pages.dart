@@ -24,6 +24,7 @@ import '../modules/postannoncement/bindings/postannoncement_binding.dart';
 import '../modules/postannoncement/views/postannoncement_view.dart';
 import '../modules/profile/bindings/profile_binding.dart';
 import '../modules/profile/views/profile_view.dart';
+import '../modules/profile/views/edit_profile_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
 import '../modules/resetpassword/bindings/resetpassword_binding.dart';
@@ -34,6 +35,8 @@ import '../modules/splashscreen/bindings/splashscreen_binding.dart';
 import '../modules/splashscreen/views/splashscreen_view.dart';
 import '../modules/welcomer/bindings/welcomer_binding.dart';
 import '../modules/welcomer/views/welcomer_view.dart';
+import '../modules/sendmessage/bindings/sendmessage_binding.dart';
+import '../modules/sendmessage/views/sendmessage_view.dart';
 
 part 'app_routes.dart';
 
@@ -86,6 +89,11 @@ class AppPages {
       binding: ProfileBinding(),
     ),
     GetPage(
+      name: _Paths.EDITPROFILE,
+      page: () => const EditProfileView(),
+      binding: ProfileBinding(),
+    ),
+    GetPage(
       name: _Paths.SEETING,
       page: () => const SeetingView(),
       binding: SeetingBinding(),
@@ -134,6 +142,11 @@ class AppPages {
       name: _Paths.GROUPE,
       page: () => const GroupeView(),
       binding: GroupeBinding(),
+    ),
+    GetPage(
+      name: _Paths.SENDMESSAGE,
+      page: () => const SendmessageView(),
+      binding: SendmessageBinding(),
     ),
   ];
 }

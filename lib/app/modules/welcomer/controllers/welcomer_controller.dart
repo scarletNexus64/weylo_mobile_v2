@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/data/core/api_service.dart';
 
 class WelcomerController extends GetxController {
+  final _authService = AuthService();
   // Form controllers
   final phoneController = TextEditingController();
   final pinController = TextEditingController();
@@ -22,12 +25,14 @@ class WelcomerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('👋 [WELCOMER] Initialisation du WelcomerController');
     _initAnimations();
   }
 
   @override
   void onReady() {
     super.onReady();
+    print('✨ [WELCOMER] Controller prêt - Lancement des animations');
     _startAnimations();
   }
 
@@ -49,24 +54,21 @@ class WelcomerController extends GetxController {
 
   // Start sequential animations
   void _startAnimations() async {
-    // Animate logo first
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Animate logo first (quick)
+    await Future.delayed(const Duration(milliseconds: 50));
     logoScale.value = 1.0;
 
-    // Then animate illustration
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Then animate illustration (simultaneous with logo)
+    await Future.delayed(const Duration(milliseconds: 100));
     illustrationOpacity.value = 1.0;
 
-    // Then animate title
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Then animate title (quick)
+    await Future.delayed(const Duration(milliseconds: 150));
     titleOpacity.value = 1.0;
 
-    // Then animate form
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Then animate form and social together (faster UX)
+    await Future.delayed(const Duration(milliseconds: 150));
     formOpacity.value = 1.0;
-
-    // Finally animate social buttons
-    await Future.delayed(const Duration(milliseconds: 300));
     socialOpacity.value = 1.0;
   }
 
@@ -78,34 +80,68 @@ class WelcomerController extends GetxController {
 
   // Sign in with phone and PIN
   Future<void> signInWithPhonePin() async {
-    if (!_validateForm()) return;
+    print('🔐 [WELCOMER] Tentative de connexion...');
 
-    isLoading.value = true;
+    if (!_validateForm()) {
+      print('❌ [WELCOMER] Validation échouée');
+      return;
+    }
 
     try {
-      // TODO: Implement actual authentication logic here
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      isLoading.value = true;
+
+      final fullPhone = phoneNumber.value;
+      final pin = pinController.text;
+
+      print('📱 [WELCOMER] Numéro: $fullPhone');
+      print('🔑 [WELCOMER] PIN: ${pin.replaceAll(RegExp(r'.'), '*')}');
+
+      // Call login API
+      print('🌐 [WELCOMER] Appel de l\'API login...');
+      final response = await _authService.login(
+        login: fullPhone,
+        password: pin,
+      );
+
+      print('✅ [WELCOMER] Connexion réussie!');
+      print('👤 [WELCOMER] Utilisateur: ${response.user.username} (${response.user.firstName})');
+      print('🔑 [WELCOMER] Token reçu: ${response.token.substring(0, 20)}...');
 
       Get.snackbar(
         'Succès',
-        'Connexion réussie!',
+        'Connexion réussie ! Bienvenue ${response.user.firstName}',
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
 
-      // Navigate to home or dashboard
+      // Navigate to home on success
+      print('🏠 [WELCOMER] Navigation vers HOME');
+      await Future.delayed(const Duration(milliseconds: 500));
       Get.offAllNamed(Routes.HOME);
-    } catch (e) {
+
+    } on ApiException catch (e) {
+      print('💥 [WELCOMER] Erreur API: ${e.message} (Code: ${e.statusCode})');
       Get.snackbar(
         'Erreur',
-        'Échec de la connexion: ${e.toString()}',
+        e.message,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    } catch (e) {
+      print('💥 [WELCOMER] Erreur inattendue: $e');
+      Get.snackbar(
+        'Erreur',
+        'Une erreur est survenue lors de la connexion',
         backgroundColor: Colors.red.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
       isLoading.value = false;
+      print('🔓 [WELCOMER] Fin de la tentative de connexion');
     }
   }
 
@@ -180,6 +216,7 @@ class WelcomerController extends GetxController {
 
   // Navigate to register
   void navigateToRegister() {
+    print('📝 [WELCOMER] Navigation vers REGISTER');
     Get.toNamed(Routes.REGISTER);
   }
 

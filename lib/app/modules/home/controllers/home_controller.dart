@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
+  // Scaffold key for drawer
+  final scaffoldKey = GlobalKey<ScaffoldState>();
+
   // Tab controller
   late TabController tabController;
 
@@ -38,5 +41,15 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   // Change tab programmatically
   void changeTab(int index) {
     tabController.animateTo(index);
+  }
+
+  // Open drawer
+  void openDrawer() {
+    scaffoldKey.currentState?.openDrawer();
+  }
+
+  // Close drawer
+  void closeDrawer() {
+    scaffoldKey.currentState?.closeDrawer();
   }
 }

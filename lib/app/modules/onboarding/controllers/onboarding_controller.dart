@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import '../../../data/services/storage_service.dart';
 
 // Modèle pour les pages d'onboarding
 class OnboardingPageModel {
@@ -21,6 +22,8 @@ class OnboardingPageModel {
 }
 
 class OnboardingController extends GetxController {
+  final _storage = StorageService();
+
   // PageController pour gérer le PageView
   late PageController pageController;
 
@@ -112,7 +115,9 @@ class OnboardingController extends GetxController {
   }
 
   // Terminer l'onboarding et aller à la page de bienvenue
-  void finish() {
+  void finish() async {
+    // Marquer l'onboarding comme complété
+    await _storage.setOnboardingCompleted();
     Get.offAllNamed(Routes.WELCOMER);
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
 import '../../../widgets/app_theme_system.dart';
 import '../controllers/splashscreen_controller.dart';
 
@@ -13,13 +13,11 @@ class SplashscreenView extends GetView<SplashscreenController> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? AppThemeSystem.darkBackgroundColor : Colors.white,
       body: Stack(
         children: [
-          // Background avec gradient animé
-          _AnimatedGradientBackground(isDark: isDark),
-
-          // Particules flottantes pour effet de mystère
-          ..._buildFloatingParticles(),
+          // Wallpaper pattern avec icônes (comme chat/groupe)
+          _buildWallpaperPattern(context, isDark),
 
           // Contenu principal
           SafeArea(
@@ -35,35 +33,20 @@ class SplashscreenView extends GetView<SplashscreenController> {
                 children: [
                   const Spacer(flex: 3),
 
-                  // Logo avec effet 3D et glow pulsant
-                  _AnimatedLogo(isDark: isDark),
-
-                  SizedBox(height: context.sectionSpacing * 1.5),
-
-                  // Nom de l'app avec effet de reveal
+                  // Nom de l'app avec effet de blur
                   _AnimatedAppName(),
 
                   SizedBox(height: context.elementSpacing * 2),
 
-                  // Slogan avec effet de typing
+                  // Loading minimaliste
+                  _MinimalLoading(),
+
+                  const Spacer(flex: 3),
+
+                  // Slogan en footer (bas de page)
                   _AnimatedSlogan(),
 
-                  const Spacer(flex: 2),
-
-                  // Loading moderne avec flutter_spinkit
-                  SpinKitWaveSpinner(
-                    color: AppThemeSystem.primaryColor,
-                    waveColor: AppThemeSystem.secondaryColor,
-                    trackColor: AppThemeSystem.tertiaryColor,
-                    size: 80,
-                  ),
-
-                  SizedBox(height: context.elementSpacing * 3),
-
-                  // Tags défilants avec effet élégant
-                  _AnimatedTags(),
-
-                  const Spacer(flex: 2),
+                  SizedBox(height: context.verticalPadding),
                 ],
               ),
             ),
@@ -73,240 +56,54 @@ class SplashscreenView extends GetView<SplashscreenController> {
     );
   }
 
-  // Génère des particules flottantes pour l'effet mystérieux
-  List<Widget> _buildFloatingParticles() {
-    return List.generate(15, (index) {
-      return _FloatingParticle(
-        index: index,
-        duration: Duration(milliseconds: 3000 + (index * 200)),
-      );
-    });
-  }
-}
+  // Wallpaper pattern avec icônes Material (inspiré chat/groupe)
+  Widget _buildWallpaperPattern(BuildContext context, bool isDark) {
+    final screenSize = MediaQuery.of(context).size;
+    final random = math.Random(42);
 
-// ================================
-// ANIMATED GRADIENT BACKGROUND
-// ================================
-class _AnimatedGradientBackground extends StatefulWidget {
-  final bool isDark;
-
-  const _AnimatedGradientBackground({required this.isDark});
-
-  @override
-  State<_AnimatedGradientBackground> createState() => _AnimatedGradientBackgroundState();
-}
-
-class _AnimatedGradientBackgroundState extends State<_AnimatedGradientBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: widget.isDark
-                  ? [
-                      AppThemeSystem.darkBackgroundColor,
-                      AppThemeSystem.neutralColor,
-                      AppThemeSystem.darkBackgroundColor,
-                    ]
-                  : [
-                      AppThemeSystem.backgroundColor,
-                      AppThemeSystem.primaryColor.withValues(alpha: 0.1),
-                      AppThemeSystem.secondaryColor.withValues(alpha: 0.05),
-                      AppThemeSystem.backgroundColor,
-                    ],
-              stops: widget.isDark
-                  ? [
-                      0.0,
-                      0.5 + (_controller.value * 0.2),
-                      1.0,
-                    ]
-                  : [
-                      0.0,
-                      0.3 + (_controller.value * 0.1),
-                      0.7 + (_controller.value * 0.1),
-                      1.0,
-                    ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================================
-// FLOATING PARTICLES
-// ================================
-class _FloatingParticle extends StatefulWidget {
-  final int index;
-  final Duration duration;
-
-  const _FloatingParticle({
-    required this.index,
-    required this.duration,
-  });
-
-  @override
-  State<_FloatingParticle> createState() => _FloatingParticleState();
-}
-
-class _FloatingParticleState extends State<_FloatingParticle>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late double left;
-  late double size;
-  late Color color;
-
-  @override
-  void initState() {
-    super.initState();
-    final random = math.Random(widget.index);
-    left = random.nextDouble();
-    size = 2 + random.nextDouble() * 6;
-
-    final colors = [
-      AppThemeSystem.primaryColor,
-      AppThemeSystem.secondaryColor,
-      AppThemeSystem.tertiaryColor,
+    // Icônes Material élégantes
+    final icons = [
+      Icons.chat_bubble_outline_rounded,
+      Icons.favorite_border_rounded,
+      Icons.star_border_rounded,
+      Icons.lock_outline_rounded,
+      Icons.shield_outlined,
+      Icons.masks_rounded,
+      Icons.psychology_outlined,
+      Icons.auto_awesome_rounded,
+      Icons.celebration_outlined,
+      Icons.emoji_emotions_outlined,
     ];
-    color = colors[random.nextInt(colors.length)].withValues(alpha: 0.3);
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    )..repeat();
-  }
+    final iconWidgets = <Widget>[];
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+    for (var i = 0; i < 40; i++) {
+      final icon = icons[i % icons.length];
+      final x = random.nextDouble() * screenSize.width;
+      final y = random.nextDouble() * screenSize.height;
+      final size = 18.0 + (random.nextDouble() * 24);
+      final rotation = random.nextDouble() * 6.28;
+      final opacity = 0.08 + (random.nextDouble() * 0.12);
 
-  @override
-  Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Positioned(
-          left: left * screenWidth,
-          top: _controller.value * screenHeight,
-          child: Opacity(
-            opacity: (math.sin(_controller.value * math.pi) * 0.5 + 0.5),
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color,
-                    blurRadius: size * 2,
-                    spreadRadius: size * 0.5,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================================
-// ANIMATED LOGO WITH 3D EFFECT
-// ================================
-class _AnimatedLogo extends StatefulWidget {
-  final bool isDark;
-
-  const _AnimatedLogo({required this.isDark});
-
-  @override
-  State<_AnimatedLogo> createState() => _AnimatedLogoState();
-}
-
-class _AnimatedLogoState extends State<_AnimatedLogo>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-
-    _scaleAnimation = CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.elasticOut,
-    );
-
-    _scaleController.forward();
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: Hero(
-        tag: 'app_logo',
-        child: Container(
-          width: 200,
-          height: 200,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/images/logo.png',
-              fit: BoxFit.cover,
+      iconWidgets.add(
+        Positioned(
+          left: x - size / 2,
+          top: y - size / 2,
+          child: Transform.rotate(
+            angle: rotation,
+            child: Icon(
+              icon,
+              size: size,
+              color: (isDark ? Colors.white : Colors.black).withValues(alpha: opacity),
             ),
           ),
         ),
+      );
+    }
+
+    return IgnorePointer(
+      child: Stack(
+        children: iconWidgets,
       ),
     );
   }
@@ -364,23 +161,15 @@ class _AnimatedAppNameState extends State<_AnimatedAppName>
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              AppThemeSystem.primaryColor,
-              AppThemeSystem.secondaryColor,
-              AppThemeSystem.tertiaryColor,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ).createShader(bounds),
+        child: ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 0.5, sigmaY: 0.5),
           child: Text(
             'Weylo',
             style: context.h1.copyWith(
-              fontSize: context.deviceType == DeviceType.mobile ? 48 : 64,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: 3,
+              fontSize: context.deviceType == DeviceType.mobile ? 56 : 72,
+              fontWeight: FontWeight.w800,
+              color: AppThemeSystem.primaryColor.withValues(alpha: 0.9),
+              letterSpacing: 4,
               height: 1.2,
             ),
             textAlign: TextAlign.center,
@@ -430,92 +219,70 @@ class _AnimatedSloganState extends State<_AnimatedSlogan>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
-          gradient: LinearGradient(
-            colors: [
-              AppThemeSystem.tertiaryColor.withValues(alpha: 0.1),
-              AppThemeSystem.primaryColor.withValues(alpha: 0.05),
-            ],
-          ),
-        ),
-        child: Text(
-          'Parle librement, reste anonyme',
-          style: context.subtitle2.copyWith(
-            color: context.secondaryTextColor,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.5,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
+    // Slogan commenté par l'utilisateur
+    return const SizedBox.shrink();
   }
+
+
 }
 
 // ================================
-// ANIMATED TAGS
+// MINIMAL LOADING
 // ================================
-class _AnimatedTags extends GetView<SplashscreenController> {
+class _MinimalLoading extends StatefulWidget {
+  @override
+  State<_MinimalLoading> createState() => _MinimalLoadingState();
+}
+
+class _MinimalLoadingState extends State<_MinimalLoading>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: Obx(() {
-        final currentTag = controller.tagsList[controller.currentTagIndex.value];
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          transitionBuilder: (child, animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.8),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                )),
-                child: child,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(3, (index) {
+            final delay = index * 0.2;
+            final animValue = (_controller.value - delay).clamp(0.0, 1.0);
+            final scale = 0.5 + (math.sin(animValue * math.pi) * 0.5);
+
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (isDark ? Colors.white : AppThemeSystem.primaryColor)
+                      .withValues(alpha: 0.3 + (scale * 0.4)),
+                ),
               ),
             );
-          },
-          child: Container(
-            key: ValueKey<String>(currentTag),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(25),
-              gradient: LinearGradient(
-                colors: [
-                  AppThemeSystem.primaryColor.withValues(alpha: 0.15),
-                  AppThemeSystem.tertiaryColor.withValues(alpha: 0.1),
-                ],
-              ),
-              border: Border.all(
-                color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Text(
-              currentTag,
-              style: context.subtitle1.copyWith(
-                color: AppThemeSystem.primaryColor,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+          }),
         );
-      }),
+      },
     );
   }
 }

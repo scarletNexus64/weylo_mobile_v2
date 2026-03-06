@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 
 import '../controllers/feeds_controller.dart';
+import 'widgets/stories_vertical_bar.dart';
 
 class ConfessionsView extends GetView<ConfessionsController> {
   const ConfessionsView({super.key});
@@ -17,9 +18,9 @@ class ConfessionsView extends GetView<ConfessionsController> {
       color: AppThemeSystem.primaryColor,
       child: CustomScrollView(
         slivers: [
-          // Stories Section (Vertical Rectangles)
-          SliverToBoxAdapter(
-            child: _buildVerticalStoriesSection(context),
+          // Stories Vertical Bar (Facebook style)
+          const SliverToBoxAdapter(
+            child: StoriesVerticalBar(),
           ),
 
           // Create Post Button

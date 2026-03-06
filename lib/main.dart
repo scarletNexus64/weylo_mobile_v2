@@ -4,9 +4,28 @@ import 'package:get/get.dart';
 
 import 'app/routes/app_pages.dart';
 import 'app/widgets/app_theme_system.dart';
+import 'app/data/services/storage_service.dart';
+import 'app/data/core/api_service.dart';
+import 'app/data/services/deeplink_service.dart';
 
-void main() {
+void main() async {
+  print('🚀 [MAIN] Démarrage de l\'application Weylo');
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize storage service
+  print('💾 [MAIN] Initialisation du StorageService...');
+  await StorageService.init();
+  print('✅ [MAIN] StorageService initialisé');
+
+  // Initialize API service
+  print('🌐 [MAIN] Initialisation de l\'ApiService...');
+  ApiService().init();
+  print('✅ [MAIN] ApiService initialisé');
+
+  // Initialize Deeplink service
+  print('🔗 [MAIN] Initialisation du DeeplinkService...');
+  await DeeplinkService().init();
+  print('✅ [MAIN] DeeplinkService initialisé');
 
   // Configuration de la barre de statut
   SystemChrome.setSystemUIOverlayStyle(
@@ -17,6 +36,7 @@ void main() {
     ),
   );
 
+  print('🎨 [MAIN] Lancement de l\'interface...');
   runApp(const WeyloApp());
 }
 

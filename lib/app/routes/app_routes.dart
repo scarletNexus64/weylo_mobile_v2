@@ -10,6 +10,7 @@ abstract class Routes {
   static const ONBOARDING = _Paths.ONBOARDING;
   static const CHAT = _Paths.CHAT;
   static const PROFILE = _Paths.PROFILE;
+  static const EDITPROFILE = _Paths.EDITPROFILE;
   static const SEETING = _Paths.SEETING;
   static const NOTIFICATION = _Paths.NOTIFICATION;
   static const FEEDS = _Paths.FEEDS;
@@ -20,6 +21,7 @@ abstract class Routes {
   static const ENTRYPAGE = _Paths.ENTRYPAGE;
   static const SPLASHSCREEN = _Paths.SPLASHSCREEN;
   static const GROUPE = _Paths.GROUPE;
+  static const SENDMESSAGE = _Paths.SENDMESSAGE;
 }
 
 abstract class _Paths {
@@ -31,6 +33,7 @@ abstract class _Paths {
   static const ONBOARDING = '/onboarding';
   static const CHAT = '/chat';
   static const PROFILE = '/profile';
+  static const EDITPROFILE = '/edit-profile';
   static const SEETING = '/seeting';
   static const NOTIFICATION = '/notification';
   static const FEEDS = '/feeds';
@@ -41,4 +44,5 @@ abstract class _Paths {
   static const ENTRYPAGE = '/entrypage';
   static const SPLASHSCREEN = '/splashscreen';
   static const GROUPE = '/groupe';
+  static const SENDMESSAGE = '/sendmessage/:username';
 }

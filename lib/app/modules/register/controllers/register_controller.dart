@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/data/core/api_service.dart';
 
 class RegisterController extends GetxController {
+  final _authService = AuthService();
   // Current step
   final currentStep = 0.obs;
 
@@ -26,6 +29,7 @@ class RegisterController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('📝 [REGISTER] Initialisation du RegisterController');
     _animateCurrentStep();
   }
 
@@ -56,24 +60,33 @@ class RegisterController extends GetxController {
 
   // Go to next step
   void nextStep() async {
+    print('➡️ [REGISTER] Passage à l\'étape suivante (actuelle: ${currentStep.value})');
+
     if (currentStep.value < 2) {
       if (_validateCurrentStep()) {
+        print('✅ [REGISTER] Validation de l\'étape ${currentStep.value} réussie');
         // Fade out current step
         switch (currentStep.value) {
           case 0:
             step1Opacity.value = 0.0;
+            print('👤 [REGISTER] Nom d\'utilisateur validé: ${usernameController.text}');
             break;
           case 1:
             step2Opacity.value = 0.0;
+            print('📱 [REGISTER] Téléphone validé: ${phoneNumber.value}');
             break;
         }
 
         await Future.delayed(const Duration(milliseconds: 300));
         currentStep.value++;
+        print('📍 [REGISTER] Nouvelle étape: ${currentStep.value}');
         _animateCurrentStep();
+      } else {
+        print('❌ [REGISTER] Validation de l\'étape ${currentStep.value} échouée');
       }
     } else {
       // Last step - register
+      print('🎯 [REGISTER] Dernière étape - Lancement de l\'inscription');
       register();
     }
   }
@@ -235,34 +248,67 @@ class RegisterController extends GetxController {
 
   // Register method
   Future<void> register() async {
-    if (!_validatePins()) return;
+    print('📝 [REGISTER] Début de l\'inscription...');
+
+    if (!_validatePins()) {
+      print('❌ [REGISTER] Validation des PINs échouée');
+      return;
+    }
 
     try {
       isLoading.value = true;
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-
-      // TODO: Implement actual register logic
-      final username = usernameController.text;
+      final firstName = usernameController.text.trim();
       final fullPhone = phoneNumber.value;
       final pin = pinController.text;
 
-      print('Register: $username, $fullPhone, PIN: $pin');
+      print('👤 [REGISTER] Prénom: $firstName');
+      print('📱 [REGISTER] Téléphone: $fullPhone');
+      print('🔑 [REGISTER] PIN: ${pin.replaceAll(RegExp(r'.'), '*')}');
+
+      // Call register API with saveToStorage = true for auto-login
+      print('🌐 [REGISTER] Appel de l\'API register...');
+      final response = await _authService.register(
+        firstName: firstName,
+        phone: fullPhone,
+        password: pin,
+        saveToStorage: true, // Auto-login: sauvegarder le token et l'utilisateur
+      );
+
+      print('✅ [REGISTER] Inscription réussie!');
+      print('🆔 [REGISTER] ID utilisateur: ${response.user.id}');
+      print('👤 [REGISTER] Username généré: ${response.user.username}');
+      print('📧 [REGISTER] Email: ${response.user.email}');
+      print('📱 [REGISTER] Téléphone: ${response.user.phone}');
+      print('🔑 [REGISTER] Token reçu: ${response.token.substring(0, 20)}...');
+      print('💾 [REGISTER] Données sauvegardées localement (auto-login)');
 
       Get.snackbar(
         'Succès',
-        'Inscription réussie ! Bienvenue $username',
+        'Inscription réussie ! Bienvenue ${response.user.firstName}',
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
       );
 
-      // Navigate to home after success
-      await Future.delayed(const Duration(seconds: 1));
+      // Navigate to HOME after success (user is now logged in)
+      print('🏠 [REGISTER] Navigation vers HOME (utilisateur connecté)');
+      await Future.delayed(const Duration(milliseconds: 800));
       Get.offAllNamed(Routes.HOME);
 
+    } on ApiException catch (e) {
+      print('💥 [REGISTER] Erreur API: ${e.message} (Code: ${e.statusCode})');
+      Get.snackbar(
+        'Erreur',
+        e.message,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
     } catch (e) {
+      print('💥 [REGISTER] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
         'Une erreur est survenue lors de l\'inscription',
@@ -272,11 +318,13 @@ class RegisterController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+      print('🔓 [REGISTER] Fin de la tentative d\'inscription');
     }
   }
 
   // Navigate to login
   void navigateToLogin() {
+    print('🔐 [REGISTER] Navigation vers LOGIN');
     Get.back();
   }
 

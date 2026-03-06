@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/data/core/api_service.dart';
 
 class LoginController extends GetxController {
+  final _authService = AuthService();
   // Text controllers
   final phoneController = TextEditingController();
   final pinController = TextEditingController();
@@ -22,6 +25,7 @@ class LoginController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('🔐 [LOGIN] Initialisation du LoginController');
     _startAnimations();
   }
 
@@ -59,33 +63,58 @@ class LoginController extends GetxController {
 
   // Login method
   Future<void> login() async {
-    if (!_validateForm()) return;
+    print('🔐 [LOGIN] Tentative de connexion...');
+
+    if (!_validateForm()) {
+      print('❌ [LOGIN] Validation échouée');
+      return;
+    }
 
     try {
       isLoading.value = true;
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-
-      // TODO: Implement actual login logic
       final fullPhone = phoneNumber.value;
       final pin = pinController.text;
 
-      print('Login with: $fullPhone, PIN: $pin');
+      print('📱 [LOGIN] Numéro: $fullPhone');
+      print('🔑 [LOGIN] PIN: ${pin.replaceAll(RegExp(r'.'), '*')}');
+
+      // Call login API
+      print('🌐 [LOGIN] Appel de l\'API login...');
+      final response = await _authService.login(
+        login: fullPhone,
+        password: pin,
+      );
+
+      print('✅ [LOGIN] Connexion réussie!');
+      print('👤 [LOGIN] Utilisateur: ${response.user.username} (${response.user.firstName})');
+      print('🔑 [LOGIN] Token reçu: ${response.token.substring(0, 20)}...');
 
       Get.snackbar(
         'Succès',
-        'Connexion réussie !',
+        'Connexion réussie ! Bienvenue ${response.user.firstName}',
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
 
       // Navigate to home on success
+      print('🏠 [LOGIN] Navigation vers HOME');
       await Future.delayed(const Duration(milliseconds: 500));
       Get.offAllNamed(Routes.HOME);
 
+    } on ApiException catch (e) {
+      print('💥 [LOGIN] Erreur API: ${e.message} (Code: ${e.statusCode})');
+      Get.snackbar(
+        'Erreur',
+        e.message,
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
     } catch (e) {
+      print('💥 [LOGIN] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
         'Une erreur est survenue lors de la connexion',
@@ -95,6 +124,7 @@ class LoginController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+      print('🔓 [LOGIN] Fin de la tentative de connexion');
     }
   }
 
@@ -149,6 +179,7 @@ class LoginController extends GetxController {
 
   // Navigate to register
   void navigateToRegister() {
+    print('📝 [LOGIN] Navigation vers REGISTER');
     Get.toNamed(Routes.REGISTER);
   }
 
@@ -163,5 +194,29 @@ class LoginController extends GetxController {
     );
     // TODO: Navigate to forgot password page
     // Get.toNamed(Routes.FORGOTPASSWORD);
+  }
+
+  // Sign in with Google
+  void signInWithGoogle() {
+    Get.snackbar(
+      'Info',
+      'Connexion Google en cours de développement',
+      backgroundColor: Colors.blue.withValues(alpha: 0.8),
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+    );
+    // TODO: Implement Google sign in
+  }
+
+  // Sign in with Facebook
+  void signInWithFacebook() {
+    Get.snackbar(
+      'Info',
+      'Connexion Facebook en cours de développement',
+      backgroundColor: Colors.blue.withValues(alpha: 0.8),
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+    );
+    // TODO: Implement Facebook sign in
   }
 }

@@ -5,9 +5,11 @@ import 'package:weylo/app/modules/chat/views/chat_view.dart';
 import 'package:weylo/app/modules/feeds/views/feeds_view.dart';
 import 'package:weylo/app/modules/groupe/views/groupe_view.dart';
 import 'package:weylo/app/modules/profile/views/profile_view.dart';
+import 'package:weylo/app/widgets/app_drawer.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/burning_flame_icon.dart';
 import 'package:weylo/app/widgets/custom_icons.dart';
+import 'package:weylo/app/widgets/user_profile_header.dart';
 
 import '../controllers/home_controller.dart';
 
@@ -20,6 +22,8 @@ class HomeView extends GetView<HomeController> {
     final deviceType = context.deviceType;
 
     return Scaffold(
+      key: controller.scaffoldKey,
+      drawer: const AppDrawer(),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -31,120 +35,99 @@ class HomeView extends GetView<HomeController> {
               elevation: 0,
               shadowColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
+              automaticallyImplyLeading: false,
               backgroundColor: isDark
                   ? AppThemeSystem.darkCardColor
                   : Colors.white,
               toolbarHeight: deviceType == DeviceType.mobile ? 64 : 72,
-              titleSpacing: context.horizontalPadding,
+              titleSpacing: 0,
               forceElevated: true,
               primary: true,
-              title: Row(
-                children: [
-                  // Logo Weylo avec effet moderne
-                  Container(
-                    width: deviceType == DeviceType.mobile ? 40 : 48,
-                    height: deviceType == DeviceType.mobile ? 40 : 48,
-                    padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 6 : 8),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppThemeSystem.primaryColor.withValues(alpha: 0.15),
-                          AppThemeSystem.secondaryColor.withValues(alpha: 0.15),
+              // Utilisation de flexibleSpace pour un contrôle total du layout
+              flexibleSpace: SafeArea(
+                child: Container(
+                  height: deviceType == DeviceType.mobile ? 64 : 72,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.horizontalPadding,
+                  ),
+                  child: Row(
+                    children: [
+                      // Menu hamburger et avatar badge
+                      Expanded(
+                        child: UserProfileHeader(
+                          onTap: () {
+                            controller.scaffoldKey.currentState?.openDrawer();
+                          },
+                        ),
+                      ),
+
+                      // Icônes d'action alignées à droite
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Search icon button
+                          _buildIconButton(
+                            context: context,
+                            icon: CustomIcons.search(
+                              size: deviceType == DeviceType.mobile ? 22 : 26,
+                              color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                            ),
+                            onPressed: () {
+                              Get.snackbar(
+                                'Recherche',
+                                'Fonctionnalité à venir',
+                                snackPosition: SnackPosition.BOTTOM,
+                              );
+                            },
+                          ),
+
+                          SizedBox(width: context.elementSpacing * 0.5),
+
+                          // Flame icon animée avec badge
+                          _buildIconButtonWithBadge(
+                            context: context,
+                            icon: BurningFlameIcon(
+                              size: deviceType == DeviceType.mobile ? 28 : 34,
+                              color: const Color(0xFFFF6B35),
+                            ),
+                            badgeCount: '5',
+                            badgeColor: const LinearGradient(
+                              colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
+                            ),
+                            onPressed: () {
+                              Get.snackbar(
+                                'Flammes',
+                                'Vous avez 5 conversations actives',
+                                snackPosition: SnackPosition.BOTTOM,
+                              );
+                            },
+                          ),
+
+                          SizedBox(width: context.elementSpacing * 0.5),
+
+                          // Notifications button avec badge
+                          _buildIconButtonWithBadge(
+                            context: context,
+                            icon: CustomIcons.notifications(
+                              size: deviceType == DeviceType.mobile ? 22 : 26,
+                              color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                            ),
+                            badgeCount: '3',
+                            badgeColor: null,
+                            onPressed: () {
+                              Get.snackbar(
+                                'Notifications',
+                                'Aucune nouvelle notification',
+                                snackPosition: SnackPosition.BOTTOM,
+                              );
+                            },
+                          ),
                         ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.contain,
-                    ),
+                    ],
                   ),
-                  SizedBox(width: context.elementSpacing * 0.7),
-                  // App name with gradient - Bien visible
-                  ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [
-                        AppThemeSystem.primaryColor,
-                        AppThemeSystem.secondaryColor,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ).createShader(bounds),
-                    child: Text(
-                      'Weylo',
-                      style: TextStyle(
-                        fontSize: deviceType == DeviceType.mobile ? 26 : 30,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -1.0,
-                        fontFamily: 'SF-Pro',
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              actions: [
-                // Search icon button
-                _buildIconButton(
-                  context: context,
-                  icon: CustomIcons.search(
-                    size: deviceType == DeviceType.mobile ? 22 : 26,
-                    color: isDark ? Colors.white : AppThemeSystem.blackColor,
-                  ),
-                  onPressed: () {
-                    Get.snackbar(
-                      'Recherche',
-                      'Fonctionnalité à venir',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
-                  },
-                ),
-                SizedBox(width: context.elementSpacing * 0.1),
-                // Flame icon animée GROSSE avec particules + badge
-                _buildIconButtonWithBadge(
-                  context: context,
-                  icon: BurningFlameIcon(
-                    size: deviceType == DeviceType.mobile ? 28 : 34,
-                    color: const Color(0xFFFF6B35),
-                  ),
-                  badgeCount: '5',
-                  badgeColor: const LinearGradient(
-                    colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
-                  ),
-                  onPressed: () {
-                    Get.snackbar(
-                      'Flammes',
-                      'Vous avez 5 conversations actives',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
-                  },
-                ),
-                SizedBox(width: context.elementSpacing * 0.2),
-                // Notifications button avec badge
-                _buildIconButtonWithBadge(
-                  context: context,
-                  icon: CustomIcons.notifications(
-                    size: deviceType == DeviceType.mobile ? 22 : 26,
-                    color: isDark ? Colors.white : AppThemeSystem.blackColor,
-                  ),
-                  badgeCount: '3',
-                  badgeColor: null,
-                  onPressed: () {
-                    Get.snackbar(
-                      'Notifications',
-                      'Aucune nouvelle notification',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
-                  },
-                ),
-                SizedBox(width: context.horizontalPadding * 0.7),
-              ],
               bottom: PreferredSize(
                 preferredSize: Size.fromHeight(
                   deviceType == DeviceType.mobile ? 72 : 80,
