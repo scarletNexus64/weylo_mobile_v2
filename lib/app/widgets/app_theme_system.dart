@@ -335,15 +335,15 @@ class AppThemeSystem {
 
     switch (deviceType) {
       case DeviceType.mobile:
-        return (16 * scaleFactor);
+        return (8 * scaleFactor);
       case DeviceType.tablet:
-        return (24 * scaleFactor);
+        return (12 * scaleFactor);
       case DeviceType.largeTablet:
-        return (32 * scaleFactor);
+        return (16 * scaleFactor);
       case DeviceType.iPadPro13:
-        return (40 * scaleFactor);
+        return (20 * scaleFactor);
       case DeviceType.desktop:
-        return (32 * scaleFactor);
+        return (16 * scaleFactor);
     }
   }
 

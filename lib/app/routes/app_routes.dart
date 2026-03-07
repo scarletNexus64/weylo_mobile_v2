@@ -22,6 +22,7 @@ abstract class Routes {
   static const SPLASHSCREEN = _Paths.SPLASHSCREEN;
   static const GROUPE = _Paths.GROUPE;
   static const SENDMESSAGE = _Paths.SENDMESSAGE;
+  static const CREATE_CONFESSION = _Paths.CREATE_CONFESSION;
 }
 
 abstract class _Paths {
@@ -45,4 +46,5 @@ abstract class _Paths {
   static const SPLASHSCREEN = '/splashscreen';
   static const GROUPE = '/groupe';
   static const SENDMESSAGE = '/sendmessage/:username';
+  static const CREATE_CONFESSION = '/create-confession';
 }

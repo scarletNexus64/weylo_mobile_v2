@@ -18,18 +18,25 @@ class ConfessionsView extends GetView<ConfessionsController> {
       color: AppThemeSystem.primaryColor,
       child: CustomScrollView(
         slivers: [
-          // Stories Vertical Bar (Facebook style)
-          const SliverToBoxAdapter(
-            child: StoriesVerticalBar(),
-          ),
-
           // Create Post Button
           SliverToBoxAdapter(
             child: _buildCreatePostButton(context),
           ),
 
+          // Stories Vertical Bar (Facebook style)
+          const SliverToBoxAdapter(
+            child: StoriesVerticalBar(),
+          ),
+
           // Feed Content
           Obx(() {
+            if (controller.feedItems.isEmpty) {
+              return SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyState(context),
+              );
+            }
+
             return SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -269,35 +276,93 @@ class ConfessionsView extends GetView<ConfessionsController> {
     );
   }
 
+  // Empty State
+  Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final deviceType = context.deviceType;
+
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(context.elementSpacing * 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.article_outlined,
+              size: deviceType == DeviceType.mobile ? 80 : 100,
+              color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey400,
+            ),
+            SizedBox(height: context.elementSpacing * 1.5),
+            Text(
+              'Aucune confession',
+              style: context.textStyle(FontSizeType.h5).copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+              ),
+            ),
+            SizedBox(height: context.elementSpacing * 0.5),
+            Text(
+              'Soyez le premier à partager une confession',
+              style: context.textStyle(FontSizeType.body2).copyWith(
+                color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: context.elementSpacing * 2),
+            ElevatedButton.icon(
+              onPressed: () {
+                Get.toNamed('/create-confession');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppThemeSystem.primaryColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.elementSpacing * 2,
+                  vertical: context.elementSpacing,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(
+                    AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded),
+              label: Text(
+                'Créer une confession',
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Create Post Button
   Widget _buildCreatePostButton(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final deviceType = context.deviceType;
 
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: context.horizontalPadding,
-        vertical: context.elementSpacing * 0.5,
+      margin: EdgeInsets.only(
+        bottom: context.elementSpacing * 0.5,
       ),
       padding: EdgeInsets.all(context.elementSpacing),
       decoration: BoxDecoration(
         color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
-        borderRadius: BorderRadius.circular(
-          AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
-        ),
-        border: Border.all(
-          color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+            width: 1,
           ),
-        ],
+          bottom: BorderSide(
+            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+            width: 1,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -325,11 +390,7 @@ class ConfessionsView extends GetView<ConfessionsController> {
           Expanded(
             child: GestureDetector(
               onTap: () {
-                Get.snackbar(
-                  'Créer un post',
-                  'Fonctionnalité à venir',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
+                Get.toNamed('/create-confession');
               },
               child: Container(
                 padding: EdgeInsets.symmetric(
@@ -353,16 +414,21 @@ class ConfessionsView extends GetView<ConfessionsController> {
           ),
           SizedBox(width: context.elementSpacing),
           // Photo button
-          Container(
-            padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 8 : 10),
-            decoration: BoxDecoration(
-              color: AppThemeSystem.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.image_outlined,
-              color: AppThemeSystem.primaryColor,
-              size: deviceType == DeviceType.mobile ? 20 : 24,
+          GestureDetector(
+            onTap: () {
+              Get.toNamed('/create-confession');
+            },
+            child: Container(
+              padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 8 : 10),
+              decoration: BoxDecoration(
+                color: AppThemeSystem.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.image_outlined,
+                color: AppThemeSystem.primaryColor,
+                size: deviceType == DeviceType.mobile ? 20 : 24,
+              ),
             ),
           ),
         ],
@@ -379,28 +445,20 @@ class ConfessionsView extends GetView<ConfessionsController> {
 
     return Container(
       margin: EdgeInsets.only(
-        left: context.horizontalPadding,
-        right: context.horizontalPadding,
         bottom: context.elementSpacing * 1.2,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
-        borderRadius: BorderRadius.circular(
-          AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
-        ),
-        border: Border.all(
-          color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+            width: 1,
           ),
-        ],
+          bottom: BorderSide(
+            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+            width: 1,
+          ),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
