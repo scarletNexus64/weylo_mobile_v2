@@ -1,6 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:video_player/video_player.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/data/services/confession_service.dart';
+import 'package:weylo/app/data/services/storage_service.dart';
+import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
+import 'package:weylo/app/modules/home/controllers/home_controller.dart';
+import 'package:weylo/app/modules/feeds/views/widgets/create_confession_media_bottom_sheet.dart';
 
 class CreateConfessionView extends StatefulWidget {
   const CreateConfessionView({super.key});
@@ -11,13 +18,152 @@ class CreateConfessionView extends StatefulWidget {
 
 class _CreateConfessionViewState extends State<CreateConfessionView> {
   final TextEditingController _textController = TextEditingController();
-  String selectedOption = 'text'; // text, image, video
+  final _confessionService = ConfessionService();
+  final _storageService = StorageService();
+
+  String selectedOption = 'text'; // text, media
   bool isAnonymous = false; // Publication anonyme ou pas
+  bool isPublishing = false;
+  String currentUsername = '';
+
+  // Media selection
+  File? selectedMedia;
+  String? selectedMediaType; // 'image' or 'video'
+  VideoPlayerController? videoController;
+  double uploadProgress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Récupérer le username de l'utilisateur connecté
+    final user = _storageService.getUser();
+    if (user != null) {
+      currentUsername = user.username;
+    }
+  }
 
   @override
   void dispose() {
     _textController.dispose();
+    videoController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _openMediaSelector() async {
+    await Get.bottomSheet(
+      CreateConfessionMediaBottomSheet(
+        onMediaSelected: (File file, String mediaType) async {
+          // Si c'est une vidéo, initialiser le lecteur
+          if (mediaType == 'video') {
+            final controller = VideoPlayerController.file(file);
+            await controller.initialize();
+
+            setState(() {
+              selectedMedia = file;
+              selectedMediaType = mediaType;
+              videoController?.dispose();
+              videoController = controller;
+            });
+          } else {
+            setState(() {
+              selectedMedia = file;
+              selectedMediaType = mediaType;
+            });
+          }
+        },
+      ),
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+    );
+  }
+
+  void _removeMedia() {
+    setState(() {
+      selectedMedia = null;
+      selectedMediaType = null;
+      videoController?.dispose();
+      videoController = null;
+    });
+  }
+
+  Future<void> _publishConfession() async {
+    final content = _textController.text.trim();
+
+    if (content.isEmpty && selectedMedia == null) {
+      Get.snackbar(
+        'Erreur',
+        'Veuillez écrire quelque chose ou ajouter une image/vidéo',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    setState(() {
+      isPublishing = true;
+      uploadProgress = 0.0;
+    });
+
+    try {
+      await _confessionService.createConfession(
+        content: content, // Peut être vide si média présent
+        type: 'public',
+        isAnonymous: isAnonymous,
+        mediaPath: selectedMedia?.path,
+        mediaType: selectedMediaType ?? 'none',
+        onUploadProgress: (sent, total) {
+          setState(() {
+            uploadProgress = sent / total;
+          });
+        },
+      );
+
+      // Refresh the feed
+      try {
+        final controller = Get.find<ConfessionsController>();
+        await controller.loadConfessions(refresh: true);
+      } catch (e) {
+        // Controller might not be found if not initialized
+        print('Controller not found: $e');
+      }
+
+      // Navigate to Feed tab (index 3) and show success message
+      Get.until((route) => route.isFirst); // Go back to Home
+      // Switch to Feed tab (index 3)
+      try {
+        final homeController = Get.find<HomeController>();
+        homeController.changeTab(3);
+      } catch (e) {
+        print('HomeController not found: $e');
+      }
+
+      Get.snackbar(
+        'Publication créée',
+        isAnonymous
+            ? 'Votre confession anonyme a été publiée'
+            : 'Votre confession a été publiée avec succès',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Impossible de publier la confession',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+      print('Error publishing confession: $e');
+    } finally {
+      setState(() {
+        isPublishing = false;
+        uploadProgress = 0.0;
+      });
+    }
   }
 
   @override
@@ -88,7 +234,7 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
                       SizedBox(width: context.elementSpacing),
                       Expanded(
                         child: Text(
-                          isAnonymous ? 'Anonyme' : 'Jr Steve',
+                          isAnonymous ? 'Anonyme' : currentUsername,
                           style: context.textStyle(FontSizeType.body1).copyWith(
                             fontWeight: FontWeight.w600,
                             color: isDark ? Colors.white : AppThemeSystem.blackColor,
@@ -192,8 +338,7 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
                   SizedBox(height: context.elementSpacing * 1.5),
 
                   // Content Preview based on selected option
-                  if (selectedOption == 'image') _buildImageUploadSection(context, isDark),
-                  if (selectedOption == 'video') _buildVideoUploadSection(context, isDark),
+                  if (selectedOption == 'media') _buildMediaUploadSection(context, isDark),
                 ],
               ),
             ),
@@ -234,20 +379,13 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
                     SizedBox(width: context.elementSpacing),
                     _buildOptionButton(
                       context: context,
-                      icon: Icons.image_outlined,
-                      label: 'Image',
-                      isSelected: selectedOption == 'image',
-                      onTap: () => setState(() => selectedOption = 'image'),
-                      isDark: isDark,
-                      deviceType: deviceType,
-                    ),
-                    SizedBox(width: context.elementSpacing),
-                    _buildOptionButton(
-                      context: context,
-                      icon: Icons.videocam_outlined,
-                      label: 'Vidéo',
-                      isSelected: selectedOption == 'video',
-                      onTap: () => setState(() => selectedOption = 'video'),
+                      icon: Icons.perm_media_outlined,
+                      label: 'Média',
+                      isSelected: selectedOption == 'media',
+                      onTap: () {
+                        setState(() => selectedOption = 'media');
+                        _openMediaSelector();
+                      },
                       isDark: isDark,
                       deviceType: deviceType,
                     ),
@@ -260,19 +398,7 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
                   width: double.infinity,
                   height: context.buttonHeight,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Get.back();
-                      Get.snackbar(
-                        'Publication créée',
-                        isAnonymous
-                            ? 'Votre confession anonyme a été publiée'
-                            : 'Votre confession a été publiée avec succès',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: AppThemeSystem.successColor,
-                        colorText: Colors.white,
-                        duration: const Duration(seconds: 3),
-                      );
-                    },
+                    onPressed: isPublishing ? null : _publishConfession,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppThemeSystem.primaryColor,
                       foregroundColor: Colors.white,
@@ -280,14 +406,24 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
                         borderRadius: context.borderRadius(BorderRadiusType.small),
                       ),
                       elevation: 0,
+                      disabledBackgroundColor: AppThemeSystem.primaryColor.withValues(alpha: 0.5),
                     ),
-                    child: Text(
-                      'Publier',
-                      style: context.textStyle(FontSizeType.body1).copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: isPublishing
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Publier',
+                            style: context.textStyle(FontSizeType.body1).copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -359,7 +495,7 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
     );
   }
 
-  Widget _buildImageUploadSection(BuildContext context, bool isDark) {
+  Widget _buildMediaUploadSection(BuildContext context, bool isDark) {
     final deviceType = context.deviceType;
     double uploadHeight;
     switch (deviceType) {
@@ -378,91 +514,82 @@ class _CreateConfessionViewState extends State<CreateConfessionView> {
         break;
     }
 
-    return Container(
-      height: uploadHeight,
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppThemeSystem.grey800.withValues(alpha: 0.3)
-            : AppThemeSystem.grey100,
-        borderRadius: context.borderRadius(BorderRadiusType.medium),
-        border: Border.all(
-          color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
-          width: 2,
-          strokeAlign: BorderSide.strokeAlignInside,
+    return GestureDetector(
+      onTap: selectedMedia == null ? _openMediaSelector : null,
+      child: Container(
+        height: uploadHeight,
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppThemeSystem.grey800.withValues(alpha: 0.3)
+              : AppThemeSystem.grey100,
+          borderRadius: context.borderRadius(BorderRadiusType.medium),
+          border: Border.all(
+            color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+            width: 2,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
         ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              size: deviceType == DeviceType.mobile ? 48 : 64,
-              color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
-            ),
-            SizedBox(height: context.elementSpacing * 0.5),
-            Text(
-              'Ajouter une image',
-              style: context.textStyle(FontSizeType.body1).copyWith(
-                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+        child: selectedMedia != null
+            ? Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: context.borderRadius(BorderRadiusType.medium),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: uploadHeight,
+                      child: selectedMediaType == 'video' && videoController != null
+                          ? AspectRatio(
+                              aspectRatio: videoController!.value.aspectRatio,
+                              child: VideoPlayer(videoController!),
+                            )
+                          : Image.file(
+                              selectedMedia!,
+                              width: double.infinity,
+                              height: uploadHeight,
+                              fit: BoxFit.cover,
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      onPressed: _removeMedia,
+                    ),
+                  ),
+                ],
+              )
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.perm_media_outlined,
+                      size: deviceType == DeviceType.mobile ? 48 : 64,
+                      color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
+                    ),
+                    SizedBox(height: context.elementSpacing * 0.5),
+                    Text(
+                      'Ajouter un média',
+                      style: context.textStyle(FontSizeType.body1).copyWith(
+                        color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVideoUploadSection(BuildContext context, bool isDark) {
-    final deviceType = context.deviceType;
-    double uploadHeight;
-    switch (deviceType) {
-      case DeviceType.mobile:
-        uploadHeight = 200;
-        break;
-      case DeviceType.tablet:
-        uploadHeight = 280;
-        break;
-      case DeviceType.largeTablet:
-      case DeviceType.iPadPro13:
-        uploadHeight = 320;
-        break;
-      case DeviceType.desktop:
-        uploadHeight = 360;
-        break;
-    }
-
-    return Container(
-      height: uploadHeight,
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppThemeSystem.grey800.withValues(alpha: 0.3)
-            : AppThemeSystem.grey100,
-        borderRadius: context.borderRadius(BorderRadiusType.medium),
-        border: Border.all(
-          color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
-          width: 2,
-          strokeAlign: BorderSide.strokeAlignInside,
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.videocam_outlined,
-              size: deviceType == DeviceType.mobile ? 48 : 64,
-              color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
-            ),
-            SizedBox(height: context.elementSpacing * 0.5),
-            Text(
-              'Ajouter une vidéo',
-              style: context.textStyle(FontSizeType.body1).copyWith(
-                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

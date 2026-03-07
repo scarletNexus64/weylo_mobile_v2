@@ -4,6 +4,9 @@ import 'package:weylo/app/widgets/app_theme_system.dart';
 
 import '../controllers/feeds_controller.dart';
 import 'widgets/stories_vertical_bar.dart';
+import 'widgets/confession_shimmer_loader.dart';
+import 'widgets/feed_video_player.dart';
+import 'image_viewer_page.dart';
 
 class ConfessionsView extends GetView<ConfessionsController> {
   const ConfessionsView({super.key});
@@ -12,42 +15,78 @@ class ConfessionsView extends GetView<ConfessionsController> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        await Future.delayed(const Duration(seconds: 1));
-        controller.refreshFeed();
+        await controller.refreshFeed();
       },
       color: AppThemeSystem.primaryColor,
-      child: CustomScrollView(
-        slivers: [
-          // Create Post Button
-          SliverToBoxAdapter(
-            child: _buildCreatePostButton(context),
-          ),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (ScrollNotification scrollInfo) {
+          // Infinite scroll: détecter quand on arrive à 80% du scroll
+          if (!controller.isLoadingMore.value &&
+              scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent * 0.8) {
+            controller.loadConfessions();
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          controller: controller.scrollController,
+          slivers: [
+            // Create Post Button
+            SliverToBoxAdapter(
+              child: _buildCreatePostButton(context),
+            ),
 
-          // Stories Vertical Bar (Facebook style)
-          const SliverToBoxAdapter(
-            child: StoriesVerticalBar(),
-          ),
+            // Stories Vertical Bar (Facebook style)
+            const SliverToBoxAdapter(
+              child: StoriesVerticalBar(),
+            ),
 
-          // Feed Content
-          Obx(() {
-            if (controller.feedItems.isEmpty) {
-              return SliverFillRemaining(
-                hasScrollBody: false,
-                child: _buildEmptyState(context),
+            // Feed Content
+            Obx(() {
+              // Premier chargement: afficher shimmer
+              if (controller.isLoading.value && controller.confessions.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: ConfessionShimmerLoader(itemCount: 3),
+                );
+              }
+
+              // Aucune confession et pas de chargement: état vide
+              if (controller.confessions.isEmpty && !controller.isLoading.value) {
+                return SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(context),
+                );
+              }
+
+              // Afficher les confessions
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = controller.feedItems[index];
+                    return _buildPostCard(context, item);
+                  },
+                  childCount: controller.feedItems.length,
+                ),
               );
-            }
+            }),
 
-            return SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final item = controller.feedItems[index];
-                  return _buildPostCard(context, item);
-                },
-                childCount: controller.feedItems.length,
-              ),
-            );
-          }),
-        ],
+            // Loader en bas pour la pagination
+            Obx(() {
+              if (controller.isLoadingMore.value) {
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(context.elementSpacing * 2),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppThemeSystem.primaryColor,
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -441,7 +480,9 @@ class ConfessionsView extends GetView<ConfessionsController> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final deviceType = context.deviceType;
     final isAnonymous = post['isAnonymous'] as bool;
-    final hasImage = post['image'] != null;
+    final hasMedia = post['mediaType'] != null && post['mediaType'] != 'none';
+    final mediaType = post['mediaType'] as String?;
+    final mediaUrl = post['mediaUrl'] as String?;
 
     return Container(
       margin: EdgeInsets.only(
@@ -555,33 +596,48 @@ class ConfessionsView extends GetView<ConfessionsController> {
               ),
             ),
 
-          // Image
-          if (hasImage)
+          // Media (Image or Video)
+          if (hasMedia && mediaUrl != null)
             Padding(
               padding: EdgeInsets.only(top: context.elementSpacing * 0.8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(0),
-                child: Image.network(
-                  post['image'] as String,
-                  width: double.infinity,
-                  height: 320,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: double.infinity,
-                      height: 320,
-                      color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-                      child: Center(
-                        child: Icon(
-                          Icons.broken_image_rounded,
-                          size: 60,
-                          color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey400,
+              child: mediaType == 'image'
+                  ? GestureDetector(
+                      onTap: () {
+                        Get.to(
+                          () => ImageViewerPage(
+                            imageUrl: mediaUrl,
+                            content: post['content'] as String,
+                          ),
+                          transition: Transition.fadeIn,
+                        );
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(0),
+                        child: Image.network(
+                          mediaUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: double.infinity,
+                              height: 320,
+                              color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image_rounded,
+                                  size: 60,
+                                  color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey400,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
+                    )
+                  : FeedVideoPlayer(
+                      videoUrl: mediaUrl,
+                      videoId: post['id'].toString(),
+                    ),
             ),
 
           // Reactions Summary

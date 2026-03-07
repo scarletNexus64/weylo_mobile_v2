@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 
 class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
   // Scaffold key for drawer
@@ -40,6 +41,22 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
   // Change tab programmatically
   void changeTab(int index) {
+    tabController.animateTo(index);
+  }
+
+  // Handle tab tap - scroll to top if tapping on same tab
+  void handleTabTap(int index) {
+    // If tapping on Feed/Confession tab (index 3) and already on it
+    if (index == 3 && currentTabIndex.value == 3) {
+      try {
+        final confessionsController = Get.find<ConfessionsController>();
+        confessionsController.scrollToTop();
+      } catch (e) {
+        // Controller not found or not initialized
+        print('ConfessionsController not found: $e');
+      }
+    }
+    // Always allow tab change
     tabController.animateTo(index);
   }
 

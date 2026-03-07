@@ -151,6 +151,7 @@ class HomeView extends GetView<HomeController> {
                   ),
                   child: TabBar(
                     controller: controller.tabController,
+                    onTap: controller.handleTabTap,
                     indicatorColor: AppThemeSystem.primaryColor,
                     indicatorWeight: 3,
                     indicatorSize: TabBarIndicatorSize.tab,
