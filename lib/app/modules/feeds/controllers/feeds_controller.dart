@@ -110,35 +110,31 @@ class ConfessionsController extends GetxController {
         perPage: 10,
       );
 
-      // Ajouter au cache et éviter les doublons
-      final newConfessions = <ConfessionModel>[];
-      for (final confession in response.confessions) {
-        if (!_confessionCache.containsKey(confession.id)) {
-          _confessionCache[confession.id] = confession;
-          newConfessions.add(confession);
-        }
-      }
-
       if (refresh) {
-        // Pull-to-refresh: ajouter les nouvelles au début
-        if (newConfessions.isNotEmpty) {
-          confessions.insertAll(0, newConfessions);
+        // Pull-to-refresh: remplacer complètement les données pour avoir les mises à jour
+        _confessionCache.clear();
+        confessions.clear();
 
-          Get.snackbar(
-            'Actualisé',
-            '${newConfessions.length} nouvelle(s) confession(s)',
-            snackPosition: SnackPosition.TOP,
-            duration: const Duration(seconds: 2),
-            backgroundColor: AppThemeSystem.successColor.withValues(alpha: 0.9),
-            colorText: Colors.white,
-            margin: const EdgeInsets.all(8),
-          );
+        // Ajouter toutes les confessions au cache et à la liste
+        for (final confession in response.confessions) {
+          _confessionCache[confession.id] = confession;
         }
+        confessions.value = response.confessions;
       } else if (confessions.isEmpty) {
         // Premier chargement: remplacer tout
+        for (final confession in response.confessions) {
+          _confessionCache[confession.id] = confession;
+        }
         confessions.value = response.confessions;
       } else {
-        // Pagination: ajouter à la fin
+        // Pagination: ajouter seulement les nouvelles à la fin
+        final newConfessions = <ConfessionModel>[];
+        for (final confession in response.confessions) {
+          if (!_confessionCache.containsKey(confession.id)) {
+            _confessionCache[confession.id] = confession;
+            newConfessions.add(confession);
+          }
+        }
         confessions.addAll(newConfessions);
       }
 

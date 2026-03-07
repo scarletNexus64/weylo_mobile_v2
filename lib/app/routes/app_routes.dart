@@ -23,6 +23,7 @@ abstract class Routes {
   static const GROUPE = _Paths.GROUPE;
   static const SENDMESSAGE = _Paths.SENDMESSAGE;
   static const CREATE_CONFESSION = _Paths.CREATE_CONFESSION;
+  static const EDIT_CONFESSION = _Paths.EDIT_CONFESSION;
 }
 
 abstract class _Paths {
@@ -47,4 +48,5 @@ abstract class _Paths {
   static const GROUPE = '/groupe';
   static const SENDMESSAGE = '/sendmessage/:username';
   static const CREATE_CONFESSION = '/create-confession';
+  static const EDIT_CONFESSION = '/edit-confession';
 }

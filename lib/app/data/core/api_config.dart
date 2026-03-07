@@ -2,9 +2,9 @@ class ApiConfig {
   // Pour le développement local, utilisez:
   // 10.0.2.2 pour Android Emulator (redirige vers localhost de votre Mac)
   // 127.0.0.1 pour iOS Simulator
-  // 10.83.249.46 pour un vrai téléphone sur le même WiFi
+  // 192.168.100.27 pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://10.83.249.46:8001/api/v1';
+  static const String baseUrl = 'http://192.168.100.27:8001/api/v1';
 
   // Auth endpoints
   static const String register = '/auth/register';

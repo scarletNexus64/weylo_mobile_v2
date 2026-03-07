@@ -264,6 +264,113 @@ class ConfessionService {
       rethrow;
     }
   }
+
+  /// Toggle favorite (bookmark) a confession
+  Future<void> toggleFavorite(int confessionId) async {
+    try {
+      await _api.post(
+        '${ApiConfig.confessions}/$confessionId/favorite',
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Reveal the identity of an anonymous confession author
+  Future<Map<String, dynamic>> revealIdentity(int confessionId) async {
+    try {
+      final response = await _api.post(
+        '${ApiConfig.confessions}/$confessionId/reveal-identity',
+      );
+
+      return {
+        'name': response.data['author']['name'] as String,
+        'username': response.data['author']['username'] as String,
+        'avatar_url': response.data['author']['avatar_url'] as String?,
+      };
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get favorite confessions
+  Future<ConfessionListResponse> getFavoriteConfessions({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    try {
+      final response = await _api.get(
+        '${ApiConfig.confessions}/favorites',
+        queryParameters: {
+          'page': page,
+          'per_page': perPage,
+        },
+      );
+
+      return ConfessionListResponse.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update a confession
+  Future<ConfessionModel> updateConfession({
+    required int confessionId,
+    required String content,
+    String? mediaPath,
+    String? mediaType,
+    bool removeMedia = false,
+    Function(int, int)? onUploadProgress,
+  }) async {
+    try {
+      // Si pas de nouveau média, utiliser une requête PUT normale
+      if (mediaPath == null || mediaType == null || mediaType == 'none') {
+        final response = await _api.put(
+          '${ApiConfig.confessions}/$confessionId',
+          data: {
+            'content': content,
+            // Si removeMedia est true, envoyer 'none' pour supprimer le média
+            if (removeMedia) 'media_type': 'none',
+            if (removeMedia) 'remove_media': true,
+          },
+        );
+
+        return ConfessionModel.fromJson(response.data['confession']);
+      }
+
+      // Avec média, utiliser FormData avec _method: PUT
+      print('📤 [CONFESSION] Updating confession with new media...');
+
+      final fileName = mediaPath.split('/').last;
+      final formDataMap = {
+        '_method': 'PUT',
+        'content': content,
+        'media_type': mediaType,
+        'media': await MultipartFile.fromFile(
+          mediaPath,
+          filename: fileName,
+        ),
+      };
+
+      final formData = FormData.fromMap(formDataMap);
+
+      final response = await _api.uploadFile(
+        '${ApiConfig.confessions}/$confessionId',
+        formData: formData,
+        onSendProgress: (sent, total) {
+          if (onUploadProgress != null) {
+            onUploadProgress(sent, total);
+          }
+        },
+      );
+
+      print('✅ [CONFESSION] Confession updated successfully');
+      return ConfessionModel.fromJson(response.data['confession']);
+    } catch (e) {
+      print('❌ Error updating confession: $e');
+      rethrow;
+    }
+  }
 }
 
 /// Model for confession comments

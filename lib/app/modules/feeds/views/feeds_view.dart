@@ -6,6 +6,7 @@ import '../controllers/feeds_controller.dart';
 import 'widgets/stories_vertical_bar.dart';
 import 'widgets/confession_shimmer_loader.dart';
 import 'widgets/feed_video_player.dart';
+import 'widgets/confession_actions_bottom_sheet.dart';
 import 'image_viewer_page.dart';
 
 class ConfessionsView extends GetView<ConfessionsController> {
@@ -484,6 +485,11 @@ class ConfessionsView extends GetView<ConfessionsController> {
     final mediaType = post['mediaType'] as String?;
     final mediaUrl = post['mediaUrl'] as String?;
 
+    // Find the corresponding ConfessionModel from controller
+    final confession = controller.confessions.firstWhereOrNull(
+      (c) => c.id == post['id'],
+    );
+
     return Container(
       margin: EdgeInsets.only(
         bottom: context.elementSpacing * 1.2,
@@ -575,7 +581,11 @@ class ConfessionsView extends GetView<ConfessionsController> {
                     Icons.more_horiz_rounded,
                     color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    if (confession != null) {
+                      _showPostActions(context, confession);
+                    }
+                  },
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -785,5 +795,31 @@ class ConfessionsView extends GetView<ConfessionsController> {
     } else {
       return 'À l\'instant';
     }
+  }
+
+  void _showPostActions(BuildContext context, confession) {
+    Get.bottomSheet(
+      ConfessionActionsBottomSheet(
+        confession: confession,
+        onDeleted: () {
+          // Refresh the feed after deletion
+          controller.confessions.removeWhere((c) => c.id == confession.id);
+          controller.confessions.refresh();
+        },
+        onEdited: () {
+          // Refresh will be handled when coming back from edit page
+        },
+        onFavoriteToggled: () {
+          // No need to refresh, just show success message
+        },
+        onIdentityRevealed: () {
+          // Refresh to show revealed identity
+          controller.loadConfessions(refresh: true);
+        },
+      ),
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+    );
   }
 }

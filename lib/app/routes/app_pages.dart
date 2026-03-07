@@ -9,6 +9,7 @@ import '../modules/entrypage/views/entrypage_view.dart';
 import '../modules/feeds/bindings/feeds_binding.dart';
 import '../modules/feeds/views/feeds_view.dart';
 import '../modules/feeds/views/create_confession_view.dart';
+import '../modules/feeds/views/edit_confession_view.dart';
 import '../modules/forgotpassword/bindings/forgotpassword_binding.dart';
 import '../modules/forgotpassword/views/forgotpassword_view.dart';
 import '../modules/groupe/bindings/groupe_binding.dart';
@@ -152,6 +153,11 @@ class AppPages {
     GetPage(
       name: _Paths.CREATE_CONFESSION,
       page: () => const CreateConfessionView(),
+      binding: ConfessionsBinding(),
+    ),
+    GetPage(
+      name: _Paths.EDIT_CONFESSION,
+      page: () => const EditConfessionView(),
       binding: ConfessionsBinding(),
     ),
   ];
