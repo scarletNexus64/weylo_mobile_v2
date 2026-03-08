@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 
 class FeedVideoPlayer extends StatefulWidget {
@@ -102,6 +103,8 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return VisibilityDetector(
       key: Key('video_${widget.videoId}'),
       onVisibilityChanged: _onVisibilityChanged,
@@ -130,9 +133,13 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                   ),
                 )
               : !_isInitialized
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: AppThemeSystem.primaryColor,
+                  ? Shimmer.fromColors(
+                      baseColor: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+                      highlightColor: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey100,
+                      child: Container(
+                        width: double.infinity,
+                        height: 320,
+                        color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
                       ),
                     )
                   : Stack(

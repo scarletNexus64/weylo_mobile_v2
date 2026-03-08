@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import '../controllers/profile_controller.dart';
+import '../../feeds/views/image_viewer_page.dart';
 
 class EditProfileView extends GetView<ProfileController> {
   const EditProfileView({super.key});
@@ -91,52 +92,94 @@ class EditProfileView extends GetView<ProfileController> {
           children: [
             // Avatar section
             Center(
-              child: Stack(
-                children: [
-                  Obx(() {
-                    final user = controller.user.value;
-                    return CircleAvatar(
+              child: Obx(() {
+                final user = controller.user.value;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Avatar - cliquable pour agrandir seulement si photo existe
+                    CircleAvatar(
                       radius: 50,
                       backgroundColor: AppThemeSystem.primaryColor,
-                      backgroundImage: user?.avatarUrl != null
-                          ? NetworkImage(user!.avatarUrl!)
-                          : null,
-                      child: user?.avatarUrl == null
-                          ? const Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.white,
+                      child: user?.hasRealAvatar ?? false
+                          ? GestureDetector(
+                              onTap: () {
+                                Get.to(
+                                  () => ImageViewerPage(
+                                    imageUrl: _buildImageUrl(user!.avatarUrl!),
+                                    content: user.fullName,
+                                  ),
+                                  transition: Transition.fadeIn,
+                                );
+                              },
+                              child: ClipOval(
+                                child: Image.network(
+                                  _buildImageUrl(user!.avatarUrl!),
+                                  width: 100,
+                                  height: 100,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Center(
+                                      child: Text(
+                                        user!.firstName.isNotEmpty
+                                            ? user!.firstName[0].toUpperCase()
+                                            : 'U',
+                                        style: const TextStyle(
+                                          fontSize: 40,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
                             )
-                          : null,
-                    );
-                  }),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppThemeSystem.primaryColor,
-                            AppThemeSystem.secondaryColor,
-                          ],
+                          : Text(
+                              user?.firstName.isNotEmpty == true
+                                  ? user!.firstName[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                    // Icône caméra pour modifier - COMPLÈTEMENT SÉPARÉE
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            controller.showAvatarPicker();
+                          },
+                          customBorder: const CircleBorder(),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppThemeSystem.primaryColor,
+                                  AppThemeSystem.secondaryColor,
+                                ],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(10),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera_alt,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        onPressed: controller.showAvatarPicker,
-                        padding: const EdgeInsets.all(6),
-                        constraints: const BoxConstraints(),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ),
 
             const SizedBox(height: 32),
@@ -341,5 +384,12 @@ class EditProfileView extends GetView<ProfileController> {
         ),
       ),
     );
+  }
+
+  /// Build image URL with cache buster
+  /// Adds timestamp with proper separator (& if URL already has ?, otherwise ?)
+  String _buildImageUrl(String url) {
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
   }
 }

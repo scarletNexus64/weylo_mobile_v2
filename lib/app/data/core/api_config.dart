@@ -2,9 +2,9 @@ class ApiConfig {
   // Pour le développement local, utilisez:
   // 10.0.2.2 pour Android Emulator (redirige vers localhost de votre Mac)
   // 127.0.0.1 pour iOS Simulator
-  // 192.168.100.27 pour un vrai téléphone sur le même WiFi
+  // 10.83.249.46 pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://192.168.100.27:8001/api/v1';
+  static const String baseUrl = 'http://10.83.249.46:8001/api/v1';
 
   // Auth endpoints
   static const String register = '/auth/register';
@@ -20,6 +20,8 @@ class ApiConfig {
   static const String changePassword = '/users/password';
   static const String uploadAvatar = '/users/avatar';
   static const String deleteAvatar = '/users/avatar';
+  static const String uploadCoverPhoto = '/users/cover-photo';
+  static const String deleteCoverPhoto = '/users/cover-photo';
   static const String dashboard = '/users/dashboard';
   static const String stats = '/users/stats';
   static const String shareLink = '/users/share-link';
@@ -34,6 +36,7 @@ class ApiConfig {
   static const String confessions = '/confessions';
   static const String receivedConfessions = '/confessions/received';
   static const String sentConfessions = '/confessions/sent';
+  static const String favoriteConfessions = '/confessions/favorites';
 
   // Chat endpoints
   static const String conversations = '/chat/conversations';

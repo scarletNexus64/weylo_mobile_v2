@@ -8,6 +8,8 @@ class UserModel {
   final String phone;
   final String? avatar;
   final String? avatarUrl;
+  final String? coverPhoto;
+  final String? coverPhotoUrl;
   final String? bio;
   final String? profileUrl;
   final bool isVerified;
@@ -40,6 +42,8 @@ class UserModel {
     required this.phone,
     this.avatar,
     this.avatarUrl,
+    this.coverPhoto,
+    this.coverPhotoUrl,
     this.bio,
     this.profileUrl,
     this.isVerified = false,
@@ -76,6 +80,23 @@ class UserModel {
   }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // Clean URLs - fix malformed URLs with multiple ? in query params
+    String? avatarUrl = json['avatar_url'] as String?;
+    if (avatarUrl != null && avatarUrl.contains('?')) {
+      final parts = avatarUrl.split('?');
+      if (parts.length > 2) {
+        avatarUrl = '${parts[0]}?${parts.sublist(1).join('&')}';
+      }
+    }
+
+    String? coverPhotoUrl = json['cover_photo_url'] as String?;
+    if (coverPhotoUrl != null && coverPhotoUrl.contains('?')) {
+      final parts = coverPhotoUrl.split('?');
+      if (parts.length > 2) {
+        coverPhotoUrl = '${parts[0]}?${parts.sublist(1).join('&')}';
+      }
+    }
+
     return UserModel(
       id: json['id'],
       firstName: json['first_name'],
@@ -85,7 +106,9 @@ class UserModel {
       email: json['email'],
       phone: json['phone'] ?? '',
       avatar: json['avatar'],
-      avatarUrl: json['avatar_url'],
+      avatarUrl: avatarUrl,
+      coverPhoto: json['cover_photo'],
+      coverPhotoUrl: coverPhotoUrl,
       bio: json['bio'],
       profileUrl: json['profile_url'],
       isVerified: json['is_verified'] ?? false,
@@ -120,6 +143,17 @@ class UserModel {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
+  }
+
+  /// Check if user has uploaded a real avatar (not ui-avatars.com)
+  bool get hasRealAvatar {
+    if (avatarUrl == null || avatarUrl!.isEmpty) return false;
+    return !avatarUrl!.contains('ui-avatars.com');
+  }
+
+  /// Check if user has uploaded a real cover photo
+  bool get hasRealCoverPhoto {
+    return coverPhotoUrl != null && coverPhotoUrl!.isNotEmpty;
   }
 
   Map<String, dynamic> toJson() {

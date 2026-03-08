@@ -11,6 +11,7 @@ class ConfessionModel {
   // Media (image or video)
   final String mediaType; // 'none', 'image', 'video'
   final String? mediaUrl;
+  final String? thumbnailUrl; // For video thumbnails
 
   // Author info
   final String authorInitial;
@@ -36,6 +37,7 @@ class ConfessionModel {
     required this.isPending,
     required this.mediaType,
     this.mediaUrl,
+    this.thumbnailUrl,
     required this.authorInitial,
     this.author,
     required this.isIdentityRevealed,
@@ -58,6 +60,7 @@ class ConfessionModel {
       isPending: json['is_pending'] as bool? ?? false,
       mediaType: json['media_type'] as String? ?? 'none',
       mediaUrl: json['media_url'] as String?,
+      thumbnailUrl: json['thumbnail_url'] as String?,
       authorInitial: json['author_initial'] as String? ?? '?',
       author: json['author'] != null
           ? ConfessionAuthor.fromJson(json['author'] as Map<String, dynamic>)
@@ -83,6 +86,7 @@ class ConfessionModel {
       'is_pending': isPending,
       'media_type': mediaType,
       'media_url': mediaUrl,
+      'thumbnail_url': thumbnailUrl,
       'author_initial': authorInitial,
       'author': author?.toJson(),
       'is_identity_revealed': isIdentityRevealed,
@@ -92,6 +96,36 @@ class ConfessionModel {
       'is_liked': isLiked,
       'created_at': createdAt.toIso8601String(),
     };
+  }
+
+  // CopyWith pour mettre à jour les counts
+  ConfessionModel copyWith({
+    int? likesCount,
+    int? viewsCount,
+    int? commentsCount,
+    bool? isLiked,
+  }) {
+    return ConfessionModel(
+      id: id,
+      content: content,
+      type: type,
+      isPublic: isPublic,
+      isPrivate: isPrivate,
+      status: status,
+      isApproved: isApproved,
+      isPending: isPending,
+      mediaType: mediaType,
+      mediaUrl: mediaUrl,
+      thumbnailUrl: thumbnailUrl,
+      authorInitial: authorInitial,
+      author: author,
+      isIdentityRevealed: isIdentityRevealed,
+      likesCount: likesCount ?? this.likesCount,
+      viewsCount: viewsCount ?? this.viewsCount,
+      commentsCount: commentsCount ?? this.commentsCount,
+      isLiked: isLiked ?? this.isLiked,
+      createdAt: createdAt,
+    );
   }
 
   // Helper pour obtenir le nom de l'auteur (anonyme ou révélé)
@@ -127,12 +161,22 @@ class ConfessionAuthor {
   });
 
   factory ConfessionAuthor.fromJson(Map<String, dynamic> json) {
+    // Clean avatar URL - fix malformed URLs with multiple ? in query params
+    String? avatarUrl = json['avatar_url'] as String?;
+    if (avatarUrl != null && avatarUrl.contains('?')) {
+      // Replace any subsequent ? with & after the first one
+      final parts = avatarUrl.split('?');
+      if (parts.length > 2) {
+        avatarUrl = '${parts[0]}?${parts.sublist(1).join('&')}';
+      }
+    }
+
     return ConfessionAuthor(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       username: json['username'] as String? ?? '',
       initial: json['initial'] as String? ?? '?',
-      avatarUrl: json['avatar_url'] as String?,
+      avatarUrl: avatarUrl,
     );
   }
 

@@ -138,6 +138,46 @@ class ProfileService {
     }
   }
 
+  /// Upload cover photo
+  Future<String> uploadCoverPhoto(File imageFile) async {
+    try {
+      print('📤 [PROFILE_SERVICE] Upload de la cover photo...');
+
+      // Create FormData
+      final formData = FormData.fromMap({
+        'cover_photo': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: 'cover.jpg',
+        ),
+      });
+
+      final response = await _api.post(
+        ApiConfig.uploadCoverPhoto,
+        data: formData,
+      );
+
+      final coverPhotoUrl = response.data['cover_photo_url'];
+
+      print('✅ [PROFILE_SERVICE] Cover photo uploadée avec succès');
+      return coverPhotoUrl;
+    } catch (e) {
+      print('❌ [PROFILE_SERVICE] Erreur lors de l\'upload de la cover photo: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete cover photo
+  Future<void> deleteCoverPhoto() async {
+    try {
+      print('🗑️ [PROFILE_SERVICE] Suppression de la cover photo...');
+      await _api.delete(ApiConfig.deleteCoverPhoto);
+      print('✅ [PROFILE_SERVICE] Cover photo supprimée avec succès');
+    } catch (e) {
+      print('❌ [PROFILE_SERVICE] Erreur lors de la suppression de la cover photo: $e');
+      rethrow;
+    }
+  }
+
   /// Get share link
   Future<Map<String, dynamic>> getShareLink() async {
     try {

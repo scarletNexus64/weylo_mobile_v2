@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 
 import '../controllers/profile_controller.dart';
+import '../../home/controllers/home_controller.dart';
+import '../../feeds/controllers/feeds_controller.dart';
+import '../../feeds/views/image_viewer_page.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
@@ -29,49 +32,89 @@ class ProfileView extends GetView<ProfileController> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // Cover photo
-                  Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppThemeSystem.primaryColor,
-                          AppThemeSystem.secondaryColor,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.camera_alt_rounded,
-                        size: 50,
-                        color: Colors.white.withValues(alpha: 0.3),
-                      ),
-                    ),
+                  // Cover photo - cliquable pour agrandir
+                  GestureDetector(
+                    onTap: user?.hasRealCoverPhoto ?? false
+                        ? () {
+                            Get.to(
+                              () => ImageViewerPage(
+                                imageUrl: _buildImageUrl(user!.coverPhotoUrl!),
+                                content: '',
+                              ),
+                              transition: Transition.fadeIn,
+                            );
+                          }
+                        : null,
+                    child: user?.coverPhotoUrl != null
+                        ? Image.network(
+                            _buildImageUrl(user!.coverPhotoUrl!),
+                            key: ValueKey('cover_${user.id}_${user.updatedAt.millisecondsSinceEpoch}'),
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppThemeSystem.primaryColor,
+                                      AppThemeSystem.secondaryColor,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.camera_alt_rounded,
+                                    size: 50,
+                                    color: Colors.white.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              );
+                            },
+                          )
+                        : Container(
+                            height: 180,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppThemeSystem.primaryColor,
+                                  AppThemeSystem.secondaryColor,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.camera_alt_rounded,
+                                size: 50,
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
                   ),
                   // Edit cover button
                   Positioned(
                     top: 16,
                     right: 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.camera_alt_rounded,
+                    child: GestureDetector(
+                      onTap: () {
+                        controller.showCoverPhotoPicker();
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: const Icon(
+                          Icons.camera_alt,
                           color: Colors.white,
                           size: 20,
                         ),
-                        onPressed: () {
-                          Get.snackbar(
-                            'Cover',
-                            'Modifier la photo de couverture',
-                            snackPosition: SnackPosition.BOTTOM,
-                          );
-                        },
                       ),
                     ),
                   ),
@@ -89,55 +132,54 @@ class ProfileView extends GetView<ProfileController> {
                           width: 5,
                         ),
                       ),
-                      child: Stack(
-                        children: [
-                          // Avatar with network image or fallback
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: AppThemeSystem.primaryColor,
-                            backgroundImage: user?.avatarUrl != null
-                                ? NetworkImage(user!.avatarUrl!)
-                                : null,
-                            child: user?.avatarUrl == null
-                                ? const Icon(
-                                    Icons.person,
-                                    size: 50,
-                                    color: Colors.white,
-                                  )
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppThemeSystem.primaryColor,
-                                    AppThemeSystem.secondaryColor,
-                                  ],
+                      child: CircleAvatar(
+                        key: ValueKey('avatar_${user?.id}_${user?.updatedAt.millisecondsSinceEpoch}'),
+                        radius: 50,
+                        backgroundColor: AppThemeSystem.primaryColor,
+                        child: user?.hasRealAvatar ?? false
+                            ? GestureDetector(
+                                onTap: () {
+                                  Get.to(
+                                    () => ImageViewerPage(
+                                      imageUrl: _buildImageUrl(user!.avatarUrl!),
+                                      content: user.fullName,
+                                    ),
+                                    transition: Transition.fadeIn,
+                                  );
+                                },
+                                child: ClipOval(
+                                  child: Image.network(
+                                    _buildImageUrl(user!.avatarUrl!),
+                                    width: 100,
+                                    height: 100,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Center(
+                                        child: Text(
+                                          user!.firstName.isNotEmpty
+                                              ? user!.firstName[0].toUpperCase()
+                                              : 'U',
+                                          style: const TextStyle(
+                                            fontSize: 40,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? AppThemeSystem.darkBackgroundColor
-                                      : Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.camera_alt,
-                                  size: 16,
+                              )
+                            : Text(
+                                user?.firstName.isNotEmpty == true
+                                    ? user!.firstName[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                                onPressed: controller.showAvatarPicker,
-                                padding: const EdgeInsets.all(6),
-                                constraints: const BoxConstraints(),
                               ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
@@ -316,6 +358,44 @@ class ProfileView extends GetView<ProfileController> {
     });
   }
 
+  /// Build image URL with cache buster
+  /// Adds timestamp with proper separator (& if URL already has ?, otherwise ?)
+  String _buildImageUrl(String url) {
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  /// Retourne une paire de couleurs pour le gradient basé sur l'ID
+  /// Style Google Keep avec des couleurs vives et bien contrastées
+  List<Color> _getNoteColors(int id) {
+    final colorPalettes = [
+      // Rose-Rouge (chaud)
+      [const Color(0xFFE91E63), const Color(0xFFC2185B)],
+      // Orange-Amber
+      [const Color(0xFFFF9800), const Color(0xFFF57C00)],
+      // Violet-Indigo
+      [const Color(0xFF9C27B0), const Color(0xFF7B1FA2)],
+      // Bleu profond
+      [const Color(0xFF2196F3), const Color(0xFF1976D2)],
+      // Vert émeraude
+      [const Color(0xFF009688), const Color(0xFF00796B)],
+      // Bleu-vert
+      [const Color(0xFF00BCD4), const Color(0xFF0097A7)],
+      // Rouge-Rose
+      [const Color(0xFFF44336), const Color(0xFFD32F2F)],
+      // Violet profond
+      [const Color(0xFF673AB7), const Color(0xFF512DA8)],
+      // Teal foncé
+      [const Color(0xFF4CAF50), const Color(0xFF388E3C)],
+      // Orange foncé
+      [const Color(0xFFFF5722), const Color(0xFFE64A19)],
+    ];
+
+    // Utiliser l'ID pour sélectionner une palette de manière cohérente
+    final paletteIndex = id % colorPalettes.length;
+    return colorPalettes[paletteIndex];
+  }
+
   Widget _buildProfileStat(BuildContext context, String value, String label) {
     return InkWell(
       onTap: () {
@@ -350,168 +430,749 @@ class ProfileView extends GetView<ProfileController> {
   }
 
   Widget _buildPostsGrid(BuildContext context) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: 18,
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppThemeSystem.grey300,
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppThemeSystem.darkBackgroundColor
-                  : Colors.white,
-              width: 1,
-            ),
-          ),
-          child: InkWell(
-            onTap: () {
-              Get.snackbar(
-                'Post',
-                'Voir publication ${index + 1}',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-            child: Center(
-              child: Icon(
-                Icons.image_outlined,
-                size: 40,
-                color: AppThemeSystem.grey500,
+    return Obx(() {
+      if (controller.isLoadingPosts.value) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      if (controller.posts.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.auto_awesome_outlined,
+                size: 64,
+                color: AppThemeSystem.grey400,
               ),
-            ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucune publication',
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  color: AppThemeSystem.grey600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Vos publications apparaîtront ici',
+                style: context.textStyle(FontSizeType.caption).copyWith(
+                  color: AppThemeSystem.grey500,
+                ),
+              ),
+            ],
           ),
         );
-      },
-    );
-  }
+      }
 
-  Widget _buildGiftsGrid(BuildContext context) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: 8,
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppThemeSystem.primaryColor.withValues(alpha: 0.1),
-                AppThemeSystem.secondaryColor.withValues(alpha: 0.1),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      return GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+        ),
+        itemCount: controller.posts.length,
+        itemBuilder: (context, index) {
+          final post = controller.posts[index];
+
+          return Container(
+            decoration: BoxDecoration(
+              color: AppThemeSystem.grey300,
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppThemeSystem.darkBackgroundColor
+                    : Colors.white,
+                width: 1,
+              ),
             ),
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppThemeSystem.darkBackgroundColor
-                  : Colors.white,
-              width: 1,
-            ),
-          ),
-          child: InkWell(
-            onTap: () {
-              Get.snackbar(
-                'Cadeau',
-                'Voir cadeau envoyé ${index + 1}',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-            child: Stack(
-              children: [
-                Center(
-                  child: Icon(
-                    Icons.card_giftcard_rounded,
-                    size: 40,
-                    color: AppThemeSystem.primaryColor,
-                  ),
-                ),
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppThemeSystem.primaryColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${index + 1}x',
-                      style: context.textStyle(FontSizeType.caption).copyWith(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+            child: InkWell(
+              onTap: () async {
+                // Capture screen height before async operations
+                final screenHeight = MediaQuery.of(context).size.height;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+
+                // Show loading overlay
+                Get.dialog(
+                  PopScope(
+                    canPop: false,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppThemeSystem.darkCardColor
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Recherche en cours...',
+                              style: context.textStyle(FontSizeType.body2),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  barrierDismissible: false,
+                );
+
+                try {
+                  // Navigate to home and switch to Confession tab
+                  HomeController? homeController;
+                  try {
+                    homeController = Get.find<HomeController>();
+                  } catch (e) {
+                    // HomeController not found, navigate to home
+                    Get.offAllNamed('/home');
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    homeController = Get.find<HomeController>();
+                  }
+
+                  homeController.changeTab(3); // Tab Confession
+                  await Future.delayed(const Duration(milliseconds: 300));
+
+                  // Find and scroll to the confession
+                  final confessionsController = Get.find<ConfessionsController>();
+                  await confessionsController.navigateToConfession(
+                    post.id,
+                    screenHeight: screenHeight,
+                  );
+
+                  // Close loading dialog
+                  Get.back();
+                } catch (e) {
+                  // Close loading dialog on error
+                  Get.back();
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Display media if available
+                  if (post.mediaType == 'image' && post.mediaUrl != null)
+                    Image.network(
+                      post.mediaUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            size: 40,
+                            color: AppThemeSystem.grey500,
+                          ),
+                        );
+                      },
+                    )
+                  else if (post.mediaType == 'video' && post.mediaUrl != null)
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Display video thumbnail if available
+                        if (post.thumbnailUrl != null)
+                          Image.network(
+                            post.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.black87,
+                                child: const Icon(
+                                  Icons.play_circle_outline,
+                                  size: 40,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          Container(
+                            color: Colors.black87,
+                            child: const Icon(
+                              Icons.play_circle_outline,
+                              size: 40,
+                              color: Colors.white,
+                            ),
+                          ),
+                        // Play button overlay
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    // Text only post - Google Keep style note
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _getNoteColors(post.id),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Center(
+                        child: Text(
+                          post.content,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Stats overlay
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${post.likesCount}',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _buildGiftsGrid(BuildContext context) {
+    return Obx(() {
+      if (controller.isLoadingGifts.value) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      if (controller.sentGifts.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.card_giftcard_outlined,
+                size: 64,
+                color: AppThemeSystem.grey400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun cadeau envoyé',
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  color: AppThemeSystem.grey600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Les cadeaux envoyés apparaîtront ici',
+                style: context.textStyle(FontSizeType.caption).copyWith(
+                  color: AppThemeSystem.grey500,
+                ),
+              ),
+            ],
           ),
         );
-      },
-    );
+      }
+
+      // Group gifts by gift_id to count occurrences
+      final giftCounts = <int, int>{};
+      final giftTransactions = <int, dynamic>{};
+
+      for (var transaction in controller.sentGifts) {
+        final giftId = transaction.giftId;
+        giftCounts[giftId] = (giftCounts[giftId] ?? 0) + 1;
+        giftTransactions[giftId] = transaction;
+      }
+
+      final uniqueGifts = giftTransactions.values.toList();
+
+      return GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+        ),
+        itemCount: uniqueGifts.length,
+        itemBuilder: (context, index) {
+          final transaction = uniqueGifts[index];
+          final gift = transaction.gift;
+          final count = giftCounts[gift.id] ?? 1;
+
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppThemeSystem.primaryColor.withValues(alpha: 0.1),
+                  AppThemeSystem.secondaryColor.withValues(alpha: 0.1),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppThemeSystem.darkBackgroundColor
+                    : Colors.white,
+                width: 1,
+              ),
+            ),
+            child: InkWell(
+              onTap: () {
+                Get.snackbar(
+                  'Cadeau',
+                  '${gift.name} - ${gift.formattedPrice}\nEnvoyé ${count}x',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              },
+              child: Stack(
+                children: [
+                  // Display gift image if available
+                  if (gift.imageUrl != null)
+                    Center(
+                      child: Image.network(
+                        gift.imageUrl!,
+                        fit: BoxFit.contain,
+                        width: 60,
+                        height: 60,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.card_giftcard_rounded,
+                            size: 40,
+                            color: AppThemeSystem.primaryColor,
+                          );
+                        },
+                      ),
+                    )
+                  else if (gift.iconUrl != null)
+                    Center(
+                      child: Image.network(
+                        gift.iconUrl!,
+                        fit: BoxFit.contain,
+                        width: 40,
+                        height: 40,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.card_giftcard_rounded,
+                            size: 40,
+                            color: AppThemeSystem.primaryColor,
+                          );
+                        },
+                      ),
+                    )
+                  else
+                    Center(
+                      child: Icon(
+                        Icons.card_giftcard_rounded,
+                        size: 40,
+                        color: AppThemeSystem.primaryColor,
+                      ),
+                    ),
+
+                  // Gift count badge
+                  if (count > 1)
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppThemeSystem.primaryColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${count}x',
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Gift name overlay
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        gift.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: context.textStyle(FontSizeType.caption).copyWith(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
   Widget _buildSavedGrid(BuildContext context) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: 12,
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppThemeSystem.grey300,
-            border: Border.all(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppThemeSystem.darkBackgroundColor
-                  : Colors.white,
-              width: 1,
-            ),
-          ),
-          child: InkWell(
-            onTap: () {
-              Get.snackbar(
-                'Enregistré',
-                'Voir publication enregistrée ${index + 1}',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-            child: Stack(
-              children: [
-                Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 40,
-                    color: AppThemeSystem.grey500,
-                  ),
+    return Obx(() {
+      if (controller.isLoadingFavorites.value) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      if (controller.favorites.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.bookmark_border_outlined,
+                size: 64,
+                color: AppThemeSystem.grey400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun favori',
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  color: AppThemeSystem.grey600,
                 ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    Icons.bookmark,
-                    color: AppThemeSystem.primaryColor,
-                    size: 20,
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Vos confessions favorites apparaîtront ici',
+                style: context.textStyle(FontSizeType.caption).copyWith(
+                  color: AppThemeSystem.grey500,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
-      },
-    );
+      }
+
+      return GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+        ),
+        itemCount: controller.favorites.length,
+        itemBuilder: (context, index) {
+          final favorite = controller.favorites[index];
+
+          return Container(
+            decoration: BoxDecoration(
+              color: AppThemeSystem.grey300,
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppThemeSystem.darkBackgroundColor
+                    : Colors.white,
+                width: 1,
+              ),
+            ),
+            child: InkWell(
+              onTap: () async {
+                // Capture screen height before async operations
+                final screenHeight = MediaQuery.of(context).size.height;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+
+                // Show loading overlay
+                Get.dialog(
+                  PopScope(
+                    canPop: false,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppThemeSystem.darkCardColor
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Recherche en cours...',
+                              style: context.textStyle(FontSizeType.body2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  barrierDismissible: false,
+                );
+
+                try {
+                  // Navigate to home and switch to Confession tab
+                  HomeController? homeController;
+                  try {
+                    homeController = Get.find<HomeController>();
+                  } catch (e) {
+                    // HomeController not found, navigate to home
+                    Get.offAllNamed('/home');
+                    await Future.delayed(const Duration(milliseconds: 500));
+                    homeController = Get.find<HomeController>();
+                  }
+
+                  homeController.changeTab(3); // Tab Confession
+                  await Future.delayed(const Duration(milliseconds: 300));
+
+                  // Find and scroll to the confession
+                  final confessionsController = Get.find<ConfessionsController>();
+                  await confessionsController.navigateToConfession(
+                    favorite.id,
+                    screenHeight: screenHeight,
+                  );
+
+                  // Close loading dialog
+                  Get.back();
+                } catch (e) {
+                  // Close loading dialog on error
+                  Get.back();
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Display media if available
+                  if (favorite.mediaType == 'image' && favorite.mediaUrl != null)
+                    Image.network(
+                      favorite.mediaUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            size: 40,
+                            color: AppThemeSystem.grey500,
+                          ),
+                        );
+                      },
+                    )
+                  else if (favorite.mediaType == 'video' && favorite.mediaUrl != null)
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Display video thumbnail if available
+                        if (favorite.thumbnailUrl != null)
+                          Image.network(
+                            favorite.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: Colors.black87,
+                                child: const Icon(
+                                  Icons.play_circle_outline,
+                                  size: 40,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                          )
+                        else
+                          Container(
+                            color: Colors.black87,
+                            child: const Icon(
+                              Icons.play_circle_outline,
+                              size: 40,
+                              color: Colors.white,
+                            ),
+                          ),
+                        // Play button overlay
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    // Text only confession - Google Keep style note
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _getNoteColors(favorite.id),
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Center(
+                        child: Text(
+                          favorite.content,
+                          maxLines: 5,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 2,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // Bookmark icon overlay
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.bookmark,
+                        color: AppThemeSystem.primaryColor,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+
+                  // Stats overlay
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${favorite.likesCount}',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 }

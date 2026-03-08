@@ -3,11 +3,13 @@ import '../../../data/models/story_model.dart';
 import '../../../data/models/story_feed_item_model.dart';
 import '../../../data/services/story_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../data/services/cache_service.dart';
 import '../../../utils/video_thumbnail_generator.dart';
 
 class StoryController extends GetxController {
   final StoryService _storyService = StoryService();
   final StorageService _storage = StorageService();
+  final CacheService _cache = CacheService();
 
   // Stories feed (grouped by user)
   final storiesFeed = <StoryFeedItemModel>[].obs;
@@ -34,6 +36,9 @@ class StoryController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Nettoyer les caches expirés au démarrage
+    _cache.cleanExpiredCaches();
+
     // Only load stories if user is authenticated
     if (_storage.getToken() != null) {
       loadStoriesFeed();
@@ -42,8 +47,10 @@ class StoryController extends GetxController {
     }
   }
 
-  /// Load stories feed
+  /// Load stories feed avec smart caching (backend gère l'expiration 24h)
   Future<void> loadStoriesFeed({bool refresh = false}) async {
+    if (isLoadingFeed.value && !refresh) return;
+
     if (refresh) {
       feedError.value = null;
     } else {
@@ -51,19 +58,56 @@ class StoryController extends GetxController {
     }
 
     try {
-      final feed = await _storyService.getStoriesFeed();
+      List<StoryFeedItemModel> feed;
+
+      // Si refresh, ignorer le cache et fetch depuis le serveur
+      if (refresh) {
+        print('🔄 [STORY] Refresh forcé, fetch depuis le serveur');
+        feed = await _storyService.getStoriesFeed();
+
+        // Sauvegarder dans le cache
+        await _cache.saveStoriesCache(feed);
+      } else {
+        // Vérifier d'abord le cache
+        final cachedFeed = _cache.getStoriesCache();
+
+        if (cachedFeed != null && _cache.isStoriesCacheValid()) {
+          print('📦 [STORY] Utilisation du cache (${cachedFeed.length} stories)');
+          feed = cachedFeed;
+        } else {
+          print('🌐 [STORY] Cache invalide/vide, fetch depuis le serveur');
+          feed = await _storyService.getStoriesFeed();
+
+          // Sauvegarder dans le cache
+          await _cache.saveStoriesCache(feed);
+        }
+      }
+
+      // Le backend gère déjà :
+      // - L'expiration automatique après 24h (expires_at)
+      // - Le filtrage des stories actives (->active())
+      // - Le groupement par utilisateur
+      // Donc on affiche directement tout ce que le backend envoie
       storiesFeed.value = feed;
+
       feedError.value = null;
     } catch (e) {
       feedError.value = _getErrorMessage(e);
       print('❌ Error loading stories feed: $e');
 
+      // En cas d'erreur, essayer de charger depuis le cache même si expiré
       if (!refresh) {
-        Get.snackbar(
-          'Erreur',
-          feedError.value ?? 'Impossible de charger les stories',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        final cachedFeed = _cache.getStoriesCache();
+        if (cachedFeed != null && cachedFeed.isNotEmpty) {
+          print('⚠️ [STORY] Erreur serveur, utilisation du cache expiré');
+          storiesFeed.value = cachedFeed;
+        } else {
+          Get.snackbar(
+            'Erreur',
+            feedError.value ?? 'Impossible de charger les stories',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        }
       }
     } finally {
       isLoadingFeed.value = false;

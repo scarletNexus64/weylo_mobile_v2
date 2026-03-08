@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 
 import '../controllers/feeds_controller.dart';
@@ -62,8 +63,35 @@ class ConfessionsView extends GetView<ConfessionsController> {
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
+                    final confession = controller.confessions[index];
                     final item = controller.feedItems[index];
-                    return _buildPostCard(context, item);
+                    final confessionKey = controller.getConfessionKey(confession.id);
+
+                    return Obx(() {
+                      final isHighlighted = controller.highlightedConfessionId.value == confession.id;
+
+                      return Container(
+                        key: confessionKey,
+                        decoration: BoxDecoration(
+                          border: isHighlighted
+                              ? Border.all(
+                                  color: AppThemeSystem.primaryColor,
+                                  width: 3,
+                                )
+                              : null,
+                          boxShadow: isHighlighted
+                              ? [
+                                  BoxShadow(
+                                    color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    spreadRadius: 2,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: _buildPostCard(context, item),
+                      );
+                    });
                   },
                   childCount: controller.feedItems.length,
                 ),
@@ -246,6 +274,19 @@ class ConfessionsView extends GetView<ConfessionsController> {
                   ? Image.network(
                       story['image'] as String,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) {
+                          return child;
+                        }
+                        // Shimmer pendant le chargement
+                        return Shimmer.fromColors(
+                          baseColor: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
+                          highlightColor: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200,
+                          child: Container(
+                            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
@@ -516,30 +557,32 @@ class ConfessionsView extends GetView<ConfessionsController> {
             child: Row(
               children: [
                 // Avatar
-                Container(
-                  width: deviceType == DeviceType.mobile ? 44 : 52,
-                  height: deviceType == DeviceType.mobile ? 44 : 52,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isAnonymous
-                        ? LinearGradient(
-                            colors: [
-                              AppThemeSystem.grey700,
-                              AppThemeSystem.grey600,
-                            ],
-                          )
-                        : LinearGradient(
-                            colors: [
-                              AppThemeSystem.primaryColor,
-                              AppThemeSystem.secondaryColor,
-                            ],
-                          ),
-                  ),
-                  child: Icon(
-                    isAnonymous ? Icons.lock_rounded : Icons.person_rounded,
-                    color: Colors.white,
-                    size: deviceType == DeviceType.mobile ? 22 : 26,
-                  ),
+                CircleAvatar(
+                  radius: deviceType == DeviceType.mobile ? 22 : 26,
+                  backgroundColor: isAnonymous
+                      ? AppThemeSystem.grey700
+                      : AppThemeSystem.primaryColor,
+                  backgroundImage: !isAnonymous && post['avatarUrl'] != null
+                      ? NetworkImage('${post['avatarUrl']}?t=${DateTime.now().millisecondsSinceEpoch}')
+                      : null,
+                  child: isAnonymous
+                      ? Icon(
+                          Icons.lock_rounded,
+                          color: Colors.white,
+                          size: deviceType == DeviceType.mobile ? 22 : 26,
+                        )
+                      : (post['avatarUrl'] == null
+                          ? Text(
+                              (post['initial'] as String?)?.isNotEmpty == true
+                                  ? (post['initial'] as String).toUpperCase()
+                                  : 'U',
+                              style: TextStyle(
+                                fontSize: deviceType == DeviceType.mobile ? 18 : 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null),
                 ),
                 SizedBox(width: context.elementSpacing),
                 Expanded(
@@ -593,20 +636,7 @@ class ConfessionsView extends GetView<ConfessionsController> {
             ),
           ),
 
-          // Content
-          if (post['content'] != null && (post['content'] as String).isNotEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.elementSpacing),
-              child: Text(
-                post['content'] as String,
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  color: isDark ? AppThemeSystem.grey200 : AppThemeSystem.grey900,
-                  height: 1.5,
-                ),
-              ),
-            ),
-
-          // Media (Image or Video)
+          // Media (Image or Video) - Afficher en premier
           if (hasMedia && mediaUrl != null)
             Padding(
               padding: EdgeInsets.only(top: context.elementSpacing * 0.8),
@@ -627,6 +657,22 @@ class ConfessionsView extends GetView<ConfessionsController> {
                           mediaUrl,
                           width: double.infinity,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) {
+                              // Image chargée, afficher l'image avec une animation de fondu
+                              return child;
+                            }
+                            // Image en cours de chargement, afficher le shimmer
+                            return Shimmer.fromColors(
+                              baseColor: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+                              highlightColor: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey100,
+                              child: Container(
+                                width: double.infinity,
+                                height: 320,
+                                color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+                              ),
+                            );
+                          },
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
                               width: double.infinity,
@@ -648,6 +694,19 @@ class ConfessionsView extends GetView<ConfessionsController> {
                       videoUrl: mediaUrl,
                       videoId: post['id'].toString(),
                     ),
+            ),
+
+          // Content - Afficher après le média
+          if (post['content'] != null && (post['content'] as String).isNotEmpty)
+            Padding(
+              padding: EdgeInsets.all(context.elementSpacing),
+              child: Text(
+                post['content'] as String,
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  color: isDark ? AppThemeSystem.grey200 : AppThemeSystem.grey900,
+                  height: 1.5,
+                ),
+              ),
             ),
 
           // Reactions Summary
@@ -682,16 +741,9 @@ class ConfessionsView extends GetView<ConfessionsController> {
                   ),
                 ],
                 const Spacer(),
-                // Comments & Shares count
+                // Comments count
                 Text(
                   '${post['comments']} commentaires',
-                  style: context.textStyle(FontSizeType.caption).copyWith(
-                    color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${post['shares']} partages',
                   style: context.textStyle(FontSizeType.caption).copyWith(
                     color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
                   ),
@@ -715,11 +767,9 @@ class ConfessionsView extends GetView<ConfessionsController> {
             ),
             child: Row(
               children: [
-                _buildPostActionButton(
+                _buildLikeButton(
                   context: context,
-                  icon: Icons.favorite_border_rounded,
-                  label: 'J\'aime',
-                  onTap: () => controller.likePost(post['id'] as int),
+                  post: post,
                   isDark: isDark,
                 ),
                 _buildPostActionButton(
@@ -740,6 +790,56 @@ class ConfessionsView extends GetView<ConfessionsController> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLikeButton({
+    required BuildContext context,
+    required Map<String, dynamic> post,
+    required bool isDark,
+  }) {
+    final isLiked = post['isLiked'] as bool;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => controller.likePost(post['id'] as int),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                transitionBuilder: (child, animation) {
+                  return ScaleTransition(
+                    scale: animation,
+                    child: child,
+                  );
+                },
+                child: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_border_rounded,
+                  key: ValueKey<bool>(isLiked),
+                  size: 20,
+                  color: isLiked
+                      ? AppThemeSystem.errorColor
+                      : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'J\'aime',
+                style: context.textStyle(FontSizeType.body2).copyWith(
+                  color: isLiked
+                      ? AppThemeSystem.errorColor
+                      : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

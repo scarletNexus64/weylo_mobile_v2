@@ -6,6 +6,6 @@
         <domain includeSubdomains="true">127.0.0.1</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>
         <!-- IP locale du serveur de développement -->
-        <domain includeSubdomains="true">192.168.100.27</domain>
+        <domain includeSubdomains="true">10.83.249.46</domain>
     </domain-config>
 </network-security-config>
