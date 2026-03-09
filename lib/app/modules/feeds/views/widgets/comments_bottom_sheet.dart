@@ -13,6 +13,8 @@ import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
 import 'package:weylo/app/data/services/storage_service.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import '../../controllers/feeds_controller.dart';
+import '../../controllers/confession_detail_controller.dart';
 
 class CommentsBottomSheet extends StatefulWidget {
   final ConfessionModel confession;
@@ -228,6 +230,9 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
       // Incrémenter le count des commentaires
       _currentCommentsCount++;
 
+      // Synchroniser avec les autres controllers
+      _syncCommentCount(1);
+
       _commentController.clear();
       setState(() {
         _selectedImage = null;
@@ -255,6 +260,12 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
       _comments.remove(comment);
 
+      // Décrémenter le count des commentaires
+      _currentCommentsCount--;
+
+      // Synchroniser avec les autres controllers
+      _syncCommentCount(-1);
+
       Get.snackbar(
         'Succès',
         'Commentaire supprimé',
@@ -267,6 +278,46 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
         'Impossible de supprimer le commentaire',
         snackPosition: SnackPosition.BOTTOM,
       );
+    }
+  }
+
+  /// Synchroniser le count des commentaires avec ConfessionsController et ConfessionDetailController
+  void _syncCommentCount(int delta) {
+    try {
+      // 1. Synchroniser avec le ConfessionsController
+      if (Get.isRegistered<ConfessionsController>()) {
+        final feedsController = Get.find<ConfessionsController>();
+
+        // Trouver la confession dans la liste des feeds et mettre à jour le count
+        final confessionIndex = feedsController.confessions.indexWhere(
+          (c) => c.id == widget.confession.id,
+        );
+
+        if (confessionIndex != -1) {
+          final currentConfession = feedsController.confessions[confessionIndex];
+          feedsController.confessions[confessionIndex] = currentConfession.copyWith(
+            commentsCount: currentConfession.commentsCount + delta,
+          );
+          feedsController.confessions.refresh();
+        }
+      }
+
+      // 2. Synchroniser avec le ConfessionDetailController si il existe
+      if (Get.isRegistered<ConfessionDetailController>()) {
+        final detailController = Get.find<ConfessionDetailController>();
+
+        // Vérifier que c'est bien la même confession
+        if (detailController.confessionId == widget.confession.id) {
+          if (detailController.confession.value != null) {
+            detailController.confession.value = detailController.confession.value!.copyWith(
+              commentsCount: detailController.confession.value!.commentsCount + delta,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Ignorer les erreurs silencieusement
+      if (foundation.kDebugMode) print('Sync error (non-critical): $e');
     }
   }
 
@@ -478,6 +529,9 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
 
       // Incrémenter le count des commentaires
       _currentCommentsCount++;
+
+      // Synchroniser avec les autres controllers
+      _syncCommentCount(1);
 
       // Supprimer le fichier audio temporaire
       if (await audioFile.exists()) {

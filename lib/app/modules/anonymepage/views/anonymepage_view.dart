@@ -9,6 +9,7 @@ import 'package:weylo/app/widgets/animated_share_button.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/anonymepage_controller.dart';
+import 'widgets/anonymous_chat_bottomsheet.dart';
 
 class AnonymepageView extends GetView<AnonymepageController> {
   const AnonymepageView({super.key});
@@ -516,10 +517,18 @@ class AnonymepageView extends GetView<AnonymepageController> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () {
-                Get.snackbar(
-                  'Répondre',
-                  'Fonctionnalité de réponse à venir',
-                  snackPosition: SnackPosition.BOTTOM,
+                // Ouvrir le bottomsheet de réponse
+                Get.bottomSheet(
+                  AnonymousChatBottomSheet(
+                    originalMessage: message,
+                    recipientUsername: message.sender?.username ?? 'reply', // placeholder si pas révélé
+                    onMessageSent: () {
+                      // Recharger les messages après envoi
+                      controller.fetchMessages();
+                    },
+                  ),
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
                 );
               },
               icon: const Icon(Icons.reply_rounded, size: 20),

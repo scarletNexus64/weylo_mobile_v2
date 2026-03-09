@@ -44,6 +44,7 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+          _hasError = false;
         });
 
         // Si le widget est visible, démarrer la lecture
@@ -58,6 +59,16 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
           _hasError = true;
         });
       }
+    }
+  }
+
+  Future<void> _retryVideo() async {
+    if (mounted) {
+      setState(() {
+        _hasError = false;
+        _isInitialized = false;
+      });
+      await _initializeVideo();
     }
   }
 
@@ -97,7 +108,9 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_isInitialized) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
@@ -124,10 +137,24 @@ class _FeedVideoPlayerState extends State<FeedVideoPlayer> {
                         size: 48,
                         color: Colors.white54,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       Text(
                         'Impossible de charger la vidéo',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _retryVideo,
+                        icon: Icon(Icons.refresh),
+                        label: Text('Réessayer'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppThemeSystem.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
                       ),
                     ],
                   ),

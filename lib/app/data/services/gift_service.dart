@@ -5,6 +5,36 @@ import '../models/gift_model.dart';
 class GiftService {
   final _api = ApiService();
 
+  /// Get all gift categories
+  Future<List<GiftCategory>> getCategories() async {
+    try {
+      final response = await _api.get('/gift-categories');
+
+      final categoriesData = response.data['categories'] as List;
+      return categoriesData
+          .map((json) => GiftCategory.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('❌ [GIFT_SERVICE] Erreur lors de la récupération des catégories: $e');
+      rethrow;
+    }
+  }
+
+  /// Get gifts by category
+  Future<List<GiftModel>> getGiftsByCategory(int categoryId) async {
+    try {
+      final response = await _api.get('/gift-categories/$categoryId/gifts');
+
+      final giftsData = response.data['gifts'] as List;
+      return giftsData
+          .map((json) => GiftModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('❌ [GIFT_SERVICE] Erreur lors de la récupération des cadeaux par catégorie: $e');
+      rethrow;
+    }
+  }
+
   /// Get all available gifts (catalog)
   Future<List<GiftModel>> getGifts() async {
     try {

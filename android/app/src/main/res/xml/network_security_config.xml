@@ -2,10 +2,21 @@
 <network-security-config>
     <!-- Configuration pour le développement : autoriser HTTP cleartext pour localhost et IPs locales -->
     <domain-config cleartextTrafficPermitted="true">
+        <!-- Localhost -->
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">127.0.0.1</domain>
+        <!-- Android Emulator -->
         <domain includeSubdomains="true">10.0.2.2</domain>
-        <!-- IP locale du serveur de développement -->
+        <!-- Plages IP privées (RFC 1918) -->
+        <!-- IP de développement -->
         <domain includeSubdomains="true">10.83.249.46</domain>
+        <domain includeSubdomains="true">192.168.100.24</domain>
     </domain-config>
+
+    <!-- ATTENTION: En production, utilisez HTTPS et supprimez cette configuration -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>

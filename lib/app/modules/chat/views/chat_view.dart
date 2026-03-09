@@ -18,40 +18,81 @@ class ChatView extends GetView<ChatController> {
         // Chat List with Waterfall Effect
         Expanded(
           child: Obx(() {
-            // Force GetX to track selectedFilter by reading it here
-            final currentFilter = controller.selectedFilter.value;
             final isDark = Theme.of(context).brightness == Brightness.dark;
+
+            // État de chargement
+            if (controller.isLoading.value && controller.conversations.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            // État d'erreur
+            if (controller.hasError.value && controller.conversations.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
+                    SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: controller.refreshConversations,
+                      child: Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // État vide
+            final filteredConvs = controller.filteredConversations;
+            if (filteredConvs.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Aucune conversation',
+                      style: context.textStyle(FontSizeType.h3),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Vos conversations apparaîtront ici',
+                      style: context.textStyle(FontSizeType.body2).copyWith(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
 
             return Stack(
               children: [
-                // ListView
-                ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
-                  itemCount: 10,
-                  itemBuilder: (context, index) {
-                    // Simule le statut lu/non lu (les pairs sont non lus)
-                    final isRead = index % 2 != 0;
+                // ListView with RefreshIndicator
+                RefreshIndicator(
+                  onRefresh: controller.refreshConversations,
+                  child: ListView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+                    itemCount: filteredConvs.length + (controller.canLoadMore.value ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // Item de chargement pour la pagination
+                      if (index == filteredConvs.length) {
+                        controller.loadMoreConversations();
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
 
-                    // Filtre selon la sélection en utilisant currentFilter
-                    bool shouldShow = true;
-                    switch (currentFilter) {
-                      case ChatFilter.all:
-                        shouldShow = true;
-                        break;
-                      case ChatFilter.unread:
-                        shouldShow = !isRead;
-                        break;
-                      case ChatFilter.read:
-                        shouldShow = isRead;
-                        break;
-                    }
-
-                    if (!shouldShow) {
-                      return const SizedBox.shrink();
-                    }
-
-                    return _buildChatCard(context, index, isGroup: false, isRead: isRead);
-                  },
+                      final conversation = filteredConvs[index];
+                      return _buildChatCardFromModel(context, conversation);
+                    },
+                  ),
                 ),
                 // Waterfall Gradient Effect
                 Positioned(
@@ -130,7 +171,7 @@ class ChatView extends GetView<ChatController> {
               isSelected: controller.selectedFilter.value == ChatFilter.unread,
               isDark: isDark,
               deviceType: deviceType,
-              badge: '5', // Nombre de messages non lus (à remplacer par vraie data)
+              badge: controller.unreadCount > 0 ? '${controller.unreadCount}' : null
             ),
             _buildFilterButton(
               context: context,
@@ -216,6 +257,151 @@ class ChatView extends GetView<ChatController> {
         ),
       ),
     );
+  }
+
+  Widget _buildChatCardFromModel(BuildContext context, conversation) {
+    final isRead = conversation.unreadCount == 0;
+    final otherUser = conversation.otherParticipant;
+    final lastMessage = conversation.lastMessage;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: context.elementSpacing),
+      child: ListTile(
+        contentPadding: EdgeInsets.all(context.elementSpacing / 2),
+        leading: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppThemeSystem.grey600.withValues(alpha: 0.3),
+                  width: 2.5,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 25,
+                backgroundColor: AppThemeSystem.primaryColor,
+                backgroundImage: otherUser?.avatarUrl != null
+                    ? NetworkImage(otherUser!.avatarUrl!)
+                    : null,
+                child: otherUser?.avatarUrl == null
+                    ? Text(
+                        otherUser?.firstName[0].toUpperCase() ?? '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            if (otherUser?.isOnline == true)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: AppThemeSystem.successColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppThemeSystem.darkBackgroundColor
+                          : Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                otherUser?.fullName ?? 'Inconnu',
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppThemeSystem.blackColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          lastMessage?.content ?? 'Aucun message',
+          style: context.textStyle(FontSizeType.body2).copyWith(
+            color: AppThemeSystem.grey600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatTimestamp(lastMessage?.createdAt),
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: AppThemeSystem.grey600,
+              ),
+            ),
+            if (conversation.unreadCount > 0)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppThemeSystem.primaryColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${conversation.unreadCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        onTap: () {
+          Get.to(
+            () => const ChatDetailView(),
+            binding: ChatDetailBinding(),
+            arguments: {
+              'contactName': otherUser?.fullName ?? 'Inconnu',
+              'contactId': otherUser?.id.toString() ?? '',
+              'conversationId': conversation.id,
+            },
+            transition: Transition.rightToLeft,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
+      ),
+    );
+  }
+
+  String _formatTimestamp(DateTime? timestamp) {
+    if (timestamp == null) return '';
+
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays}j';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}h';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}min';
+    } else {
+      return 'maintenant';
+    }
   }
 
   Widget _buildChatCard(BuildContext context, int index, {bool isGroup = false, bool isRead = true}) {

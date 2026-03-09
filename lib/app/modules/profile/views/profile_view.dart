@@ -1,17 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/data/core/api_service.dart';
 
 import '../controllers/profile_controller.dart';
 import '../../home/controllers/home_controller.dart';
 import '../../feeds/controllers/feeds_controller.dart';
 import '../../feeds/views/image_viewer_page.dart';
 
-class ProfileView extends GetView<ProfileController> {
+class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
 
   @override
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView>
+    with AutomaticKeepAliveClientMixin<ProfileView> {
+
+  @override
+  bool get wantKeepAlive => true;
+
+  ProfileController get controller => Get.find<ProfileController>();
+
+  @override
+  void initState() {
+    super.initState();
+    print('🎨 [PROFILE_VIEW] initState() - ProfileView initialisé');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('🔄 [PROFILE_VIEW] didChangeDependencies() - ProfileView visible');
+  }
+
+  @override
+  void dispose() {
+    print('🗑️ [PROFILE_VIEW] dispose() - ProfileView détruit');
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // Important pour AutomaticKeepAliveClientMixin
+    print('🖼️ [PROFILE_VIEW] build() - Rendu du ProfileView');
+
     return Obx(() {
       // Show loading indicator
       if (controller.isLoading.value && controller.user.value == null) {
@@ -472,6 +506,7 @@ class ProfileView extends GetView<ProfileController> {
           crossAxisSpacing: 2,
           mainAxisSpacing: 2,
         ),
+        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: controller.posts.length,
         itemBuilder: (context, index) {
           final post = controller.posts[index];
@@ -487,69 +522,9 @@ class ProfileView extends GetView<ProfileController> {
               ),
             ),
             child: InkWell(
-              onTap: () async {
-                // Capture screen height before async operations
-                final screenHeight = MediaQuery.of(context).size.height;
-                final isDark = Theme.of(context).brightness == Brightness.dark;
-
-                // Show loading overlay
-                Get.dialog(
-                  PopScope(
-                    canPop: false,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppThemeSystem.darkCardColor
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const CircularProgressIndicator(),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Recherche en cours...',
-                              style: context.textStyle(FontSizeType.body2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  barrierDismissible: false,
-                );
-
-                try {
-                  // Navigate to home and switch to Confession tab
-                  HomeController? homeController;
-                  try {
-                    homeController = Get.find<HomeController>();
-                  } catch (e) {
-                    // HomeController not found, navigate to home
-                    Get.offAllNamed('/home');
-                    await Future.delayed(const Duration(milliseconds: 500));
-                    homeController = Get.find<HomeController>();
-                  }
-
-                  homeController.changeTab(3); // Tab Confession
-                  await Future.delayed(const Duration(milliseconds: 300));
-
-                  // Find and scroll to the confession
-                  final confessionsController = Get.find<ConfessionsController>();
-                  await confessionsController.navigateToConfession(
-                    post.id,
-                    screenHeight: screenHeight,
-                  );
-
-                  // Close loading dialog
-                  Get.back();
-                } catch (e) {
-                  // Close loading dialog on error
-                  Get.back();
-                }
+              onTap: () {
+                // Navigate directly to confession detail page
+                Get.toNamed('/confession/${post.id}');
               },
               child: Stack(
                 fit: StackFit.expand,
@@ -753,6 +728,7 @@ class ProfileView extends GetView<ProfileController> {
           crossAxisSpacing: 2,
           mainAxisSpacing: 2,
         ),
+        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: uniqueGifts.length,
         itemBuilder: (context, index) {
           final transaction = uniqueGifts[index];
@@ -932,6 +908,7 @@ class ProfileView extends GetView<ProfileController> {
           crossAxisSpacing: 2,
           mainAxisSpacing: 2,
         ),
+        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: controller.favorites.length,
         itemBuilder: (context, index) {
           final favorite = controller.favorites[index];
@@ -948,6 +925,12 @@ class ProfileView extends GetView<ProfileController> {
             ),
             child: InkWell(
               onTap: () async {
+                // If confession is deleted, show confirmation dialog
+                if (favorite.isDeleted) {
+                  _showDeletedConfessionDialog(context, favorite.id);
+                  return;
+                }
+
                 // Capture screen height before async operations
                 final screenHeight = MediaQuery.of(context).size.height;
                 final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -999,37 +982,84 @@ class ProfileView extends GetView<ProfileController> {
 
                   // Find and scroll to the confession
                   final confessionsController = Get.find<ConfessionsController>();
-                  await confessionsController.navigateToConfession(
+                  final found = await confessionsController.navigateToConfession(
                     favorite.id,
                     screenHeight: screenHeight,
                   );
 
                   // Close loading dialog
                   Get.back();
+
+                  // If confession not found (404 or deleted), mark it as deleted
+                  if (!found) {
+                    controller.markFavoriteAsDeleted(favorite.id);
+                    Get.snackbar(
+                      'Confession supprimée',
+                      'Cette confession a été supprimée par son auteur',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: AppThemeSystem.warningColor,
+                      colorText: Colors.white,
+                    );
+                  }
                 } catch (e) {
                   // Close loading dialog on error
                   Get.back();
+
+                  // Check if it's a 404 error (confession deleted)
+                  bool is404 = false;
+                  if (e is ApiException && e.statusCode == 404) {
+                    is404 = true;
+                  } else if (e.toString().toLowerCase().contains('404') ||
+                             e.toString().toLowerCase().contains('not found')) {
+                    is404 = true;
+                  }
+
+                  if (is404) {
+                    controller.markFavoriteAsDeleted(favorite.id);
+                    Get.snackbar(
+                      'Confession supprimée',
+                      'Cette confession a été supprimée par son auteur',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: AppThemeSystem.warningColor,
+                      colorText: Colors.white,
+                      duration: const Duration(seconds: 3),
+                    );
+                  }
                 }
               },
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Display media if available
-                  if (favorite.mediaType == 'image' && favorite.mediaUrl != null)
-                    Image.network(
-                      favorite.mediaUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 40,
-                            color: AppThemeSystem.grey500,
+                  // Apply grayscale filter if deleted
+                  ColorFiltered(
+                    colorFilter: favorite.isDeleted
+                        ? const ColorFilter.mode(
+                            Colors.grey,
+                            BlendMode.saturation,
+                          )
+                        : const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.multiply,
                           ),
-                        );
-                      },
-                    )
-                  else if (favorite.mediaType == 'video' && favorite.mediaUrl != null)
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Display media if available
+                        if (favorite.mediaType == 'image' && favorite.mediaUrl != null)
+                          Image.network(
+                            favorite.mediaUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  size: 40,
+                                  color: AppThemeSystem.grey500,
+                                ),
+                              );
+                            },
+                          )
+                        else if (favorite.mediaType == 'video' && favorite.mediaUrl != null)
                     Stack(
                       fit: StackFit.expand,
                       children: [
@@ -1114,24 +1144,64 @@ class ProfileView extends GetView<ProfileController> {
                         ),
                       ),
                     ),
-
-                  // Bookmark icon overlay
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.bookmark,
-                        color: AppThemeSystem.primaryColor,
-                        size: 16,
-                      ),
+                      ],
                     ),
                   ),
+
+                  // "Supprimé" badge overlay (only if deleted)
+                  if (favorite.isDeleted)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppThemeSystem.errorColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Supprimé',
+                              style: context.textStyle(FontSizeType.caption).copyWith(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Bookmark icon overlay
+                  if (!favorite.isDeleted)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.bookmark,
+                          color: AppThemeSystem.primaryColor,
+                          size: 16,
+                        ),
+                      ),
+                    ),
 
                   // Stats overlay
                   Positioned(
@@ -1174,5 +1244,79 @@ class ProfileView extends GetView<ProfileController> {
         },
       );
     });
+  }
+
+  /// Show dialog to confirm removal of deleted favorite confession
+  void _showDeletedConfessionDialog(BuildContext context, int confessionId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.delete_outline,
+              color: AppThemeSystem.errorColor,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Confession supprimée',
+                style: context.textStyle(FontSizeType.h5).copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Cette confession a été supprimée par son auteur. Voulez-vous la retirer de vos favoris ?',
+          style: context.textStyle(FontSizeType.body2).copyWith(
+            color: isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Get.back();
+            },
+            child: Text(
+              'Non',
+              style: context.textStyle(FontSizeType.body2).copyWith(
+                color: AppThemeSystem.grey600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await controller.removeFavorite(confessionId);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppThemeSystem.errorColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Oui, retirer',
+              style: context.textStyle(FontSizeType.body2).copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

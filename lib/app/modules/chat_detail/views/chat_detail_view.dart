@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/data/models/chat_message_model.dart';
 import '../controllers/chat_detail_controller.dart';
 
 class ChatDetailView extends GetView<ChatDetailController> {
@@ -194,17 +195,18 @@ class ChatDetailView extends GetView<ChatDetailController> {
     );
   }
 
-  Widget _buildMessageBubble(BuildContext context, Message message, bool isDark) {
+  Widget _buildMessageBubble(BuildContext context, ChatMessageModel message, bool isDark) {
+    final isSentByMe = controller.isSentByMe(message);
     return Align(
-      alignment: message.isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.only(
           bottom: context.elementSpacing * 0.5,
-          left: message.isSentByMe ? context.horizontalPadding * 2 : 0,
-          right: message.isSentByMe ? 0 : context.horizontalPadding * 2,
+          left: isSentByMe ? context.horizontalPadding * 2 : 0,
+          right: isSentByMe ? 0 : context.horizontalPadding * 2,
         ),
         child: Column(
-          crossAxisAlignment: message.isSentByMe
+          crossAxisAlignment: isSentByMe
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
@@ -215,7 +217,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 vertical: context.elementSpacing * 0.7,
               ),
               decoration: BoxDecoration(
-                gradient: message.isSentByMe
+                gradient: isSentByMe
                     ? const LinearGradient(
                         colors: [
                           AppThemeSystem.primaryColor,
@@ -223,7 +225,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                         ],
                       )
                     : null,
-                color: message.isSentByMe
+                color: isSentByMe
                     ? null
                     : (isDark
                         ? AppThemeSystem.darkCardColor
@@ -231,12 +233,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(message.isSentByMe ? 16 : 4),
-                  bottomRight: Radius.circular(message.isSentByMe ? 4 : 16),
+                  bottomLeft: Radius.circular(isSentByMe ? 16 : 4),
+                  bottomRight: Radius.circular(isSentByMe ? 4 : 16),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: message.isSentByMe
+                    color: isSentByMe
                         ? AppThemeSystem.primaryColor.withValues(alpha: 0.3)
                         : Colors.black.withValues(alpha: 0.05),
                     blurRadius: 8,
@@ -244,14 +246,14 @@ class ChatDetailView extends GetView<ChatDetailController> {
                   ),
                 ],
               ),
-              child: _buildMessageContent(context, message, isDark),
+              child: _buildMessageContent(context, message, isDark, isSentByMe),
             ),
 
             // Timestamp
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
               child: Text(
-                _formatTime(message.timestamp),
+                _formatTime(message.createdAt),
                 style: context.textStyle(FontSizeType.caption).copyWith(
                   color: AppThemeSystem.grey600,
                   fontSize: 10,
@@ -264,30 +266,33 @@ class ChatDetailView extends GetView<ChatDetailController> {
     );
   }
 
-  Widget _buildMessageContent(BuildContext context, Message message, bool isDark) {
+  Widget _buildMessageContent(BuildContext context, ChatMessageModel message, bool isDark, bool isSentByMe) {
     switch (message.type) {
-      case MessageType.text:
+      case ChatMessageType.text:
         return Text(
-          message.content,
+          message.content ?? '',
           style: context.textStyle(FontSizeType.body2).copyWith(
-            color: message.isSentByMe
+            color: isSentByMe
                 ? Colors.white
                 : (isDark ? Colors.white : AppThemeSystem.blackColor),
           ),
         );
 
-      case MessageType.gift:
+      case ChatMessageType.gift:
+        // Extract gift info from metadata
+        final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
+        final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
         return Column(
           children: [
             Text(
-              message.giftIcon ?? '🎁',
+              giftIcon,
               style: const TextStyle(fontSize: 48),
             ),
             const SizedBox(height: 4),
             Text(
-              message.giftName ?? 'Cadeau',
+              giftName,
               style: context.textStyle(FontSizeType.caption).copyWith(
-                color: message.isSentByMe
+                color: isSentByMe
                     ? Colors.white
                     : (isDark ? Colors.white : AppThemeSystem.blackColor),
                 fontWeight: FontWeight.w600,
@@ -296,13 +301,13 @@ class ChatDetailView extends GetView<ChatDetailController> {
           ],
         );
 
-      case MessageType.audio:
+      case ChatMessageType.audio:
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.play_circle_filled_rounded,
-              color: message.isSentByMe
+              color: isSentByMe
                   ? Colors.white
                   : AppThemeSystem.primaryColor,
               size: 32,
@@ -312,7 +317,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
               width: 100,
               height: 4,
               decoration: BoxDecoration(
-                color: message.isSentByMe
+                color: isSentByMe
                     ? Colors.white.withValues(alpha: 0.3)
                     : AppThemeSystem.grey300,
                 borderRadius: BorderRadius.circular(2),
@@ -322,7 +327,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 widthFactor: 0.4,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: message.isSentByMe
+                    color: isSentByMe
                         ? Colors.white
                         : AppThemeSystem.primaryColor,
                     borderRadius: BorderRadius.circular(2),
@@ -334,7 +339,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
             Text(
               '0:15',
               style: context.textStyle(FontSizeType.caption).copyWith(
-                color: message.isSentByMe
+                color: isSentByMe
                     ? Colors.white
                     : AppThemeSystem.grey600,
               ),
@@ -342,18 +347,45 @@ class ChatDetailView extends GetView<ChatDetailController> {
           ],
         );
 
-      case MessageType.image:
+      case ChatMessageType.image:
         return ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 200,
-            height: 200,
-            color: AppThemeSystem.grey300,
-            child: const Icon(
-              Icons.image_rounded,
-              size: 64,
-              color: AppThemeSystem.grey600,
-            ),
+          child: message.mediaUrl != null
+              ? Image.network(
+                  message.mediaUrl!,
+                  width: 200,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 200,
+                    height: 200,
+                    color: AppThemeSystem.grey300,
+                    child: const Icon(
+                      Icons.image_rounded,
+                      size: 64,
+                      color: AppThemeSystem.grey600,
+                    ),
+                  ),
+                )
+              : Container(
+                  width: 200,
+                  height: 200,
+                  color: AppThemeSystem.grey300,
+                  child: const Icon(
+                    Icons.image_rounded,
+                    size: 64,
+                    color: AppThemeSystem.grey600,
+                  ),
+                ),
+        );
+
+      case ChatMessageType.video:
+      case ChatMessageType.system:
+        return Text(
+          message.content ?? '',
+          style: context.textStyle(FontSizeType.body2).copyWith(
+            color: AppThemeSystem.grey600,
+            fontStyle: FontStyle.italic,
           ),
         );
     }
@@ -468,7 +500,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
                   final price = gift['price'] as int;
 
                   return GestureDetector(
-                    onTap: () => controller.sendGift(gift),
+                    onTap: () {
+                      // TODO: Implement sendGift when POST is ready
+                      // controller.sendGift(gift);
+                    },
                     child: Container(
                       decoration: BoxDecoration(
                         color: isDark
@@ -571,8 +606,8 @@ class ChatDetailView extends GetView<ChatDetailController> {
             IconButton(
               icon: const Icon(Icons.image_rounded),
               onPressed: () {
-                // Simulate image picker
-                controller.sendImage('fake_image.jpg');
+                // TODO: Implement sendImage when POST is ready
+                // controller.sendImage('fake_image.jpg');
               },
               color: AppThemeSystem.primaryColor,
             ),
@@ -611,7 +646,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
               return GestureDetector(
                 onTap: hasText
-                    ? () => controller.sendMessage()
+                    ? () {
+                        // TODO: Implement sendMessage when POST is ready
+                        // controller.sendMessage();
+                      }
                     : () => controller.toggleRecording(),
                 child: Container(
                   width: 44,

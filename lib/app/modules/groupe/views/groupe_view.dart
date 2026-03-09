@@ -137,45 +137,111 @@ class GroupeView extends GetView<GroupeController> {
   Widget _buildMyGroupsView(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Stack(
-      children: [
-        // ListView
-        ListView.builder(
-          padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
-          itemCount: 8,
-          itemBuilder: (context, index) {
-            return _buildGroupCard(context, index);
-          },
-        ),
-        // Waterfall Gradient Effect
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: Container(
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    isDark
-                        ? AppThemeSystem.grey700.withValues(alpha: 0.3)
-                        : AppThemeSystem.grey200.withValues(alpha: 0.4),
-                    isDark
-                        ? AppThemeSystem.grey700.withValues(alpha: 0.15)
-                        : AppThemeSystem.grey200.withValues(alpha: 0.2),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.4, 1.0],
+    return Obx(() {
+      // État de chargement
+      if (controller.isLoadingMyGroups.value && controller.myGroups.isEmpty) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      // État d'erreur
+      if (controller.hasErrorMyGroups.value && controller.myGroups.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
+              SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: controller.refreshMyGroups,
+                child: Text('Réessayer'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // État vide
+      if (controller.myGroups.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.groups_outlined, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Aucun groupe',
+                style: context.textStyle(FontSizeType.h3),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Rejoignez ou créez un groupe pour commencer',
+                style: context.textStyle(FontSizeType.body2).copyWith(
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
+
+      return Stack(
+        children: [
+          // ListView with RefreshIndicator
+          RefreshIndicator(
+            onRefresh: controller.refreshMyGroups,
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+              itemCount: controller.myGroups.length + (controller.canLoadMoreMyGroups.value ? 1 : 0),
+              itemBuilder: (context, index) {
+                // Item de chargement pour la pagination
+                if (index == controller.myGroups.length) {
+                  controller.loadMoreMyGroups();
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                final group = controller.myGroups[index];
+                return _buildGroupCardFromModel(context, group);
+              },
+            ),
+          ),
+          // Waterfall Gradient Effect
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      isDark
+                          ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+                          : AppThemeSystem.grey200.withValues(alpha: 0.4),
+                      isDark
+                          ? AppThemeSystem.grey700.withValues(alpha: 0.15)
+                          : AppThemeSystem.grey200.withValues(alpha: 0.2),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.4, 1.0],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   // Discover Groups View
@@ -185,23 +251,84 @@ class GroupeView extends GetView<GroupeController> {
     // Hauteur de la recherche + catégories pour le padding
     final headerHeight = 60.0 + 45.0 + (context.elementSpacing * 1.5);
 
-    return Stack(
-      children: [
-        // Groups list - SCROLLABLE avec padding en haut
-        Positioned.fill(
-          child: ListView.builder(
-            padding: EdgeInsets.fromLTRB(
-              context.horizontalPadding,
-              headerHeight, // Padding pour éviter que les items soient cachés
-              context.horizontalPadding,
-              context.elementSpacing,
-            ),
-            itemCount: 8,
-            itemBuilder: (context, index) {
-              return _buildDiscoverGroupCard(context, index);
-            },
+    return Obx(() {
+      // État de chargement
+      final isLoading = controller.isLoadingDiscoverGroups.value && controller.discoverGroups.isEmpty;
+      final hasError = controller.hasErrorDiscoverGroups.value && controller.discoverGroups.isEmpty;
+      final isEmpty = controller.discoverGroups.isEmpty;
+
+      return Stack(
+        children: [
+          // Groups list - SCROLLABLE avec padding en haut
+          Positioned.fill(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : hasError
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
+                            SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: controller.refreshDiscoverGroups,
+                              child: Text('Réessayer'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.explore_outlined, size: 64, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Aucun groupe à découvrir',
+                                  style: context.textStyle(FontSizeType.h3),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Revenez plus tard pour découvrir de nouveaux groupes',
+                                  style: context.textStyle(FontSizeType.body2).copyWith(
+                                    color: Colors.grey,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: controller.refreshDiscoverGroups,
+                            child: ListView.builder(
+                              padding: EdgeInsets.fromLTRB(
+                                context.horizontalPadding,
+                                headerHeight,
+                                context.horizontalPadding,
+                                context.elementSpacing,
+                              ),
+                              itemCount: controller.discoverGroups.length + (controller.canLoadMoreDiscoverGroups.value ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                // Item de chargement pour la pagination
+                                if (index == controller.discoverGroups.length) {
+                                  controller.loadMoreDiscoverGroups();
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(16.0),
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  );
+                                }
+
+                                final group = controller.discoverGroups[index];
+                                return _buildDiscoverGroupCardFromModel(context, group);
+                              },
+                            ),
+                          ),
           ),
-        ),
 
         // Header FIXE (Recherche + Catégories)
         Positioned(
@@ -287,8 +414,283 @@ class GroupeView extends GetView<GroupeController> {
             ),
           ),
         ),
-      ],
+        ],
+      );
+    });
+  }
+
+  // Build Group Card from GroupModel
+  Widget _buildGroupCardFromModel(BuildContext context, group) {
+    final lastMessage = group.lastMessage;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: context.elementSpacing),
+      child: ListTile(
+        contentPadding: EdgeInsets.all(context.elementSpacing / 2),
+        leading: CircleAvatar(
+          radius: 28,
+          backgroundColor: AppThemeSystem.tertiaryColor,
+          child: const Icon(
+            Icons.group_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                group.name,
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppThemeSystem.blackColor,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${group.membersCount} membres',
+                style: context.textStyle(FontSizeType.caption).copyWith(
+                  color: AppThemeSystem.tertiaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          lastMessage?.content ?? 'Aucun message',
+          style: context.textStyle(FontSizeType.body2).copyWith(
+            color: AppThemeSystem.grey600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatGroupTimestamp(lastMessage?.createdAt),
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: AppThemeSystem.grey600,
+              ),
+            ),
+            if (group.unreadCount > 0)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppThemeSystem.tertiaryColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${group.unreadCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        onTap: () {
+          Get.to(
+            () => const GroupeDetailView(),
+            binding: GroupeDetailBinding(),
+            arguments: {
+              'groupName': group.name,
+              'groupId': group.id.toString(),
+              'memberCount': group.membersCount,
+            },
+            transition: Transition.rightToLeft,
+            duration: const Duration(milliseconds: 300),
+          );
+        },
+      ),
     );
+  }
+
+  // Build Discover Group Card from GroupModel
+  Widget _buildDiscoverGroupCardFromModel(BuildContext context, group) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: context.elementSpacing),
+      padding: EdgeInsets.all(context.elementSpacing),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppThemeSystem.darkCardColor,
+                  AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
+                ]
+              : [
+                  Colors.white,
+                  AppThemeSystem.grey100.withValues(alpha: 0.3),
+                ],
+        ),
+        borderRadius: context.borderRadius(BorderRadiusType.medium),
+        border: Border.all(
+          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: AppThemeSystem.tertiaryColor,
+            child: Icon(
+              Icons.group_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  group.name,
+                  style: context.textStyle(FontSizeType.body1).copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                  ),
+                ),
+                if (group.description != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    group.description!,
+                    style: context.textStyle(FontSizeType.body2).copyWith(
+                      color: AppThemeSystem.grey600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.people_rounded,
+                            size: 14,
+                            color: AppThemeSystem.tertiaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${group.membersCount}',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: AppThemeSystem.tertiaryColor,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      group.isPublic ? Icons.public_rounded : Icons.lock_rounded,
+                      size: 14,
+                      color: AppThemeSystem.grey600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      group.isPublic ? 'Public' : 'Privé',
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: AppThemeSystem.grey600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Join Button
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppThemeSystem.tertiaryColor,
+                  AppThemeSystem.secondaryColor,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Get.snackbar(
+                    'Rejoindre',
+                    'Rejoindre le groupe ${group.name}',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: AppThemeSystem.tertiaryColor,
+                    colorText: Colors.white,
+                  );
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_rounded, color: Colors.white, size: 18),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Rejoindre',
+                        style: context.textStyle(FontSizeType.caption).copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatGroupTimestamp(DateTime? timestamp) {
+    if (timestamp == null) return '';
+
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays}j';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours}h';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes}min';
+    } else {
+      return 'maintenant';
+    }
   }
 
   // Filter Chip

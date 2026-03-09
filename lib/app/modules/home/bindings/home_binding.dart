@@ -11,29 +11,37 @@ import '../controllers/home_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<HomeController>(
-      () => HomeController(),
+    // Utiliser put() au lieu de lazyPut() pour garantir que les controllers
+    // sont toujours disponibles, même après retour de navigation
+    Get.put<HomeController>(
+      HomeController(),
+      permanent: true,
     );
 
-    // Initialize all tab controllers
-    Get.lazyPut<AnonymepageController>(
-      () => AnonymepageController(),
+    // Initialize all tab controllers avec put() pour éviter les problèmes de scroll
+    Get.put<AnonymepageController>(
+      AnonymepageController(),
+      permanent: true,
     );
-    Get.lazyPut<ChatController>(
-      () => ChatController(),
+    Get.put<ChatController>(
+      ChatController(),
+      permanent: true,
     );
-    Get.lazyPut<GroupeController>(
-      () => GroupeController(),
+    Get.put<GroupeController>(
+      GroupeController(),
+      permanent: true,
     );
-    Get.lazyPut<ConfessionsController>(
-      () => ConfessionsController(),
+    Get.put<ConfessionsController>(
+      ConfessionsController(),
+      permanent: true,
     );
-    // Initialize StoryController for feeds (lazyPut to avoid immediate initialization)
+    // StoryController peut rester en lazyPut car moins critique
     Get.lazyPut<StoryController>(
       () => StoryController(),
     );
-    Get.lazyPut<ProfileController>(
-      () => ProfileController(),
+    Get.put<ProfileController>(
+      ProfileController(),
+      permanent: true,
     );
   }
 }

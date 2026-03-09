@@ -1,34 +1,8 @@
 import 'package:get/get.dart';
-
-enum MessageType { text, image, audio, gift }
-
-class GroupMessage {
-  final String id;
-  final String content;
-  final MessageType type;
-  final bool isSentByMe;
-  final DateTime timestamp;
-  final String? senderName;  // Nom de l'expéditeur pour les groupes
-  final String? senderAvatar; // Avatar de l'expéditeur
-  final String? imageUrl;
-  final String? audioUrl;
-  final String? giftIcon;
-  final String? giftName;
-
-  GroupMessage({
-    required this.id,
-    required this.content,
-    required this.type,
-    required this.isSentByMe,
-    required this.timestamp,
-    this.senderName,
-    this.senderAvatar,
-    this.imageUrl,
-    this.audioUrl,
-    this.giftIcon,
-    this.giftName,
-  });
-}
+import 'package:weylo/app/data/services/group_service.dart';
+import 'package:weylo/app/data/models/group_message_model.dart';
+import 'package:weylo/app/data/models/group_model.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
 
 class GroupeDetailController extends GetxController {
   final String groupName;
@@ -41,7 +15,26 @@ class GroupeDetailController extends GetxController {
     required this.memberCount,
   });
 
-  final messages = <GroupMessage>[].obs;
+  final GroupService _groupService = GroupService();
+  final AuthService _authService = AuthService();
+
+  // États
+  final isLoading = false.obs;
+  final isLoadingMore = false.obs;
+  final hasError = false.obs;
+  final errorMessage = ''.obs;
+
+  // Données
+  final messages = <GroupMessageModel>[].obs;
+  final group = Rx<GroupModel?>(null);
+  int? currentUserId;
+
+  // Pagination
+  int currentPage = 1;
+  int lastPage = 1;
+  final canLoadMore = false.obs;
+
+  // UI States
   final messageText = ''.obs;
   final isRecording = false.obs;
   final showGiftPicker = false.obs;
@@ -85,142 +78,90 @@ class GroupeDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadFakeMessages();
+    _initializeController();
   }
 
-  void _loadFakeMessages() {
-    final fakeMembers = [
-      'Alice',
-      'Bob',
-      'Charlie',
-      'Diana',
-      'Emma',
-    ];
+  /// Initialiser le contrôleur
+  Future<void> _initializeController() async {
+    try {
+      // Récupérer l'ID de l'utilisateur actuel
+      final user = await _authService.getCurrentUser();
+      currentUserId = user?.id;
 
-    messages.value = [
-      GroupMessage(
-        id: '1',
-        content: 'Salut tout le monde! 👋',
-        type: MessageType.text,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-        senderName: fakeMembers[0],
-      ),
-      GroupMessage(
-        id: '2',
-        content: 'Hey! Comment ça va?',
-        type: MessageType.text,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 55)),
-        senderName: fakeMembers[1],
-      ),
-      GroupMessage(
-        id: '3',
-        content: 'Très bien! On organise quelque chose ce week-end?',
-        type: MessageType.text,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 50)),
-      ),
-      GroupMessage(
-        id: '4',
-        content: '🍕',
-        type: MessageType.gift,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 30)),
-        senderName: fakeMembers[2],
-        giftIcon: '🍕',
-        giftName: 'Pizza',
-      ),
-      GroupMessage(
-        id: '5',
-        content: 'Super idée! Je suis partant 🎉',
-        type: MessageType.text,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        senderName: fakeMembers[3],
-      ),
-      GroupMessage(
-        id: '6',
-        content: 'Message audio',
-        type: MessageType.audio,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-        senderName: fakeMembers[4],
-        audioUrl: 'fake_audio.mp3',
-      ),
-      GroupMessage(
-        id: '7',
-        content: 'J\'adore cette communauté! 🎊',
-        type: MessageType.text,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-      ),
-      GroupMessage(
-        id: '8',
-        content: '🎁',
-        type: MessageType.gift,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-        giftIcon: '🎁',
-        giftName: 'Cadeau',
-      ),
-    ];
+      // Convertir groupId en int et charger les messages
+      final groupIdInt = int.tryParse(groupId);
+      if (groupIdInt != null) {
+        await loadMessages(groupIdInt);
+      }
+    } catch (e) {
+      print('Error initializing group detail: $e');
+      hasError.value = true;
+      errorMessage.value = 'Impossible de charger le groupe';
+    }
   }
 
-  void sendMessage() {
-    if (messageText.value.trim().isEmpty) return;
+  /// Charger les messages du groupe depuis l'API
+  Future<void> loadMessages(int groupId, {bool refresh = false}) async {
+    if (refresh) {
+      currentPage = 1;
+      messages.clear();
+    }
 
-    final newMessage = GroupMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: messageText.value,
-      type: MessageType.text,
-      isSentByMe: true,
-      timestamp: DateTime.now(),
-    );
+    if (isLoading.value || isLoadingMore.value) return;
 
-    messages.add(newMessage);
-    messageText.value = '';
-  }
+    refresh ? isLoading.value = true : isLoadingMore.value = true;
+    hasError.value = false;
 
-  void sendGift(Map<String, dynamic> gift) {
-    // Start animation
-    animatedGift.value = gift;
-    isAnimatingGift.value = true;
-    showGiftPicker.value = false;
-
-    // Wait for animation to complete, then add message
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      final newMessage = GroupMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: gift['icon']!,
-        type: MessageType.gift,
-        isSentByMe: true,
-        timestamp: DateTime.now(),
-        giftIcon: gift['icon'],
-        giftName: gift['name'],
+    try {
+      final response = await _groupService.getMessages(
+        groupId: groupId,
+        page: currentPage,
+        perPage: 50,
       );
 
-      messages.add(newMessage);
-      isAnimatingGift.value = false;
-      animatedGift.value = null;
-    });
+      if (refresh) {
+        messages.value = response.messages.reversed.toList();
+      } else {
+        messages.insertAll(0, response.messages.reversed.toList());
+      }
+
+      currentPage = response.meta.currentPage;
+      lastPage = response.meta.lastPage;
+      canLoadMore.value = response.meta.hasMorePages;
+    } catch (e) {
+      hasError.value = true;
+      errorMessage.value = e.toString();
+      print('Error loading group messages: $e');
+    } finally {
+      isLoading.value = false;
+      isLoadingMore.value = false;
+    }
+  }
+
+  /// Charger plus de messages (pagination)
+  Future<void> loadMoreMessages() async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt != null && canLoadMore.value && !isLoadingMore.value) {
+      currentPage++;
+      await loadMessages(groupIdInt);
+    }
+  }
+
+  /// Rafraîchir les messages
+  Future<void> refreshMessages() async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt != null) {
+      await loadMessages(groupIdInt, refresh: true);
+    }
+  }
+
+  /// Vérifier si un message a été envoyé par moi
+  bool isSentByMe(GroupMessageModel message) {
+    return message.senderId == currentUserId;
   }
 
   void selectGiftCategory(String category) {
     selectedGiftCategory.value = category;
-  }
-
-  void sendImage(String imageUrl) {
-    final newMessage = GroupMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: 'Image envoyée',
-      type: MessageType.image,
-      isSentByMe: true,
-      timestamp: DateTime.now(),
-      imageUrl: imageUrl,
-    );
-
-    messages.add(newMessage);
   }
 
   void toggleRecording() {

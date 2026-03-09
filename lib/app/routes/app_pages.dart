@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../modules/anonymepage/bindings/anonymepage_binding.dart';
@@ -10,6 +11,7 @@ import '../modules/feeds/bindings/feeds_binding.dart';
 import '../modules/feeds/views/feeds_view.dart';
 import '../modules/feeds/views/create_confession_view.dart';
 import '../modules/feeds/views/edit_confession_view.dart';
+import '../modules/feeds/views/confession_detail_page.dart';
 import '../modules/forgotpassword/bindings/forgotpassword_binding.dart';
 import '../modules/forgotpassword/views/forgotpassword_view.dart';
 import '../modules/groupe/bindings/groupe_binding.dart';
@@ -159,6 +161,19 @@ class AppPages {
       name: _Paths.EDIT_CONFESSION,
       page: () => const EditConfessionView(),
       binding: ConfessionsBinding(),
+    ),
+    GetPage(
+      name: _Paths.CONFESSION_DETAIL,
+      page: () {
+        final idParam = Get.parameters['id'];
+        final id = idParam != null ? int.tryParse(idParam) : null;
+        if (id == null) {
+          // Si pas d'ID, retourner à l'accueil
+          Future.microtask(() => Get.offAllNamed(Routes.HOME));
+          return const SizedBox();
+        }
+        return ConfessionDetailPage(confessionId: id);
+      },
     ),
   ];
 }

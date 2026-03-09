@@ -142,7 +142,15 @@ class ProfileController extends GetxController {
       );
 
       favorites.value = response.confessions;
-      print('✅ [PROFILE_CONTROLLER] ${favorites.length} favoris chargés');
+
+      // Log deleted confessions for debugging
+      final deletedCount = favorites.where((c) => c.isDeleted).length;
+      print('✅ [PROFILE_CONTROLLER] ${favorites.length} favoris chargés ($deletedCount supprimés)');
+
+      if (deletedCount > 0) {
+        final deletedIds = favorites.where((c) => c.isDeleted).map((c) => c.id).toList();
+        print('   IDs supprimés: $deletedIds');
+      }
     } catch (e) {
       print('❌ [PROFILE_CONTROLLER] Erreur chargement favoris: $e');
       // Don't show error to user, just log it
@@ -577,6 +585,45 @@ class ProfileController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  /// Mark a favorite confession as deleted locally
+  void markFavoriteAsDeleted(int confessionId) {
+    final index = favorites.indexWhere((c) => c.id == confessionId);
+    if (index != -1) {
+      favorites[index] = favorites[index].copyWith(isDeleted: true);
+      favorites.refresh();
+      print('⚠️ [PROFILE_CONTROLLER] Favori $confessionId marqué comme supprimé');
+    }
+  }
+
+  /// Remove a deleted favorite from the list (after user confirmation)
+  Future<void> removeFavorite(int confessionId) async {
+    try {
+      print('🗑️ [PROFILE_CONTROLLER] Suppression du favori $confessionId...');
+
+      // Toggle favorite on the server (remove from favorites)
+      await _confessionService.toggleFavorite(confessionId);
+
+      // Remove from local list
+      favorites.removeWhere((c) => c.id == confessionId);
+      favorites.refresh();
+
+      Get.snackbar(
+        'Supprimé',
+        'La confession a été retirée de vos favoris',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      print('✅ [PROFILE_CONTROLLER] Favori supprimé de la liste');
+    } catch (e) {
+      print('❌ [PROFILE_CONTROLLER] Erreur suppression favori: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible de retirer le favori',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 }

@@ -1,30 +1,8 @@
 import 'package:get/get.dart';
-
-enum MessageType { text, image, audio, gift }
-
-class Message {
-  final String id;
-  final String content;
-  final MessageType type;
-  final bool isSentByMe;
-  final DateTime timestamp;
-  final String? imageUrl;
-  final String? audioUrl;
-  final String? giftIcon;
-  final String? giftName;
-
-  Message({
-    required this.id,
-    required this.content,
-    required this.type,
-    required this.isSentByMe,
-    required this.timestamp,
-    this.imageUrl,
-    this.audioUrl,
-    this.giftIcon,
-    this.giftName,
-  });
-}
+import 'package:weylo/app/data/services/chat_service.dart';
+import 'package:weylo/app/data/models/chat_message_model.dart';
+import 'package:weylo/app/data/models/conversation_model.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
 
 class ChatDetailController extends GetxController {
   final String contactName;
@@ -32,7 +10,27 @@ class ChatDetailController extends GetxController {
 
   ChatDetailController({required this.contactName, required this.contactId});
 
-  final messages = <Message>[].obs;
+  final ChatService _chatService = ChatService();
+  final AuthService _authService = AuthService();
+
+  // États
+  final isLoading = false.obs;
+  final isLoadingMore = false.obs;
+  final hasError = false.obs;
+  final errorMessage = ''.obs;
+
+  // Données
+  final messages = <ChatMessageModel>[].obs;
+  final conversation = Rx<ConversationModel?>(null);
+  int? conversationId;
+  int? currentUserId;
+
+  // Pagination
+  int currentPage = 1;
+  int lastPage = 1;
+  final canLoadMore = false.obs;
+
+  // UI States
   final messageText = ''.obs;
   final isRecording = false.obs;
   final showGiftPicker = false.obs;
@@ -76,135 +74,89 @@ class ChatDetailController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadFakeMessages();
+    _initializeController();
   }
 
-  void _loadFakeMessages() {
-    messages.value = [
-      Message(
-        id: '1',
-        content: 'Salut! Comment ça va?',
-        type: MessageType.text,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      Message(
-        id: '2',
-        content: 'Ça va super bien! Et toi?',
-        type: MessageType.text,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 55)),
-      ),
-      Message(
-        id: '3',
-        content: '🍫',
-        type: MessageType.gift,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 50)),
-        giftIcon: '🍫',
-        giftName: 'Chocolat',
-      ),
-      Message(
-        id: '4',
-        content: 'Merci pour le chocolat! 😊',
-        type: MessageType.text,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 45)),
-      ),
-      Message(
-        id: '5',
-        content: 'Message audio',
-        type: MessageType.audio,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-        audioUrl: 'fake_audio.mp3',
-      ),
-      Message(
-        id: '6',
-        content: '🍷',
-        type: MessageType.gift,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-        giftIcon: '🍷',
-        giftName: 'Vin Rouge',
-      ),
-      Message(
-        id: '7',
-        content: 'On se voit ce soir?',
-        type: MessageType.text,
-        isSentByMe: false,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      ),
-      Message(
-        id: '8',
-        content: 'Oui avec plaisir!',
-        type: MessageType.text,
-        isSentByMe: true,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
-      ),
-    ];
+  /// Initialiser le contrôleur
+  Future<void> _initializeController() async {
+    try {
+      // Récupérer l'ID de l'utilisateur actuel
+      final user = await _authService.getCurrentUser();
+      currentUserId = user?.id;
+
+      // Récupérer l'ID de la conversation depuis les arguments
+      final args = Get.arguments;
+      if (args != null && args['conversationId'] != null) {
+        conversationId = args['conversationId'];
+        await loadMessages();
+      }
+    } catch (e) {
+      print('Error initializing chat detail: $e');
+      hasError.value = true;
+      errorMessage.value = 'Impossible de charger la conversation';
+    }
   }
 
-  void sendMessage() {
-    if (messageText.value.trim().isEmpty) return;
+  /// Charger les messages depuis l'API
+  Future<void> loadMessages({bool refresh = false}) async {
+    if (conversationId == null) return;
 
-    final newMessage = Message(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: messageText.value,
-      type: MessageType.text,
-      isSentByMe: true,
-      timestamp: DateTime.now(),
-    );
+    if (refresh) {
+      currentPage = 1;
+      messages.clear();
+    }
 
-    messages.add(newMessage);
-    messageText.value = '';
-  }
+    if (isLoading.value || isLoadingMore.value) return;
 
-  void sendGift(Map<String, dynamic> gift) {
-    print('🎁 [Controller] Starting gift animation for: ${gift['name']}');
-    // Start animation
-    animatedGift.value = gift;
-    isAnimatingGift.value = true;
-    showGiftPicker.value = false;
-    print('🎬 [Controller] Animation state set: isAnimating=true, gift=${gift['icon']}');
+    refresh ? isLoading.value = true : isLoadingMore.value = true;
+    hasError.value = false;
 
-    // Wait for animation to complete, then add message
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      print('⏱️ [Controller] Animation delay completed (1500ms)');
-      final newMessage = Message(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: gift['icon']!,
-        type: MessageType.gift,
-        isSentByMe: true,
-        timestamp: DateTime.now(),
-        giftIcon: gift['icon'],
-        giftName: gift['name'],
+    try {
+      final response = await _chatService.getMessages(
+        conversationId: conversationId!,
+        page: currentPage,
+        perPage: 50,
       );
 
-      messages.add(newMessage);
-      print('💬 [Controller] Message added to list');
+      if (refresh) {
+        messages.value = response.messages.reversed.toList();
+      } else {
+        messages.insertAll(0, response.messages.reversed.toList());
+      }
 
-      isAnimatingGift.value = false;
-      animatedGift.value = null;
-      print('✅ [Controller] Animation STOPPED: isAnimating=false, gift=null');
-    });
+      currentPage = response.meta.currentPage;
+      lastPage = response.meta.lastPage;
+      canLoadMore.value = response.meta.hasMorePages;
+    } catch (e) {
+      hasError.value = true;
+      errorMessage.value = e.toString();
+      print('Error loading messages: $e');
+    } finally {
+      isLoading.value = false;
+      isLoadingMore.value = false;
+    }
+  }
+
+  /// Charger plus de messages (pagination)
+  Future<void> loadMoreMessages() async {
+    if (canLoadMore.value && !isLoadingMore.value) {
+      currentPage++;
+      await loadMessages();
+    }
+  }
+
+  /// Rafraîchir les messages
+  Future<void> refreshMessages() async {
+    await loadMessages(refresh: true);
+  }
+
+  /// Vérifier si un message a été envoyé par moi
+  bool isSentByMe(ChatMessageModel message) {
+    return message.senderId == currentUserId;
   }
 
   void selectGiftCategory(String category) {
     selectedGiftCategory.value = category;
-  }
-
-  void sendImage(String imageUrl) {
-    final newMessage = Message(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: 'Image envoyée',
-      type: MessageType.image,
-      isSentByMe: true,
-      timestamp: DateTime.now(),
-      imageUrl: imageUrl,
-    );
-
-    messages.add(newMessage);
   }
 
   void toggleRecording() {

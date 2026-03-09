@@ -1,3 +1,5 @@
+import 'gift_model.dart';
+
 class AnonymousMessageModel {
   final int id;
   final String content;
@@ -8,6 +10,10 @@ class AnonymousMessageModel {
   final bool isIdentityRevealed;
   final DateTime? revealedAt;
   final DateTime createdAt;
+  final String mediaType; // 'none', 'audio', 'image'
+  final String? mediaUrl;
+  final String? voiceType; // 'normal', 'robot', 'alien', 'mystery', 'chipmunk'
+  final List<GiftTransactionModel>? giftTransactions;
 
   AnonymousMessageModel({
     required this.id,
@@ -19,12 +25,16 @@ class AnonymousMessageModel {
     required this.isIdentityRevealed,
     this.revealedAt,
     required this.createdAt,
+    this.mediaType = 'none',
+    this.mediaUrl,
+    this.voiceType,
+    this.giftTransactions,
   });
 
   factory AnonymousMessageModel.fromJson(Map<String, dynamic> json) {
     return AnonymousMessageModel(
       id: json['id'],
-      content: json['content'],
+      content: json['content'] ?? '',
       senderInitial: json['sender_initial'],
       sender: json['sender'] != null
           ? MessageSender.fromJson(json['sender'])
@@ -36,6 +46,14 @@ class AnonymousMessageModel {
           ? DateTime.parse(json['revealed_at'])
           : null,
       createdAt: DateTime.parse(json['created_at']),
+      mediaType: json['media_type'] ?? 'none',
+      mediaUrl: json['media_url'],
+      voiceType: json['voice_type'],
+      giftTransactions: json['gift_transactions'] != null
+          ? (json['gift_transactions'] as List)
+              .map((e) => GiftTransactionModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : null,
     );
   }
 
@@ -50,6 +68,10 @@ class AnonymousMessageModel {
       'is_identity_revealed': isIdentityRevealed,
       'revealed_at': revealedAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
+      'media_type': mediaType,
+      'media_url': mediaUrl,
+      'voice_type': voiceType,
+      'gift_transactions': giftTransactions?.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -74,6 +96,18 @@ class AnonymousMessageModel {
       return 'À l\'instant';
     }
   }
+
+  /// Check if message has media
+  bool get hasMedia => mediaType != 'none' && mediaUrl != null;
+
+  /// Check if message has audio
+  bool get hasAudio => mediaType == 'audio' && mediaUrl != null;
+
+  /// Check if message has image
+  bool get hasImage => mediaType == 'image' && mediaUrl != null;
+
+  /// Check if message has gifts
+  bool get hasGifts => giftTransactions != null && giftTransactions!.isNotEmpty;
 }
 
 /// Sender information (only available when identity is revealed)

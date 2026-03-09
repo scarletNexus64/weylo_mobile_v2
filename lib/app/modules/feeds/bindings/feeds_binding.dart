@@ -6,10 +6,12 @@ import '../controllers/story_controller.dart';
 class ConfessionsBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<ConfessionsController>(
-      () => ConfessionsController(),
+    // Utiliser put au lieu de lazyPut pour éviter les problèmes de lifecycle
+    Get.put<ConfessionsController>(
+      ConfessionsController(),
+      permanent: true, // Garder le controller en mémoire
     );
-    // Use lazyPut to avoid immediate initialization when not needed
+    // Use lazyPut pour StoryController car moins critique
     Get.lazyPut<StoryController>(
       () => StoryController(),
     );

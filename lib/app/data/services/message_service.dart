@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/anonymous_message_model.dart';
@@ -69,22 +71,79 @@ class MessageService {
     }
   }
 
-  /// Send a message to a user
-  Future<AnonymousMessageModel> sendMessage({
+  /// Send a message to a user (with support for audio, image, gift)
+  Future<SendMessageResponse> sendMessage({
     required String username,
-    required String content,
+    String? content,
     int? replyToMessageId,
+    File? mediaFile,
+    String? mediaType, // 'audio' or 'image'
+    String? voiceType, // 'normal', 'robot', 'alien', 'mystery', 'chipmunk'
+    int? giftId,
+    String? giftMessage,
+    bool? revealIdentityWithGift,
   }) async {
     try {
-      final response = await _api.post(
-        ApiConfig.sendMessage(username),
-        data: {
-          'content': content,
-          'reply_to_message_id': replyToMessageId,
-        },
-      );
+      // Si on a un fichier média ou un gift, utiliser FormData
+      if (mediaFile != null || giftId != null) {
+        final formData = FormData();
 
-      return AnonymousMessageModel.fromJson(response.data['data']);
+        // Ajouter les champs texte
+        if (content != null && content.isNotEmpty) {
+          formData.fields.add(MapEntry('content', content));
+        }
+        if (replyToMessageId != null) {
+          formData.fields.add(MapEntry('reply_to_message_id', replyToMessageId.toString()));
+        }
+
+        // Gestion du média (audio ou image)
+        if (mediaFile != null && mediaType != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              mediaFile.path,
+              filename: mediaFile.path.split('/').last,
+            ),
+          ));
+          formData.fields.add(MapEntry('media_type', mediaType));
+
+          // Ajouter le type de voix si spécifié pour audio
+          if (mediaType == 'audio' && voiceType != null) {
+            formData.fields.add(MapEntry('voice_type', voiceType));
+          }
+        }
+
+        // Gestion du cadeau
+        if (giftId != null) {
+          formData.fields.add(MapEntry('gift_id', giftId.toString()));
+          if (giftMessage != null && giftMessage.isNotEmpty) {
+            formData.fields.add(MapEntry('gift_message', giftMessage));
+          }
+          if (revealIdentityWithGift != null) {
+            formData.fields.add(MapEntry('reveal_identity_with_gift', revealIdentityWithGift ? '1' : '0'));
+          }
+        }
+
+        final response = await _api.post(
+          ApiConfig.sendMessage(username),
+          data: formData,
+        );
+
+        return SendMessageResponse.fromJson(response.data);
+      } else {
+        // Sinon, utiliser JSON classique (texte uniquement)
+        final data = {
+          'content': content ?? '',
+          if (replyToMessageId != null) 'reply_to_message_id': replyToMessageId,
+        };
+
+        final response = await _api.post(
+          ApiConfig.sendMessage(username),
+          data: data,
+        );
+
+        return SendMessageResponse.fromJson(response.data);
+      }
     } catch (e) {
       rethrow;
     }
@@ -138,6 +197,24 @@ class MessageListResponse {
     required this.messages,
     required this.meta,
   });
+}
+
+/// Response for sending a message
+class SendMessageResponse {
+  final AnonymousMessageModel message;
+  final int? conversationId; // ID de la conversation créée si c'est une réponse
+
+  SendMessageResponse({
+    required this.message,
+    this.conversationId,
+  });
+
+  factory SendMessageResponse.fromJson(Map<String, dynamic> json) {
+    return SendMessageResponse(
+      message: AnonymousMessageModel.fromJson(json['data']),
+      conversationId: json['conversation_id'],
+    );
+  }
 }
 
 /// Message statistics

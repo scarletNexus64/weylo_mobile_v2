@@ -6,6 +6,7 @@ import 'package:weylo/app/data/services/cache_service.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
+import 'package:weylo/app/routes/app_pages.dart';
 
 enum ConfessionFilter { all, popular, recent }
 
@@ -84,14 +85,116 @@ class ConfessionsController extends GetxController {
     super.onClose();
   }
 
+  /// Vérifier la santé du scroll controller
+  bool _isScrollControllerHealthy() {
+    try {
+      return scrollController.hasClients &&
+             scrollController.position.hasContentDimensions &&
+             scrollController.position.hasPixels;
+    } catch (e) {
+      print('⚠️ [SCROLL] ScrollController en mauvais état: $e');
+      return false;
+    }
+  }
+
+  /// Réinitialiser le scroll si nécessaire
+  void _ensureScrollHealthy() {
+    if (!_isScrollControllerHealthy() && scrollController.hasClients) {
+      try {
+        // Forcer une petite animation pour réinitialiser le scroll
+        scrollController.jumpTo(scrollController.offset);
+      } catch (e) {
+        print('⚠️ [SCROLL] Impossible de réinitialiser le scroll: $e');
+      }
+    }
+  }
+
+  /// Méthode publique pour vérifier et réparer le scroll (appelée par HomeController)
+  void ensureScrollHealthy() {
+    print('🔧 [SCROLL] Vérification de la santé du scroll demandée');
+
+    // Attendre que le widget soit complètement rendu
+    Future.delayed(const Duration(milliseconds: 150), () {
+      try {
+        if (scrollController.hasClients) {
+          final currentPosition = scrollController.offset;
+          final maxScroll = scrollController.position.maxScrollExtent;
+          final minScroll = scrollController.position.minScrollExtent;
+
+          // Vérifier si la position est dans les limites valides
+          if (currentPosition < minScroll || currentPosition > maxScroll) {
+            print('⚠️ [SCROLL] Position invalide ($currentPosition), limites: [$minScroll, $maxScroll]');
+            // Réinitialiser au début si hors limites
+            scrollController.jumpTo(0);
+            print('✅ [SCROLL] Scroll réinitialisé à 0');
+          } else {
+            // Position valide, juste "réveiller" le scroll
+            scrollController.jumpTo(currentPosition);
+            print('✅ [SCROLL] Scroll réveillé à la position $currentPosition');
+          }
+        } else {
+          print('⚠️ [SCROLL] ScrollController n\'a pas de clients');
+        }
+      } catch (e) {
+        print('⚠️ [SCROLL] Erreur lors du réveil: $e');
+        // Essayer de réinitialiser à 0 en cas d'erreur
+        try {
+          if (scrollController.hasClients) {
+            scrollController.jumpTo(0);
+            print('✅ [SCROLL] Scroll réinitialisé à 0 après erreur');
+          }
+        } catch (e2) {
+          print('❌ [SCROLL] Impossible de réinitialiser: $e2');
+        }
+      }
+
+      _ensureScrollHealthy();
+      _cleanupOldKeys();
+    });
+  }
+
+  /// Nettoyer les GlobalKeys des confessions qui ne sont plus visibles
+  void _cleanupOldKeys() {
+    final currentConfessionIds = confessions.map((c) => c.id).toSet();
+    final keysToRemove = <int>[];
+
+    for (final id in confessionKeys.keys) {
+      if (!currentConfessionIds.contains(id)) {
+        keysToRemove.add(id);
+      }
+    }
+
+    for (final id in keysToRemove) {
+      confessionKeys.remove(id);
+    }
+
+    if (keysToRemove.isNotEmpty) {
+      print('🧹 [CONFESSION] Nettoyage de ${keysToRemove.length} GlobalKeys inutilisées');
+    }
+  }
+
   /// Scroll to top of the feed with smooth animation
   void scrollToTop() {
+    // Vérifier et nettoyer avant de scroller
+    _ensureScrollHealthy();
+    _cleanupOldKeys();
+
     if (scrollController.hasClients) {
-      scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      try {
+        scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      } catch (e) {
+        print('⚠️ [SCROLL] Erreur lors du scroll vers le haut: $e');
+        // Essayer un jump en dernier recours
+        try {
+          scrollController.jumpTo(0);
+        } catch (e2) {
+          print('❌ [SCROLL] Impossible de scroller: $e2');
+        }
+      }
     }
   }
 
@@ -103,67 +206,32 @@ class ConfessionsController extends GetxController {
     return confessionKeys[confessionId]!;
   }
 
-  /// Navigate to a specific confession (load pages if needed, then scroll)
-  /// Returns true if confession was found and scrolled to
+  /// Navigate to a specific confession detail page
+  /// Returns true if navigation was successful
   Future<bool> navigateToConfession(int confessionId, {double? screenHeight}) async {
-    // Charger les confessions si la liste est vide
-    if (confessions.isEmpty) {
-      await loadConfessions();
-    }
+    try {
+      print('🎯 [CONFESSION] Navigation vers la page de détail de la confession $confessionId');
 
-    // Chercher la confession dans les pages déjà chargées
-    int index = confessions.indexWhere((c) => c.id == confessionId);
+      // Naviguer vers la page de détail et attendre le retour
+      await Get.toNamed(
+        Routes.CONFESSION_DETAIL.replaceAll(':id', confessionId.toString()),
+      );
 
-    // Si pas trouvée et qu'il y a plus de pages, charger plus de pages
-    int maxPagesToLoad = 50; // Limite de sécurité pour éviter les boucles infinies
-    int pagesLoaded = 0;
+      // Quand on revient, vérifier le scroll
+      print('↩️ [CONFESSION] Retour de la page de détail');
 
-    while (index == -1 && hasMorePages && pagesLoaded < maxPagesToLoad) {
-      await loadConfessions(); // Load next page
-      pagesLoaded++;
-      index = confessions.indexWhere((c) => c.id == confessionId);
-    }
+      // Attendre un frame pour que la UI se stabilise
+      await Future.delayed(const Duration(milliseconds: 100));
 
-    // Si toujours pas trouvée après avoir chargé toutes les pages disponibles
-    if (index == -1) {
-      print('⚠️ [CONFESSION] Confession ID $confessionId non trouvée dans le feed');
+      // Vérifier et réparer le scroll si nécessaire
+      _ensureScrollHealthy();
+      _cleanupOldKeys();
+
+      return true;
+    } catch (e) {
+      print('❌ [CONFESSION] Erreur lors de la navigation: $e');
       return false;
     }
-
-    // Attendre que l'UI soit construite
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // Utiliser la GlobalKey pour scroller précisément vers la confession
-    final confessionKey = getConfessionKey(confessionId);
-
-    // Essayer jusqu'à 10 fois de trouver le context (l'UI peut ne pas être construite immédiatement)
-    for (int attempt = 0; attempt < 10; attempt++) {
-      final context = confessionKey.currentContext;
-
-      if (context != null && context.mounted) {
-        // Scroller précisément vers la confession avec alignment à 20% du haut (80% vers le haut)
-        await Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOutCubic,
-          alignment: 0.2, // Position à 20% du haut de l'écran
-        );
-
-        // Highlight la confession pendant 2 secondes
-        highlightedConfessionId.value = confessionId;
-        Future.delayed(const Duration(seconds: 2), () {
-          highlightedConfessionId.value = null;
-        });
-
-        return true;
-      }
-
-      // Attendre un peu avant de réessayer
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
-
-    print('⚠️ [CONFESSION] Context non trouvé pour la confession $confessionId');
-    return false;
   }
 
   /// Legacy method: Scroll to a specific confession in the feed
@@ -238,15 +306,17 @@ class ConfessionsController extends GetxController {
       );
 
       if (refresh) {
-        // Pull-to-refresh: remplacer complètement les données pour avoir les mises à jour
+        // Pull-to-refresh: remplacer les données SANS vider la liste d'abord
+        // (évite le flash visuel désagréable)
         _confessionCache.clear();
-        confessions.clear();
 
-        // Ajouter toutes les confessions au cache et à la liste
+        // Ajouter toutes les confessions au cache
         for (final confession in response.confessions) {
           _confessionCache[confession.id] = confession;
         }
-        confessions.value = response.confessions;
+
+        // Remplacer la liste directement (pas de .clear() avant)
+        confessions.value = List.from(response.confessions);
 
         // Sauvegarder dans le cache persistant
         await _cache.saveConfessionsCache(response.confessions, page: 1);
@@ -281,6 +351,9 @@ class ConfessionsController extends GetxController {
 
       // Apply current filter
       _applyFilter();
+
+      // Nettoyer les GlobalKeys après chargement
+      _cleanupOldKeys();
     } catch (e) {
       // En cas d'erreur, essayer le cache même si expiré
       if (confessions.isEmpty) {
@@ -339,8 +412,21 @@ class ConfessionsController extends GetxController {
 
   /// Refresh feed
   Future<void> refreshFeed() async {
-    _loadStories();
-    await loadConfessions(refresh: true);
+    try {
+      // Délai minimum pour une meilleure UX (évite que le spinner disparaisse trop vite)
+      await Future.wait([
+        loadConfessions(refresh: true),
+        Future.delayed(const Duration(milliseconds: 500)), // Délai minimum
+      ]);
+
+      _loadStories();
+
+      // Feedback visuel de succès (subtil, pas intrusif)
+      // Ne pas afficher de snackbar car le RefreshIndicator suffit
+    } catch (e) {
+      // L'erreur est déjà gérée dans loadConfessions
+      print('Error refreshing feed: $e');
+    }
   }
 
   void _loadStories() {

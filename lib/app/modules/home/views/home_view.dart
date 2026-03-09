@@ -25,6 +25,7 @@ class HomeView extends GetView<HomeController> {
       key: controller.scaffoldKey,
       drawer: const AppDrawer(),
       body: NestedScrollView(
+        controller: controller.nestedScrollController,
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(

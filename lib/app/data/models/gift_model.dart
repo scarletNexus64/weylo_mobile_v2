@@ -1,40 +1,62 @@
 class GiftModel {
   final int id;
   final String name;
+  final String slug;
   final String description;
+  final String icon; // Emoji icon (ex: 🌹)
+  final String animation; // Animation type
   final int price;
+  final String formattedPrice; // Prix formaté depuis l'API
   final String tier; // 'bronze', 'silver', 'gold', 'diamond'
-  final String? iconUrl;
-  final String? imageUrl;
+  final String tierColor; // Couleur du tier
+  final String backgroundColor; // Couleur de fond
   final bool isActive;
   final int sortOrder;
-  final DateTime createdAt;
+  final int? categoryId;
+  final GiftCategory? category;
+  final DateTime? createdAt;
 
   GiftModel({
     required this.id,
     required this.name,
+    required this.slug,
     required this.description,
+    required this.icon,
+    required this.animation,
     required this.price,
+    required this.formattedPrice,
     required this.tier,
-    this.iconUrl,
-    this.imageUrl,
+    required this.tierColor,
+    required this.backgroundColor,
     required this.isActive,
     required this.sortOrder,
-    required this.createdAt,
+    this.categoryId,
+    this.category,
+    this.createdAt,
   });
 
   factory GiftModel.fromJson(Map<String, dynamic> json) {
     return GiftModel(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
+      slug: json['slug'] as String? ?? '',
       description: json['description'] as String? ?? '',
+      icon: json['icon'] as String? ?? '🎁', // Emoji par défaut
+      animation: json['animation'] as String? ?? '',
       price: json['price'] as int? ?? 0,
+      formattedPrice: json['formatted_price'] as String? ?? '0 FCFA',
       tier: json['tier'] as String? ?? 'bronze',
-      iconUrl: json['icon_url'] as String?,
-      imageUrl: json['image_url'] as String?,
+      tierColor: json['tier_color'] as String? ?? '#CD7F32',
+      backgroundColor: json['background_color'] as String? ?? '#FF6B6B',
       isActive: json['is_active'] as bool? ?? true,
       sortOrder: json['sort_order'] as int? ?? 0,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      categoryId: json['category_id'] as int?,
+      category: json['category'] != null
+          ? GiftCategory.fromJson(json['category'] as Map<String, dynamic>)
+          : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
     );
   }
 
@@ -42,18 +64,66 @@ class GiftModel {
     return {
       'id': id,
       'name': name,
+      'slug': slug,
       'description': description,
+      'icon': icon,
+      'animation': animation,
       'price': price,
+      'formatted_price': formattedPrice,
       'tier': tier,
-      'icon_url': iconUrl,
-      'image_url': imageUrl,
+      'tier_color': tierColor,
+      'background_color': backgroundColor,
       'is_active': isActive,
       'sort_order': sortOrder,
-      'created_at': createdAt.toIso8601String(),
+      'category_id': categoryId,
+      'category': category?.toJson(),
+      'created_at': createdAt?.toIso8601String(),
     };
   }
+}
 
-  String get formattedPrice => '$price FCFA';
+class GiftCategory {
+  final int id;
+  final String name;
+  final bool isActive;
+  final int? giftsCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  GiftCategory({
+    required this.id,
+    required this.name,
+    required this.isActive,
+    this.giftsCount,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  factory GiftCategory.fromJson(Map<String, dynamic> json) {
+    return GiftCategory(
+      id: json['id'] as int,
+      name: json['name'] as String? ?? '',
+      isActive: json['is_active'] as bool? ?? true,
+      giftsCount: json['gifts_count'] as int?,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'is_active': isActive,
+      'gifts_count': giftsCount,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
 }
 
 class GiftTransactionModel {

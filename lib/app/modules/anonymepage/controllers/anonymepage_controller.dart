@@ -23,7 +23,7 @@ class AnonymepageController extends GetxController {
   final currentPage = 1.obs;
   final lastPage = 1.obs;
   final totalMessages = 0.obs;
-  final perPage = 20;
+  final perPage = 6; // Afficher 6 messages les plus récents par page
 
   // Stats
   final unreadCount = 0.obs;

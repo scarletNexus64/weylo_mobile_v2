@@ -10,27 +10,160 @@ import 'widgets/feed_video_player.dart';
 import 'widgets/confession_actions_bottom_sheet.dart';
 import 'image_viewer_page.dart';
 
-class ConfessionsView extends GetView<ConfessionsController> {
+class ConfessionsView extends StatefulWidget {
   const ConfessionsView({super.key});
 
   @override
+  State<ConfessionsView> createState() => _ConfessionsViewState();
+}
+
+class _ConfessionsViewState extends State<ConfessionsView>
+    with AutomaticKeepAliveClientMixin<ConfessionsView> {
+
+  @override
+  bool get wantKeepAlive => true;
+
+  ConfessionsController get controller => Get.find<ConfessionsController>();
+
+  @override
+  void initState() {
+    super.initState();
+    print('🎬 [FEEDS_VIEW] initState() - ConfessionsView initialisé');
+    // S'assurer que le scroll est sain au démarrage
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        try {
+          // Vérification silencieuse
+          if (controller.scrollController.hasClients) {
+            final offset = controller.scrollController.offset;
+            print('✅ [FEEDS_VIEW] initState() - Scroll OK, offset: $offset');
+          } else {
+            print('⚠️ [FEEDS_VIEW] initState() - Scroll n\'a pas encore de clients');
+          }
+        } catch (e) {
+          print('❌ [FEEDS_VIEW] initState() - Erreur: $e');
+        }
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('🔄 [FEEDS_VIEW] didChangeDependencies() - Retour au tab Confessions');
+    // Vérifier le scroll quand les dépendances changent (retour au tab)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        print('⚠️ [FEEDS_VIEW] Widget non monté, abandon');
+        return;
+      }
+
+      // Vérifier immédiatement si le scroll est dans un état invalide
+      if (controller.scrollController.hasClients) {
+        try {
+          final position = controller.scrollController.position;
+
+          // Attendre que les dimensions soient disponibles
+          if (!position.hasContentDimensions) {
+            print('⏳ [FEEDS] En attente des dimensions du contenu...');
+            // Réessayer après un court délai
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) {
+                _checkAndFixScroll();
+              }
+            });
+            return;
+          }
+
+          _checkAndFixScroll();
+        } catch (e) {
+          print('⚠️ [FEEDS] Erreur lors de la vérification initiale du scroll: $e');
+        }
+      }
+
+      // Puis vérifier la santé globale du scroll après un délai
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          controller.ensureScrollHealthy();
+        }
+      });
+    });
+  }
+
+  /// Vérifier et corriger le scroll si nécessaire
+  void _checkAndFixScroll() {
+    if (!controller.scrollController.hasClients) return;
+
+    try {
+      final offset = controller.scrollController.offset;
+      final position = controller.scrollController.position;
+      final maxExtent = position.maxScrollExtent;
+      final minExtent = position.minScrollExtent;
+
+      // Toujours réinitialiser le scroll à 0 quand on revient au tab
+      if (offset != 0) {
+        print('🚨 [FEEDS] Scroll décalé détecté (offset: $offset, limites: [$minExtent, $maxExtent])');
+
+        // Utiliser animateTo si le décalage est petit, sinon jumpTo
+        if (offset < 100 && offset > 0) {
+          print('🔄 [FEEDS] Animation douce vers le haut');
+          controller.scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+          );
+        } else {
+          print('🔄 [FEEDS] Saut immédiat vers le haut');
+          controller.scrollController.jumpTo(0);
+        }
+        print('✅ [FEEDS] Scroll réinitialisé à 0');
+      } else {
+        print('✅ [FEEDS] Scroll déjà à 0, tout est bon');
+      }
+    } catch (e) {
+      print('⚠️ [FEEDS] Erreur lors de la vérification du scroll: $e');
+      // En cas d'erreur, forcer la réinitialisation
+      try {
+        controller.scrollController.jumpTo(0);
+        print('✅ [FEEDS] Scroll réinitialisé à 0 après erreur');
+      } catch (e2) {
+        print('❌ [FEEDS] Impossible de réinitialiser le scroll: $e2');
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // Important pour AutomaticKeepAliveClientMixin
+
     return RefreshIndicator(
       onRefresh: () async {
         await controller.refreshFeed();
       },
       color: AppThemeSystem.primaryColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppThemeSystem.darkCardColor
+          : Colors.white,
+      displacement: 40.0, // Distance avant de déclencher le refresh
+      strokeWidth: 2.5, // Épaisseur de l'indicateur
       child: NotificationListener<ScrollNotification>(
         onNotification: (ScrollNotification scrollInfo) {
           // Infinite scroll: détecter quand on arrive à 80% du scroll
+          // Vérifier que les métriques sont valides avant de continuer
           if (!controller.isLoadingMore.value &&
+              scrollInfo.metrics.hasContentDimensions &&
+              scrollInfo.metrics.maxScrollExtent > 0 &&
               scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent * 0.8) {
             controller.loadConfessions();
           }
           return false;
         },
         child: CustomScrollView(
+          key: const PageStorageKey<String>('confessions_scroll'),
           controller: controller.scrollController,
+          primary: false, // IMPORTANT: Ne pas se coordonner avec NestedScrollView parent
+          physics: const AlwaysScrollableScrollPhysics(),
+          cacheExtent: 1000, // Précharger pour éviter les rebuilds
           slivers: [
             // Create Post Button
             SliverToBoxAdapter(
