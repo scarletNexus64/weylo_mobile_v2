@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,24 +9,24 @@ import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:animate_do/animate_do.dart';
 
 import '../../../../data/models/anonymous_message_model.dart';
 import '../../../../data/models/gift_model.dart';
 import '../../../../data/services/message_service.dart';
 import '../../../../data/services/gift_service.dart';
 import '../../../../widgets/app_theme_system.dart';
+import '../../../chat/controllers/chat_controller.dart';
 
 /// Bottom sheet pour répondre à un message anonyme
 /// Supporte : Texte, Voice (5 types), Image, Gift
 class AnonymousChatBottomSheet extends StatefulWidget {
   final AnonymousMessageModel originalMessage;
-  final String recipientUsername;
   final VoidCallback? onMessageSent;
 
   const AnonymousChatBottomSheet({
     Key? key,
     required this.originalMessage,
-    required this.recipientUsername,
     this.onMessageSent,
   }) : super(key: key);
 
@@ -44,7 +45,6 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   int _currentTabIndex = 0;
 
   // État général
-  final _isLoading = false.obs;
   final _isSending = false.obs;
 
   // ====================
@@ -53,6 +53,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   final _textController = TextEditingController();
   final _showEmojiPicker = false.obs;
   final FocusNode _textFocusNode = FocusNode();
+  final _revealIdentityText = false.obs; // Révéler identité pour texte
 
   // ====================
   // TAB 2: VOICE
@@ -63,7 +64,6 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   Duration _recordDuration = Duration.zero;
   Timer? _recordTimer;
   final _selectedVoiceType = 'normal'.obs;
-  final _showVoiceTypePicker = false.obs;
 
   // Lecture audio
   ap.AudioPlayer? _audioPlayer;
@@ -109,6 +109,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // ====================
   File? _selectedImage;
   final ImagePicker _imagePicker = ImagePicker();
+  final _revealIdentityImage = false.obs; // Révéler identité pour image
 
   // ====================
   // TAB 4: GIFT
@@ -246,8 +247,11 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       bool? revealIdentity;
 
       // Préparer les données selon le tab
-      if (_currentTabIndex == 1) {
-        // Voice
+      if (_currentTabIndex == 0) {
+        // Texte
+        revealIdentity = _revealIdentityText.value;
+      } else if (_currentTabIndex == 1) {
+        // Voice - pas de révélation d'identité (voix modifiées)
         mediaFile = File(_recordedAudioPath!);
         mediaType = 'audio';
         voiceType = _selectedVoiceType.value;
@@ -255,6 +259,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         // Image
         mediaFile = _selectedImage!;
         mediaType = 'image';
+        revealIdentity = _revealIdentityImage.value;
       } else if (_currentTabIndex == 3) {
         // Gift
         giftId = _selectedGift!.id;
@@ -264,51 +269,47 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         revealIdentity = _revealIdentityWithGift.value;
       }
 
-      final response = await _messageService.sendMessage(
-        username: widget.recipientUsername,
+      final response = await _messageService.sendReply(
+        replyToMessageId: widget.originalMessage.id,
         content: _textController.text.trim().isNotEmpty
             ? _textController.text.trim()
             : null,
-        replyToMessageId: widget.originalMessage.id,
         mediaFile: mediaFile,
         mediaType: mediaType,
         voiceType: voiceType,
         giftId: giftId,
         giftMessage: giftMessage,
-        revealIdentityWithGift: revealIdentity,
+        revealIdentity: revealIdentity,
       );
 
       // Succès
       Get.back();
 
+      // Callback
+      widget.onMessageSent?.call();
+
+      // Afficher un message de succès
       Get.snackbar(
         'Succès',
-        'Message envoyé avec succès',
+        response.conversationId != null
+            ? 'Conversation créée! Consultez l\'onglet Chat'
+            : 'Message envoyé avec succès',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green,
         colorText: Colors.white,
         duration: Duration(seconds: 2),
       );
 
-      // Callback
-      widget.onMessageSent?.call();
-
-      // Si une conversation a été créée, proposer d'y aller
+      // Rafraîchir la liste des conversations si une conversation a été créée
       if (response.conversationId != null) {
-        Get.snackbar(
-          'Conversation créée',
-          'Votre réponse a créé une conversation',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.blue,
-          colorText: Colors.white,
-          duration: Duration(seconds: 3),
-          mainButton: TextButton(
-            onPressed: () {
-              Get.toNamed('/chat/conversation/${response.conversationId}');
-            },
-            child: Text('Voir', style: TextStyle(color: Colors.white)),
-          ),
-        );
+        try {
+          // Accéder au ChatController pour rafraîchir la liste
+          final chatController = Get.find<ChatController>();
+          await chatController.refreshConversations();
+          print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
+        } catch (e) {
+          print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
+        }
       }
     } catch (e) {
       Get.snackbar(
@@ -576,7 +577,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Message original: "${widget.originalMessage.content.length > 50 ? widget.originalMessage.content.substring(0, 50) + '...' : widget.originalMessage.content}"',
+                  'Message original: "${widget.originalMessage.content.length > 50 ? '${widget.originalMessage.content.substring(0, 50)}...' : widget.originalMessage.content}"',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -665,6 +666,42 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                     icon: Icon(Icons.emoji_emotions_outlined),
                     label: Text('Ajouter un emoji'),
                   ),
+                ),
+
+                SizedBox(height: 16),
+
+                // Reveal identity toggle
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[850] : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Obx(() => CheckboxListTile(
+                    value: _revealIdentityText.value,
+                    onChanged: (value) {
+                      _revealIdentityText.value = value ?? false;
+                    },
+                    title: Text(
+                      'Révéler mon identité',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _revealIdentityText.value
+                          ? '✓ Le destinataire saura qui vous êtes'
+                          : 'Message envoyé de manière anonyme',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  )),
                 ),
               ],
             ),
@@ -765,33 +802,35 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                   spacing: 8,
                   runSpacing: 8,
                   children: _voiceTypes.map((voiceType) {
-                    final isSelected = _selectedVoiceType.value == voiceType['id'];
-                    return Obx(() => ChoiceChip(
-                          label: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                voiceType['icon'] as IconData,
-                                size: 18,
-                                color: isSelected
-                                    ? Colors.white
-                                    : (isDark ? Colors.white70 : Colors.black87),
-                              ),
-                              SizedBox(width: 6),
-                              Text(voiceType['name'] as String),
-                            ],
-                          ),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            _selectedVoiceType.value = voiceType['id'] as String;
-                          },
-                          selectedColor: Theme.of(context).primaryColor,
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark ? Colors.white70 : Colors.black87),
-                          ),
-                        ));
+                    return Obx(() {
+                      final isSelected = _selectedVoiceType.value == voiceType['id'];
+                      return ChoiceChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              voiceType['icon'] as IconData,
+                              size: 18,
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDark ? Colors.white70 : Colors.black87),
+                            ),
+                            SizedBox(width: 6),
+                            Text(voiceType['name'] as String),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          _selectedVoiceType.value = voiceType['id'] as String;
+                        },
+                        selectedColor: Theme.of(context).primaryColor,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      );
+                    });
                   }).toList(),
                 ),
                 if (_selectedVoiceType.value != 'normal') ...[
@@ -825,7 +864,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                   color: Colors.red,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withOpacity(0.3),
+                      color: Colors.red.withValues(alpha: 0.3),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -863,7 +902,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Waveform animation (simplifié)
-          Container(
+          SizedBox(
             height: 100,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1001,7 +1040,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -1080,35 +1119,70 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
     }
 
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.image_outlined,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Aucune image sélectionnée',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _pickImage,
-            icon: Icon(Icons.add_photo_alternate),
-            label: Text('Choisir une image'),
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: InkWell(
+          onTap: _pickImage,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey[900] : Colors.grey[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                width: 2,
+                strokeAlign: BorderSide.strokeAlignInside,
               ),
             ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Upload icon avec flèche montante
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_upward_rounded,
+                    size: 40,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'Choisir une image',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Cliquez pour sélectionner une image',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'JPG, PNG (max. 1920x1080)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1146,13 +1220,54 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         ),
         Padding(
           padding: EdgeInsets.all(16),
-          child: OutlinedButton.icon(
-            onPressed: _pickImage,
-            icon: Icon(Icons.refresh),
-            label: Text('Changer l\'image'),
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
+          child: Column(
+            children: [
+              // Change image button
+              OutlinedButton.icon(
+                onPressed: _pickImage,
+                icon: Icon(Icons.refresh),
+                label: Text('Changer l\'image'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Reveal identity toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[850] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                    width: 1,
+                  ),
+                ),
+                child: Obx(() => CheckboxListTile(
+                  value: _revealIdentityImage.value,
+                  onChanged: (value) {
+                    _revealIdentityImage.value = value ?? false;
+                  },
+                  title: Text(
+                    'Révéler mon identité',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _revealIdentityImage.value
+                        ? '✓ Le destinataire saura qui vous êtes'
+                        : 'Image envoyée de manière anonyme',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                )),
+              ),
+            ],
           ),
         ),
       ],
@@ -1191,161 +1306,411 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
 
       return Column(
         children: [
-          // Filtres par catégorie
+          // Filtres par catégorie - Design amélioré
           Container(
-            height: 50,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? Color(0xFF1A1A1A) : Colors.white,
+              border: Border(
+                bottom: BorderSide(
+                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                  width: 1,
+                ),
+              ),
+            ),
             child: Obx(() {
               if (_categories.isEmpty) {
-                return Center(child: Text('Chargement...'));
+                return Container(
+                  height: 56,
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Chargement...',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                );
               }
 
-              return ListView(
+              return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                children: [
-                  // Tous
-                  Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Obx(() => ChoiceChip(
-                          label: Text('Tous'),
-                          selected: _selectedCategoryId.value == null,
-                          onSelected: (selected) {
-                            _selectedCategoryId.value = null;
-                          },
-                        )),
-                  ),
-                  // Catégories
-                  ..._categories.map((category) {
-                    return Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: Obx(() => ChoiceChip(
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(category.name),
-                                if (category.giftsCount != null && category.giftsCount! > 0) ...[
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '(${category.giftsCount})',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            selected: _selectedCategoryId.value == category.id,
-                            onSelected: (selected) {
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    // Tous - Chip amélioré
+                    Obx(() {
+                      final isSelected = _selectedCategoryId.value == null;
+                      return _buildCategoryChip(
+                        label: 'Tous',
+                        count: _gifts.length,
+                        isSelected: isSelected,
+                        isDark: isDark,
+                        onTap: () => _selectedCategoryId.value = null,
+                      );
+                    }),
+                    SizedBox(width: 8),
+                    // Catégories
+                    ..._categories.map((category) {
+                      return Obx(() {
+                        final isSelected = _selectedCategoryId.value == category.id;
+                        return Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: _buildCategoryChip(
+                            label: category.name,
+                            count: category.giftsCount ?? 0,
+                            isSelected: isSelected,
+                            isDark: isDark,
+                            onTap: () {
                               _selectedCategoryId.value =
-                                  selected ? category.id : null;
+                                  isSelected ? null : category.id;
                             },
-                          )),
-                    );
-                  }),
-                ],
+                          ),
+                        );
+                      });
+                    }),
+                  ],
+                ),
               );
             }),
           ),
 
-          Divider(height: 1),
-
-          // Gifts grid
+          // Gifts grid - Design amélioré
           Expanded(
-            child: GridView.builder(
-              padding: EdgeInsets.all(16),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.8,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: filteredGifts.length,
-              itemBuilder: (context, index) {
-                final gift = filteredGifts[index];
-                final isSelected = _selectedGift?.id == gift.id;
-
-                return InkWell(
-                  onTap: () => _selectGift(gift),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.grey[900] : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
+            child: filteredGifts.isEmpty
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Icon emoji
-                        if (gift.icon.isNotEmpty)
-                          Text(
-                            gift.icon,
-                            style: TextStyle(fontSize: 48),
-                          )
-                        else
-                          Icon(
-                            Icons.card_giftcard,
-                            size: 48,
-                            color: _parseColor(gift.tierColor),
-                          ),
-                        SizedBox(height: 8),
-
-                        // Name
+                        Icon(
+                          Icons.card_giftcard_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        SizedBox(height: 12),
                         Text(
-                          gift.name,
+                          'Aucun cadeau dans cette catégorie',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-
-                        SizedBox(height: 4),
-
-                        // Price
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _parseColor(gift.backgroundColor).withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            gift.formattedPrice,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _parseColor(gift.tierColor),
-                            ),
+                            color: Colors.grey[600],
                           ),
                         ),
-
-                        if (isSelected)
-                          Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Icon(
-                              Icons.check_circle,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
                       ],
                     ),
+                  )
+                : GridView.builder(
+                    padding: EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.85,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: filteredGifts.length,
+                    itemBuilder: (context, index) {
+                      final gift = filteredGifts[index];
+                      final isSelected = _selectedGift?.id == gift.id;
+
+                      return FadeInUp(
+                        duration: Duration(milliseconds: 300),
+                        delay: Duration(milliseconds: index * 50),
+                        child: _buildGiftCard(gift, isSelected, isDark, index),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
 
           // Gift options (if gift selected)
           if (_selectedGift != null) _buildGiftOptions(isDark),
         ],
+      );
+    });
+  }
+
+  // Gift: Category Chip - Design moderne
+  Widget _buildCategoryChip({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    AppThemeSystem.primaryColor,
+                    AppThemeSystem.secondaryColor,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected
+              ? null
+              : (isDark ? Colors.grey[850] : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppThemeSystem.primaryColor
+                : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
+            width: isSelected ? 0 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white70 : Colors.black87),
+              ),
+            ),
+            if (count > 0) ...[
+              SizedBox(width: 6),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : (isDark
+                          ? Colors.grey[700]
+                          : Colors.grey[300]),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDark ? Colors.white60 : Colors.black54),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Gift: Card - Design élégant avec animations
+  Widget _buildGiftCard(GiftModel gift, bool isSelected, bool isDark, int index) {
+    return GestureDetector(
+      onTap: () => _selectGift(gift),
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    isDark ? Color(0xFF2A2A2A) : Colors.white,
+                    isDark ? Color(0xFF1F1F1F) : Colors.grey[50]!,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isSelected ? null : (isDark ? Colors.grey[900] : Colors.grey[50]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? AppThemeSystem.primaryColor
+                : (isDark ? Colors.grey[800]! : Colors.grey[200]!),
+            width: isSelected ? 2.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppThemeSystem.primaryColor.withValues(alpha: 0.2),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Contenu principal
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Icon emoji ou fallback avec animation flottante
+                  Center(
+                    child: Pulse(
+                      duration: Duration(milliseconds: 2000 + (index * 200)),
+                      infinite: true,
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            // Sparkles autour du cadeau
+                            ..._buildSparkles(gift, index),
+
+                            // Icon principal
+                            Container(
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _parseColor(gift.backgroundColor).withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: gift.icon.isNotEmpty
+                                  ? Text(
+                                      gift.icon,
+                                      style: TextStyle(fontSize: 28),
+                                    )
+                                  : Icon(
+                                      Icons.card_giftcard,
+                                      size: 24,
+                                      color: _parseColor(gift.tierColor),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 6),
+
+                  // Name
+                  Text(
+                    gift.name,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  SizedBox(height: 4),
+
+                  // Price tag
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _parseColor(gift.tierColor).withValues(alpha: 0.2),
+                          _parseColor(gift.backgroundColor).withValues(alpha: 0.15),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      gift.formattedPrice,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _parseColor(gift.tierColor),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Check icon si sélectionné avec animation
+            if (isSelected)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: ZoomIn(
+                  duration: Duration(milliseconds: 200),
+                  child: Container(
+                    padding: EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: AppThemeSystem.primaryColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppThemeSystem.primaryColor.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.check,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Sparkles autour des cadeaux
+  List<Widget> _buildSparkles(GiftModel gift, int index) {
+    final sparkleColor = _parseColor(gift.tierColor);
+    final random = math.Random(index);
+    const center = 24.0; // Centre du container (48/2)
+
+    return List.generate(4, (i) {
+      final angle = (i * math.pi / 2) + (random.nextDouble() * 0.5);
+      final distance = 28.0 + (random.nextDouble() * 8);
+      final size = 4.0 + (random.nextDouble() * 4);
+
+      return Positioned(
+        left: center + (math.cos(angle) * distance) - (size / 2),
+        top: center + (math.sin(angle) * distance) - (size / 2),
+        child: Flash(
+          duration: Duration(milliseconds: 1500 + (i * 300)),
+          infinite: true,
+          delay: Duration(milliseconds: i * 200),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: sparkleColor.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: sparkleColor.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     });
   }
@@ -1419,9 +1784,10 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         ),
       ),
       child: Obx(() => ElevatedButton(
-            onPressed: _isSending.value ? null : _sendMessage,
+            onPressed: (_isSending.value || _isRecording.value) ? null : _sendMessage,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,
+              disabledBackgroundColor: Colors.grey[400],
               padding: EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1437,20 +1803,36 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.send, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Envoyer',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                : _isRecording.value
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.mic, size: 20, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Enregistrement...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.send, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Envoyer',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
           )),
     );
   }

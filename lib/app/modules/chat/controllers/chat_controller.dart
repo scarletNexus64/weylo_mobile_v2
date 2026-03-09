@@ -27,6 +27,7 @@ class ChatController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('🚀 [ChatController] onInit called - Starting to load conversations...');
     loadConversations();
   }
 
@@ -42,21 +43,30 @@ class ChatController extends GetxController {
 
   /// Charger les conversations depuis l'API
   Future<void> loadConversations({bool refresh = false}) async {
+    print('🔄 [ChatController] loadConversations called - refresh: $refresh');
+
     if (refresh) {
       currentPage = 1;
       conversations.clear();
+      print('🔄 [ChatController] Cleared conversations list');
     }
 
-    if (isLoading.value || isLoadingMore.value) return;
+    if (isLoading.value || isLoadingMore.value) {
+      print('⚠️ [ChatController] Already loading, skipping...');
+      return;
+    }
 
     refresh ? isLoading.value = true : isLoadingMore.value = true;
     hasError.value = false;
 
     try {
+      print('📡 [ChatController] Calling ChatService.getConversations...');
       final response = await _chatService.getConversations(
         page: currentPage,
         perPage: 20,
       );
+
+      print('✅ [ChatController] Got ${response.conversations.length} conversations');
 
       if (refresh) {
         conversations.value = response.conversations;
@@ -67,13 +77,18 @@ class ChatController extends GetxController {
       currentPage = response.meta.currentPage;
       lastPage = response.meta.lastPage;
       canLoadMore.value = response.meta.hasMorePages;
+
+      print('📊 [ChatController] Total conversations: ${conversations.length}');
+      print('📊 [ChatController] Current page: $currentPage, Last page: $lastPage');
     } catch (e) {
       hasError.value = true;
       errorMessage.value = e.toString();
-      print('Error loading conversations: $e');
+      print('❌ [ChatController] Error loading conversations: $e');
+      print('❌ [ChatController] Stack trace: ${StackTrace.current}');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
+      print('✅ [ChatController] Loading completed');
     }
   }
 

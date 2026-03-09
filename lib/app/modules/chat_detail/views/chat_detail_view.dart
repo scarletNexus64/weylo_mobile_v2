@@ -19,13 +19,13 @@ class ChatDetailView extends GetView<ChatDetailController> {
           ? AppThemeSystem.darkBackgroundColor
           : Colors.white,
       appBar: AppBar(
-        title: Row(
+        title: Obx(() => Row(
           children: [
             CircleAvatar(
               radius: 20,
               backgroundColor: AppThemeSystem.primaryColor,
               child: Text(
-                controller.contactName[0].toUpperCase(),
+                controller.displayInitial,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -38,7 +38,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    controller.contactName,
+                    controller.displayName,
                     style: context.textStyle(FontSizeType.body1).copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -53,7 +53,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
               ),
             ),
           ],
-        ),
+        )),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded),
@@ -267,15 +267,88 @@ class ChatDetailView extends GetView<ChatDetailController> {
   }
 
   Widget _buildMessageContent(BuildContext context, ChatMessageModel message, bool isDark, bool isSentByMe) {
+    // Widget pour le "reply-to" style WhatsApp
+    Widget? replyWidget;
+    if (message.anonymousMessage != null) {
+      final anonMsg = message.anonymousMessage!;
+
+      replyWidget = Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.elementSpacing * 0.6,
+          vertical: context.elementSpacing * 0.4,
+        ),
+        decoration: BoxDecoration(
+          color: isSentByMe
+              ? Colors.white.withValues(alpha: 0.2)
+              : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                  .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(6),
+          border: Border(
+            left: BorderSide(
+              color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.visibility_off_rounded,
+              size: 12,
+              color: isSentByMe
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : AppThemeSystem.grey600,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Message anonyme',
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    anonMsg.content,
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: isSentByMe
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : AppThemeSystem.grey600,
+                      fontSize: 12,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     switch (message.type) {
       case ChatMessageType.text:
-        return Text(
-          message.content ?? '',
-          style: context.textStyle(FontSizeType.body2).copyWith(
-            color: isSentByMe
-                ? Colors.white
-                : (isDark ? Colors.white : AppThemeSystem.blackColor),
-          ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (replyWidget != null) replyWidget,
+            Text(
+              message.content ?? '',
+              style: context.textStyle(FontSizeType.body2).copyWith(
+                color: isSentByMe
+                    ? Colors.white
+                    : (isDark ? Colors.white : AppThemeSystem.blackColor),
+              ),
+            ),
+          ],
         );
 
       case ChatMessageType.gift:
@@ -283,7 +356,9 @@ class ChatDetailView extends GetView<ChatDetailController> {
         final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
         final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (replyWidget != null) replyWidget,
             Text(
               giftIcon,
               style: const TextStyle(fontSize: 48),
@@ -302,90 +377,79 @@ class ChatDetailView extends GetView<ChatDetailController> {
         );
 
       case ChatMessageType.audio:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.play_circle_filled_rounded,
-              color: isSentByMe
-                  ? Colors.white
-                  : AppThemeSystem.primaryColor,
-              size: 32,
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 100,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isSentByMe
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : AppThemeSystem.grey300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: 0.4,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSentByMe
-                        ? Colors.white
-                        : AppThemeSystem.primaryColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '0:15',
-              style: context.textStyle(FontSizeType.caption).copyWith(
-                color: isSentByMe
-                    ? Colors.white
-                    : AppThemeSystem.grey600,
+            if (replyWidget != null) replyWidget,
+            _buildAudioPlayer(context, message, isDark, isSentByMe),
+          ],
+        );
+
+      case ChatMessageType.image:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (replyWidget != null) replyWidget,
+            GestureDetector(
+              onTap: message.mediaUrl != null
+                  ? () => _showImageZoom(context, message.mediaUrl!)
+                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: message.mediaUrl != null
+                    ? Image.network(
+                        message.mediaUrl!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 200,
+                          height: 200,
+                          color: AppThemeSystem.grey300,
+                          child: const Icon(
+                            Icons.image_rounded,
+                            size: 64,
+                            color: AppThemeSystem.grey600,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 200,
+                        height: 200,
+                        color: AppThemeSystem.grey300,
+                        child: const Icon(
+                          Icons.image_rounded,
+                          size: 64,
+                          color: AppThemeSystem.grey600,
+                        ),
+                      ),
               ),
             ),
           ],
         );
 
-      case ChatMessageType.image:
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: message.mediaUrl != null
-              ? Image.network(
-                  message.mediaUrl!,
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 200,
-                    height: 200,
-                    color: AppThemeSystem.grey300,
-                    child: const Icon(
-                      Icons.image_rounded,
-                      size: 64,
-                      color: AppThemeSystem.grey600,
-                    ),
-                  ),
-                )
-              : Container(
-                  width: 200,
-                  height: 200,
-                  color: AppThemeSystem.grey300,
-                  child: const Icon(
-                    Icons.image_rounded,
-                    size: 64,
-                    color: AppThemeSystem.grey600,
-                  ),
-                ),
+      case ChatMessageType.video:
+        return Container(
+          width: 200,
+          height: 200,
+          color: AppThemeSystem.grey300,
+          child: const Center(
+            child: Icon(
+              Icons.play_circle_outline_rounded,
+              size: 64,
+              color: AppThemeSystem.grey600,
+            ),
+          ),
         );
 
-      case ChatMessageType.video:
       case ChatMessageType.system:
+        // Message système simple (le reply-to est maintenant dans le message de réponse)
         return Text(
           message.content ?? '',
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: AppThemeSystem.grey600,
             fontStyle: FontStyle.italic,
+            fontSize: 13,
           ),
         );
     }
@@ -566,6 +630,131 @@ class ChatDetailView extends GetView<ChatDetailController> {
         ],
       ),
     );
+  }
+
+  Widget _buildAudioPlayer(BuildContext context, ChatMessageModel message, bool isDark, bool isSentByMe) {
+    // Initialiser le player au premier build
+    controller.initializeAudioPlayer(message.id);
+
+    print('🎵 [AudioPlayer Widget] Building for message ${message.id}');
+    print('🎵 Media URL: ${message.mediaUrl}');
+
+    return Obx(() {
+      // Écouter audioPlayerUpdate pour forcer les rebuilds
+      final _ = controller.audioPlayerUpdate.value;
+
+      final isPlaying = controller.audioPlayingStates[message.id] ?? false;
+      final isLoading = controller.audioLoadingStates[message.id] ?? false;
+      final duration = controller.audioDurations[message.id] ?? Duration.zero;
+      final position = controller.audioPositions[message.id] ?? Duration.zero;
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton Play/Pause
+          GestureDetector(
+            onTap: message.mediaUrl != null
+                ? () => controller.toggleAudioPlayback(message.id, message.mediaUrl!)
+                : null,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSentByMe
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppThemeSystem.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: isSentByMe ? Colors.white : Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Icon(
+                      isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Barre de progression
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Durées
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatAudioDuration(position),
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      _formatAudioDuration(duration),
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: isSentByMe
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : AppThemeSystem.grey600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+
+                // Barre de progression
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: duration.inMilliseconds > 0
+                        ? position.inMilliseconds / duration.inMilliseconds
+                        : 0.0,
+                    backgroundColor: isSentByMe
+                        ? Colors.white.withValues(alpha: 0.3)
+                        : AppThemeSystem.grey300,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                    ),
+                    minHeight: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Icône waveform
+          Icon(
+            Icons.graphic_eq,
+            color: isPlaying
+                ? (isSentByMe ? Colors.white : AppThemeSystem.primaryColor)
+                : (isSentByMe
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : AppThemeSystem.grey400),
+            size: 20,
+          ),
+        ],
+      );
+    });
+  }
+
+  String _formatAudioDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   String _formatPrice(int price) {
@@ -923,5 +1112,75 @@ class ChatDetailView extends GetView<ChatDetailController> {
     }
 
     return sparkles;
+  }
+
+  /// Show image in full screen with zoom capability
+  void _showImageZoom(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.9),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            // Image with zoom
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 200,
+                    height: 200,
+                    color: AppThemeSystem.grey800,
+                    child: const Icon(
+                      Icons.broken_image_rounded,
+                      size: 64,
+                      color: AppThemeSystem.grey600,
+                    ),
+                  ),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: AppThemeSystem.primaryColor,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+
+            // Close button
+            Positioned(
+              top: 40,
+              right: 16,
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

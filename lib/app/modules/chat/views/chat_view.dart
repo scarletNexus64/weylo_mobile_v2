@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/data/models/chat_message_model.dart';
 
 import '../controllers/chat_controller.dart';
 import '../../chat_detail/views/chat_detail_view.dart';
@@ -11,6 +12,15 @@ class ChatView extends GetView<ChatController> {
 
   @override
   Widget build(BuildContext context) {
+    print('🖼️ [ChatView] build() called');
+    print('🎮 [ChatView] Controller found: ${Get.isRegistered<ChatController>()}');
+
+    if (Get.isRegistered<ChatController>()) {
+      print('📊 [ChatView] Conversations count: ${controller.conversations.length}');
+      print('⏳ [ChatView] isLoading: ${controller.isLoading.value}');
+      print('❌ [ChatView] hasError: ${controller.hasError.value}');
+    }
+
     return Column(
       children: [
         // Segmented Button Filter
@@ -20,26 +30,38 @@ class ChatView extends GetView<ChatController> {
           child: Obx(() {
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
+            print('🔄 [ChatView] Obx rebuild - conversations: ${controller.conversations.length}');
+
             // État de chargement
             if (controller.isLoading.value && controller.conversations.isEmpty) {
+              print('⏳ [ChatView] Showing loading indicator');
               return const Center(child: CircularProgressIndicator());
             }
 
             // État d'erreur
             if (controller.hasError.value && controller.conversations.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
-                    SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: controller.refreshConversations,
-                      child: Text('Réessayer'),
+              return RefreshIndicator(
+                onRefresh: controller.refreshConversations,
+                child: SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
+                          SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: controller.refreshConversations,
+                            child: Text('Réessayer'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               );
             }
@@ -47,24 +69,41 @@ class ChatView extends GetView<ChatController> {
             // État vide
             final filteredConvs = controller.filteredConversations;
             if (filteredConvs.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'Aucune conversation',
-                      style: context.textStyle(FontSizeType.h3),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Vos conversations apparaîtront ici',
-                      style: context.textStyle(FontSizeType.body2).copyWith(
-                        color: Colors.grey,
+              return RefreshIndicator(
+                onRefresh: controller.refreshConversations,
+                child: SingleChildScrollView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'Aucune conversation',
+                            style: context.textStyle(FontSizeType.h3),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Vos conversations apparaîtront ici',
+                            style: context.textStyle(FontSizeType.body2).copyWith(
+                              color: Colors.grey,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Tirez vers le bas pour rafraîchir',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               );
             }
@@ -264,6 +303,11 @@ class ChatView extends GetView<ChatController> {
     final otherUser = conversation.otherParticipant;
     final lastMessage = conversation.lastMessage;
 
+    // Déterminer si c'est une conversation anonyme non révélée
+    final isAnonymousUnrevealed = conversation.isAnonymous && !conversation.identityRevealed;
+    final displayName = isAnonymousUnrevealed ? 'Anonyme' : (otherUser?.fullName ?? 'Inconnu');
+    final avatarInitial = isAnonymousUnrevealed ? '?' : (otherUser?.firstName[0].toUpperCase() ?? '?');
+
     return Container(
       margin: EdgeInsets.only(bottom: context.elementSpacing),
       child: ListTile(
@@ -282,12 +326,12 @@ class ChatView extends GetView<ChatController> {
               child: CircleAvatar(
                 radius: 25,
                 backgroundColor: AppThemeSystem.primaryColor,
-                backgroundImage: otherUser?.avatarUrl != null
+                backgroundImage: otherUser?.avatarUrl != null && !isAnonymousUnrevealed
                     ? NetworkImage(otherUser!.avatarUrl!)
                     : null,
-                child: otherUser?.avatarUrl == null
+                child: otherUser?.avatarUrl == null || isAnonymousUnrevealed
                     ? Text(
-                        otherUser?.firstName[0].toUpperCase() ?? '?',
+                        avatarInitial,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -322,7 +366,7 @@ class ChatView extends GetView<ChatController> {
           children: [
             Expanded(
               child: Text(
-                otherUser?.fullName ?? 'Inconnu',
+                displayName,
                 style: context.textStyle(FontSizeType.body1).copyWith(
                   fontWeight: FontWeight.w600,
                   color: Theme.of(context).brightness == Brightness.dark
@@ -334,7 +378,7 @@ class ChatView extends GetView<ChatController> {
           ],
         ),
         subtitle: Text(
-          lastMessage?.content ?? 'Aucun message',
+          _getLastMessagePreview(lastMessage),
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: AppThemeSystem.grey600,
           ),
@@ -375,7 +419,7 @@ class ChatView extends GetView<ChatController> {
             () => const ChatDetailView(),
             binding: ChatDetailBinding(),
             arguments: {
-              'contactName': otherUser?.fullName ?? 'Inconnu',
+              'contactName': displayName,
               'contactId': otherUser?.id.toString() ?? '',
               'conversationId': conversation.id,
             },
@@ -401,6 +445,26 @@ class ChatView extends GetView<ChatController> {
       return '${diff.inMinutes}min';
     } else {
       return 'maintenant';
+    }
+  }
+
+  String _getLastMessagePreview(ChatMessageModel? message) {
+    if (message == null) return 'Aucun message';
+
+    switch (message.type) {
+      case ChatMessageType.audio:
+        return '🎤 Message vocal';
+      case ChatMessageType.image:
+        return '📷 Photo';
+      case ChatMessageType.video:
+        return '🎥 Vidéo';
+      case ChatMessageType.gift:
+        return '🎁 Cadeau';
+      case ChatMessageType.system:
+        return message.content ?? 'Message système';
+      case ChatMessageType.text:
+      default:
+        return message.content ?? 'Aucun message';
     }
   }
 

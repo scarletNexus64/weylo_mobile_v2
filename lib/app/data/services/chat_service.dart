@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/conversation_model.dart';
@@ -12,6 +14,8 @@ class ChatService {
     int perPage = 20,
   }) async {
     try {
+      print('🔄 [ChatService] Fetching conversations - page: $page, perPage: $perPage');
+
       final response = await _api.get(
         ApiConfig.conversations,
         queryParameters: {
@@ -20,18 +24,34 @@ class ChatService {
         },
       );
 
+      print('✅ [ChatService] Got response: ${response.statusCode}');
+
       final data = response.data;
+      print('📦 [ChatService] Response data keys: ${data.keys}');
+      print('📦 [ChatService] Conversations count: ${(data['conversations'] as List).length}');
+
       final conversations = (data['conversations'] as List)
-          .map((json) => ConversationModel.fromJson(json))
+          .map((json) {
+            try {
+              return ConversationModel.fromJson(json);
+            } catch (e) {
+              print('❌ [ChatService] Error parsing conversation: $e');
+              print('📄 [ChatService] Conversation JSON: $json');
+              rethrow;
+            }
+          })
           .toList();
 
       final meta = ConversationPaginationMeta.fromJson(data['meta']);
+
+      print('✅ [ChatService] Successfully parsed ${conversations.length} conversations');
 
       return ConversationListResponse(
         conversations: conversations,
         meta: meta,
       );
     } catch (e) {
+      print('❌ [ChatService] Error loading conversations: $e');
       rethrow;
     }
   }
@@ -94,6 +114,84 @@ class ChatService {
   Future<void> markAsRead(int conversationId) async {
     try {
       await _api.post('${ApiConfig.conversations}/$conversationId/read');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Send a message in a conversation
+  Future<ChatMessageModel> sendMessage({
+    required int conversationId,
+    String? content,
+    String type = 'text',
+    File? audioFile,
+    File? imageFile,
+    File? videoFile,
+    String? voiceType,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      // Si on a un fichier, utiliser multipart/form-data
+      if (audioFile != null || imageFile != null || videoFile != null) {
+        final formData = FormData();
+
+        // Ajouter les champs texte
+        if (content != null && content.isNotEmpty) {
+          formData.fields.add(MapEntry('content', content));
+        }
+        formData.fields.add(MapEntry('type', type));
+
+        // Ajouter le voice_type si fourni
+        if (voiceType != null && voiceType.isNotEmpty) {
+          formData.fields.add(MapEntry('voice_type', voiceType));
+        }
+
+        // Ajouter le fichier
+        if (audioFile != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              audioFile.path,
+              filename: audioFile.path.split('/').last,
+            ),
+          ));
+        } else if (imageFile != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              imageFile.path,
+              filename: imageFile.path.split('/').last,
+            ),
+          ));
+        } else if (videoFile != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              videoFile.path,
+              filename: videoFile.path.split('/').last,
+            ),
+          ));
+        }
+
+        final response = await _api.post(
+          '${ApiConfig.conversations}/$conversationId/messages',
+          data: formData,
+        );
+
+        return ChatMessageModel.fromJson(response.data['message']);
+      } else {
+        // Sinon, utiliser JSON classique
+        final response = await _api.post(
+          '${ApiConfig.conversations}/$conversationId/messages',
+          data: {
+            'content': content,
+            'type': type,
+            if (metadata != null) 'metadata': metadata,
+          },
+        );
+
+        return ChatMessageModel.fromJson(response.data['message']);
+      }
     } catch (e) {
       rethrow;
     }

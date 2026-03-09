@@ -98,10 +98,12 @@ class MessageService {
 
         // Gestion du média (audio ou image)
         if (mediaFile != null && mediaType != null) {
+          // Utiliser fromBytes pour éviter les problèmes de taille de fichier
+          final bytes = await mediaFile.readAsBytes();
           formData.files.add(MapEntry(
             'media',
-            await MultipartFile.fromFile(
-              mediaFile.path,
+            MultipartFile.fromBytes(
+              bytes,
               filename: mediaFile.path.split('/').last,
             ),
           ));
@@ -139,6 +141,91 @@ class MessageService {
 
         final response = await _api.post(
           ApiConfig.sendMessage(username),
+          data: data,
+        );
+
+        return SendMessageResponse.fromJson(response.data);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Reply to an anonymous message (without needing the sender's username)
+  /// This method is specifically for replying to anonymous messages
+  Future<SendMessageResponse> sendReply({
+    required int replyToMessageId,
+    String? content,
+    File? mediaFile,
+    String? mediaType, // 'audio' or 'image'
+    String? voiceType, // 'normal', 'robot', 'alien', 'mystery', 'chipmunk'
+    int? giftId,
+    String? giftMessage,
+    bool? revealIdentity, // Révéler l'identité avec ce message
+  }) async {
+    try {
+      // Si on a un fichier média ou un gift, utiliser FormData
+      if (mediaFile != null || giftId != null) {
+        final formData = FormData();
+
+        // Ajouter les champs texte
+        if (content != null && content.isNotEmpty) {
+          formData.fields.add(MapEntry('content', content));
+        }
+        formData.fields.add(MapEntry('reply_to_message_id', replyToMessageId.toString()));
+
+        // Gestion du média (audio ou image)
+        if (mediaFile != null && mediaType != null) {
+          // Utiliser fromBytes pour éviter les problèmes de taille de fichier
+          final bytes = await mediaFile.readAsBytes();
+          formData.files.add(MapEntry(
+            'media',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: mediaFile.path.split('/').last,
+            ),
+          ));
+          formData.fields.add(MapEntry('media_type', mediaType));
+
+          // Ajouter le type de voix si spécifié pour audio
+          if (mediaType == 'audio' && voiceType != null) {
+            formData.fields.add(MapEntry('voice_type', voiceType));
+          }
+        }
+
+        // Gestion du cadeau
+        if (giftId != null) {
+          formData.fields.add(MapEntry('gift_id', giftId.toString()));
+          if (giftMessage != null && giftMessage.isNotEmpty) {
+            formData.fields.add(MapEntry('gift_message', giftMessage));
+          }
+        }
+
+        // Révélation d'identité (pour cadeau ou non)
+        if (revealIdentity != null && revealIdentity) {
+          formData.fields.add(MapEntry('reveal_identity', '1'));
+          // Ajouter aussi reveal_identity_with_gift pour compatibilité avec les cadeaux
+          if (giftId != null) {
+            formData.fields.add(MapEntry('reveal_identity_with_gift', '1'));
+          }
+        }
+
+        final response = await _api.post(
+          ApiConfig.sendReply,
+          data: formData,
+        );
+
+        return SendMessageResponse.fromJson(response.data);
+      } else {
+        // Sinon, utiliser JSON classique (texte uniquement)
+        final data = {
+          'content': content ?? '',
+          'reply_to_message_id': replyToMessageId,
+          if (revealIdentity != null && revealIdentity) 'reveal_identity': 1,
+        };
+
+        final response = await _api.post(
+          ApiConfig.sendReply,
           data: data,
         );
 

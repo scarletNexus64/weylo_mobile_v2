@@ -3,27 +3,35 @@ import 'chat_message_model.dart';
 
 class ConversationModel {
   final int id;
-  final int participantOneId;
-  final int participantTwoId;
+  final int? participantOneId;
+  final int? participantTwoId;
   final UserModel? otherParticipant;
   final ChatMessageModel? lastMessage;
   final int unreadCount;
   final bool hasPremium;
   final bool isAnonymous;
+  final bool identityRevealed;
+  final bool canInitiateReveal;
+  final int? anonymousMessageId;
   final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime? updatedAt;
+  final DateTime? lastMessageAt;
 
   ConversationModel({
     required this.id,
-    required this.participantOneId,
-    required this.participantTwoId,
+    this.participantOneId,
+    this.participantTwoId,
     this.otherParticipant,
     this.lastMessage,
     this.unreadCount = 0,
     this.hasPremium = false,
     this.isAnonymous = false,
+    this.identityRevealed = false,
+    this.canInitiateReveal = false,
+    this.anonymousMessageId,
     required this.createdAt,
-    required this.updatedAt,
+    this.updatedAt,
+    this.lastMessageAt,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
@@ -40,8 +48,16 @@ class ConversationModel {
       unreadCount: json['unread_count'] ?? 0,
       hasPremium: json['has_premium'] ?? false,
       isAnonymous: json['is_anonymous'] ?? false,
+      identityRevealed: json['identity_revealed'] ?? false,
+      canInitiateReveal: json['can_initiate_reveal'] ?? false,
+      anonymousMessageId: json['anonymous_message_id'],
       createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : null,
+      lastMessageAt: json['last_message_at'] != null
+          ? DateTime.parse(json['last_message_at'])
+          : null,
     );
   }
 
@@ -55,8 +71,12 @@ class ConversationModel {
       'unread_count': unreadCount,
       'has_premium': hasPremium,
       'is_anonymous': isAnonymous,
+      'identity_revealed': identityRevealed,
+      'can_initiate_reveal': canInitiateReveal,
+      'anonymous_message_id': anonymousMessageId,
       'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+      'last_message_at': lastMessageAt?.toIso8601String(),
     };
   }
 }

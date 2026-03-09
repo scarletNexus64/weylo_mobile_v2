@@ -11,22 +11,29 @@ import '../controllers/home_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
+    print('🏠 [HomeBinding] Initializing all controllers...');
+
     // Utiliser put() au lieu de lazyPut() pour garantir que les controllers
     // sont toujours disponibles, même après retour de navigation
     Get.put<HomeController>(
       HomeController(),
       permanent: true,
     );
+    print('✅ [HomeBinding] HomeController initialized');
 
     // Initialize all tab controllers avec put() pour éviter les problèmes de scroll
     Get.put<AnonymepageController>(
       AnonymepageController(),
       permanent: true,
     );
+    print('✅ [HomeBinding] AnonymepageController initialized');
+
+    print('🔄 [HomeBinding] Creating ChatController...');
     Get.put<ChatController>(
       ChatController(),
       permanent: true,
     );
+    print('✅ [HomeBinding] ChatController initialized');
     Get.put<GroupeController>(
       GroupeController(),
       permanent: true,

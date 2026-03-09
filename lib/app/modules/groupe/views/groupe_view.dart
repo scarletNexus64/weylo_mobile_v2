@@ -1,31 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/widgets/group_details_modal.dart';
 
 import '../controllers/groupe_controller.dart';
 import '../../groupe_detail/views/groupe_detail_view.dart';
 import '../../groupe_detail/bindings/groupe_detail_binding.dart';
+import 'create_group_view.dart';
 
 class GroupeView extends GetView<GroupeController> {
   const GroupeView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        // Segmented Button Filter (comme ChatView)
-        _buildFilterSegment(context),
-        // Content
-        Expanded(
-          child: Obx(() {
-            final currentTab = controller.selectedTab.value;
+        Column(
+          children: [
+            // Segmented Button Filter (comme ChatView)
+            _buildFilterSegment(context),
+            // Content
+            Expanded(
+              child: Obx(() {
+                final currentTab = controller.selectedTab.value;
 
-            if (currentTab == GroupTab.myGroups) {
-              return _buildMyGroupsView(context);
-            } else {
-              return _buildDiscoverGroupsView(context);
-            }
-          }),
+                if (currentTab == GroupTab.myGroups) {
+                  return _buildMyGroupsView(context);
+                } else {
+                  return _buildDiscoverGroupsView(context);
+                }
+              }),
+            ),
+          ],
+        ),
+        // FAB pour créer un groupe
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).viewPadding.bottom + 16,
+          child: FloatingActionButton(
+            onPressed: () {
+              Get.to(
+                () => const CreateGroupView(),
+                transition: Transition.downToUp,
+                duration: const Duration(milliseconds: 300),
+              );
+            },
+            backgroundColor: AppThemeSystem.tertiaryColor,
+            child: const Icon(
+              Icons.add_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
         ),
       ],
     );
@@ -339,7 +365,7 @@ class GroupeView extends GetView<GroupeController> {
             color: isDark ? AppThemeSystem.darkBackgroundColor : Colors.white,
             child: Column(
               children: [
-                // Search bar simple et moderne
+                // Search bar simple et moderne avec bouton code d'invitation
                 Container(
                   margin: EdgeInsets.fromLTRB(
                     context.horizontalPadding,
@@ -347,27 +373,8 @@ class GroupeView extends GetView<GroupeController> {
                     context.horizontalPadding,
                     context.elementSpacing * 0.5,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppThemeSystem.grey800.withValues(alpha: 0.4)
-                        : AppThemeSystem.grey100,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark
-                          ? AppThemeSystem.grey700.withValues(alpha: 0.5)
-                          : AppThemeSystem.grey200,
-                      width: 1,
-                    ),
-                  ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.search_rounded,
-                        color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
                           decoration: InputDecoration(
@@ -375,13 +382,98 @@ class GroupeView extends GetView<GroupeController> {
                             hintStyle: context.textStyle(FontSizeType.body2).copyWith(
                               color: AppThemeSystem.grey600,
                             ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                              size: 20,
+                            ),
+                            suffixIcon: Obx(() {
+                              if (controller.searchQuery.value.isNotEmpty) {
+                                return IconButton(
+                                  icon: Icon(
+                                    Icons.clear_rounded,
+                                    color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    controller.searchGroups('');
+                                  },
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            }),
+                            filled: true,
+                            fillColor: isDark
+                                ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                                : AppThemeSystem.grey100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                                    : AppThemeSystem.grey200,
+                                width: 1,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark
+                                    ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                                    : AppThemeSystem.grey200,
+                                width: 1,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: AppThemeSystem.tertiaryColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
                           style: context.textStyle(FontSizeType.body2),
                           onChanged: (value) {
-                            // TODO: Implement search functionality
+                            controller.searchGroups(value);
                           },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Bouton pour rejoindre par code d'invitation
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppThemeSystem.tertiaryColor,
+                              AppThemeSystem.secondaryColor,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              _showJoinByCodeDialog(context);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Icon(
+                                Icons.vpn_key_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -392,23 +484,36 @@ class GroupeView extends GetView<GroupeController> {
                 Container(
                   height: 45,
                   margin: EdgeInsets.only(bottom: context.elementSpacing * 0.5),
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
-                    children: [
-                      _buildFilterChip(context, 'Tous', true),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(context, 'Technologie', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(context, 'Sports', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(context, 'Musique', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(context, 'Éducation', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(context, 'Gaming', false),
-                    ],
-                  ),
+                  child: Obx(() {
+                    if (controller.isLoadingCategories.value) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    return ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+                      children: [
+                        _buildFilterChipWidget(
+                          context,
+                          'Tous',
+                          null,
+                          controller.selectedCategoryId.value == null,
+                        ),
+                        const SizedBox(width: 8),
+                        ...controller.categories.map((category) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildFilterChipWidget(
+                              context,
+                              category.name,
+                              category.id,
+                              controller.selectedCategoryId.value == category.id,
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  }),
                 ),
               ],
             ),
@@ -436,32 +541,49 @@ class GroupeView extends GetView<GroupeController> {
             size: 28,
           ),
         ),
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                group.name,
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : AppThemeSystem.blackColor,
-                ),
+            Text(
+              group.name,
+              style: context.textStyle(FontSizeType.body1).copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : AppThemeSystem.blackColor,
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${group.membersCount} membres',
-                style: context.textStyle(FontSizeType.caption).copyWith(
-                  color: AppThemeSystem.tertiaryColor,
-                  fontWeight: FontWeight.w600,
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  group.isPublic ? Icons.public_rounded : Icons.lock_rounded,
+                  size: 12,
+                  color: AppThemeSystem.grey600,
                 ),
-              ),
+                const SizedBox(width: 4),
+                Text(
+                  group.isPublic ? 'Public' : 'Privé',
+                  style: context.textStyle(FontSizeType.caption).copyWith(
+                    color: AppThemeSystem.grey600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${group.membersCount} membres',
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: AppThemeSystem.tertiaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -503,17 +625,7 @@ class GroupeView extends GetView<GroupeController> {
           ],
         ),
         onTap: () {
-          Get.to(
-            () => const GroupeDetailView(),
-            binding: GroupeDetailBinding(),
-            arguments: {
-              'groupName': group.name,
-              'groupId': group.id.toString(),
-              'memberCount': group.membersCount,
-            },
-            transition: Transition.rightToLeft,
-            duration: const Duration(milliseconds: 300),
-          );
+          GroupDetailsModal.show(context, group, controller);
         },
       ),
     );
@@ -523,30 +635,36 @@ class GroupeView extends GetView<GroupeController> {
   Widget _buildDiscoverGroupCardFromModel(BuildContext context, group) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: EdgeInsets.only(bottom: context.elementSpacing),
-      padding: EdgeInsets.all(context.elementSpacing),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  AppThemeSystem.darkCardColor,
-                  AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
-                ]
-              : [
-                  Colors.white,
-                  AppThemeSystem.grey100.withValues(alpha: 0.3),
-                ],
+    return GestureDetector(
+      onTap: () {
+        GroupDetailsModal.show(context, group, controller);
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: context.elementSpacing),
+        padding: EdgeInsets.all(context.elementSpacing),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    AppThemeSystem.darkCardColor,
+                    AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
+                  ]
+                : [
+                    Colors.white,
+                    AppThemeSystem.grey100.withValues(alpha: 0.3),
+                  ],
+          ),
+          borderRadius: context.borderRadius(BorderRadiusType.medium),
+          border: Border.all(
+            color: isDark
+                ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+                : AppThemeSystem.grey300.withValues(alpha: 0.5),
+            width: 1,
+          ),
         ),
-        borderRadius: context.borderRadius(BorderRadiusType.medium),
-        border: Border.all(
-          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
+        child: Row(
         children: [
           CircleAvatar(
             radius: 30,
@@ -627,51 +745,10 @@ class GroupeView extends GetView<GroupeController> {
             ),
           ),
           const SizedBox(width: 12),
-          // Join Button
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppThemeSystem.tertiaryColor,
-                  AppThemeSystem.secondaryColor,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  Get.snackbar(
-                    'Rejoindre',
-                    'Rejoindre le groupe ${group.name}',
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: AppThemeSystem.tertiaryColor,
-                    colorText: Colors.white,
-                  );
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Rejoindre',
-                        style: context.textStyle(FontSizeType.caption).copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          // Join Button - Afficher différent si déjà membre ou si peut rejoindre
+          _buildJoinButton(context, group),
         ],
+        ),
       ),
     );
   }
@@ -693,19 +770,353 @@ class GroupeView extends GetView<GroupeController> {
     }
   }
 
-  // Filter Chip
-  Widget _buildFilterChip(BuildContext context, String label, bool isSelected) {
+  // Show Join by Code Dialog
+  void _showJoinByCodeDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final TextEditingController codeController = TextEditingController();
+
+    Get.dialog(
+      Dialog(
+        backgroundColor: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Titre
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppThemeSystem.tertiaryColor,
+                          AppThemeSystem.secondaryColor,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.vpn_key_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Rejoindre par code',
+                      style: context.textStyle(FontSizeType.h3).copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Description
+              Text(
+                'Entrez le code d\'invitation du groupe privé que vous souhaitez rejoindre.',
+                style: context.textStyle(FontSizeType.body2).copyWith(
+                  color: AppThemeSystem.grey600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // TextField pour le code
+              TextField(
+                controller: codeController,
+                decoration: InputDecoration(
+                  hintText: 'Code d\'invitation',
+                  hintStyle: context.textStyle(FontSizeType.body2).copyWith(
+                    color: AppThemeSystem.grey600,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.pin_rounded,
+                    color: AppThemeSystem.tertiaryColor,
+                    size: 20,
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                      : AppThemeSystem.grey100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                          : AppThemeSystem.grey200,
+                      width: 1,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                          : AppThemeSystem.grey200,
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppThemeSystem.tertiaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                style: context.textStyle(FontSizeType.body2).copyWith(
+                  color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                ),
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 8,
+              ),
+              const SizedBox(height: 24),
+              // Boutons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Get.back();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppThemeSystem.grey700,
+                        side: BorderSide(
+                          color: isDark
+                              ? AppThemeSystem.grey700
+                              : AppThemeSystem.grey300,
+                          width: 1,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        'Annuler',
+                        style: context.textStyle(FontSizeType.button).copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppThemeSystem.tertiaryColor,
+                            AppThemeSystem.secondaryColor,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () async {
+                            final code = codeController.text.trim();
+                            if (code.isNotEmpty) {
+                              Get.back();
+                              final success = await controller.joinGroupByCode(code);
+                              if (success) {
+                                codeController.dispose();
+                              }
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Rejoindre',
+                              style: context.textStyle(FontSizeType.button).copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build Join Button Widget
+  Widget _buildJoinButton(BuildContext context, group) {
+    // Si l'utilisateur est déjà membre
+    if (group.isMember == true) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppThemeSystem.grey600.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppThemeSystem.grey600.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle_rounded, color: AppThemeSystem.grey600, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              'Membre',
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: AppThemeSystem.grey600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Si le groupe ne peut pas accepter plus de membres
+    if (group.canJoin == false) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppThemeSystem.grey600.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppThemeSystem.grey600.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.block_rounded, color: AppThemeSystem.grey600, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              'Complet',
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: AppThemeSystem.grey600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Si le groupe est privé, demander le code
+    if (group.isPublic == false) {
+      return Container(
+        decoration: BoxDecoration(
+          color: AppThemeSystem.secondaryColor.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppThemeSystem.secondaryColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              // Ouvrir le dialog pour entrer le code
+              _showJoinByCodeDialog(context);
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.vpn_key_rounded, color: AppThemeSystem.secondaryColor, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Code requis',
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: AppThemeSystem.secondaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Bouton pour rejoindre (groupe public)
+    return Container(
+      decoration: BoxDecoration(
+        color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () async {
+            // Rejoindre le groupe public directement
+            await controller.joinGroupById(group.id);
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_rounded, color: AppThemeSystem.tertiaryColor, size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  'Rejoindre',
+                  style: context.textStyle(FontSizeType.caption).copyWith(
+                    color: AppThemeSystem.tertiaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Filter Chip Widget
+  Widget _buildFilterChipWidget(
+    BuildContext context,
+    String label,
+    int? categoryId,
+    bool isSelected,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return InkWell(
       onTap: () {
-        Get.snackbar(
-          'Filtre',
-          'Filtrer par $label',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: AppThemeSystem.tertiaryColor,
-          colorText: Colors.white,
-        );
+        controller.selectCategory(categoryId);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -784,8 +1195,10 @@ class GroupeView extends GetView<GroupeController> {
         ),
         borderRadius: context.borderRadius(BorderRadiusType.medium),
         border: Border.all(
-          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
-          width: 1.5,
+          color: isDark
+              ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+              : AppThemeSystem.grey300.withValues(alpha: 0.5),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(

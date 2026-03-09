@@ -97,13 +97,27 @@ class UserModel {
       }
     }
 
+    // Pour les conversations anonymes, certains champs peuvent être null
+    final firstName = json['first_name'] ?? json['initial'] ?? 'Anonyme';
+    final fullName = json['full_name'] ?? firstName;
+    final username = json['username'] ?? 'anonymous_${json['id']}';
+    final email = json['email'] ?? '';
+
+    // Dates peuvent être nulles pour les participants anonymes
+    final createdAt = json['created_at'] != null
+        ? DateTime.parse(json['created_at'])
+        : DateTime.now();
+    final updatedAt = json['updated_at'] != null
+        ? DateTime.parse(json['updated_at'])
+        : DateTime.now();
+
     return UserModel(
       id: json['id'],
-      firstName: json['first_name'],
+      firstName: firstName,
       lastName: json['last_name'],
-      fullName: json['full_name'] ?? json['first_name'],
-      username: json['username'],
-      email: json['email'],
+      fullName: fullName,
+      username: username,
+      email: email,
       phone: json['phone'] ?? '',
       avatar: json['avatar'],
       avatarUrl: avatarUrl,
@@ -140,8 +154,8 @@ class UserModel {
       lastSeenAt: json['last_seen_at'] != null
           ? DateTime.parse(json['last_seen_at'])
           : null,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

@@ -1,10 +1,13 @@
 import 'user_model.dart';
 import 'group_message_model.dart';
+import 'group_category_model.dart';
 
 class GroupModel {
   final int id;
   final String name;
   final String? description;
+  final int? categoryId;
+  final GroupCategoryModel? category;
   final int creatorId;
   final String inviteCode;
   final bool isPublic;
@@ -14,6 +17,8 @@ class GroupModel {
   final int unreadCount;
   final bool isCreator;
   final bool isAdmin;
+  final bool? isMember; // Pour les groupes discover
+  final bool? canJoin; // Pour les groupes discover
   final DateTime? lastMessageAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -22,6 +27,8 @@ class GroupModel {
     required this.id,
     required this.name,
     this.description,
+    this.categoryId,
+    this.category,
     required this.creatorId,
     required this.inviteCode,
     this.isPublic = false,
@@ -31,6 +38,8 @@ class GroupModel {
     this.unreadCount = 0,
     this.isCreator = false,
     this.isAdmin = false,
+    this.isMember,
+    this.canJoin,
     this.lastMessageAt,
     required this.createdAt,
     required this.updatedAt,
@@ -41,6 +50,10 @@ class GroupModel {
       id: json['id'],
       name: json['name'],
       description: json['description'],
+      categoryId: json['category_id'],
+      category: json['category'] != null
+          ? GroupCategoryModel.fromJson(json['category'])
+          : null,
       creatorId: json['creator_id'],
       inviteCode: json['invite_code'],
       isPublic: json['is_public'] ?? false,
@@ -52,6 +65,8 @@ class GroupModel {
       unreadCount: json['unread_count'] ?? 0,
       isCreator: json['is_creator'] ?? false,
       isAdmin: json['is_admin'] ?? false,
+      isMember: json['is_member'],
+      canJoin: json['can_join'],
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.parse(json['last_message_at'])
           : null,
@@ -65,6 +80,8 @@ class GroupModel {
       'id': id,
       'name': name,
       'description': description,
+      'category_id': categoryId,
+      'category': category?.toJson(),
       'creator_id': creatorId,
       'invite_code': inviteCode,
       'is_public': isPublic,
@@ -74,6 +91,8 @@ class GroupModel {
       'unread_count': unreadCount,
       'is_creator': isCreator,
       'is_admin': isAdmin,
+      'is_member': isMember,
+      'can_join': canJoin,
       'last_message_at': lastMessageAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),

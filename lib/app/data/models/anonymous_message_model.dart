@@ -5,6 +5,7 @@ class AnonymousMessageModel {
   final String content;
   final String senderInitial;
   final MessageSender? sender; // null si pas révélé
+  final MessageSender? recipient; // Destinataire du message
   final bool isRead;
   final DateTime? readAt;
   final bool isIdentityRevealed;
@@ -20,6 +21,7 @@ class AnonymousMessageModel {
     required this.content,
     required this.senderInitial,
     this.sender,
+    this.recipient,
     required this.isRead,
     this.readAt,
     required this.isIdentityRevealed,
@@ -38,6 +40,9 @@ class AnonymousMessageModel {
       senderInitial: json['sender_initial'],
       sender: json['sender'] != null
           ? MessageSender.fromJson(json['sender'])
+          : null,
+      recipient: json['recipient'] != null
+          ? MessageSender.fromJson(json['recipient'])
           : null,
       isRead: json['is_read'] ?? false,
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
@@ -63,6 +68,7 @@ class AnonymousMessageModel {
       'content': content,
       'sender_initial': senderInitial,
       'sender': sender?.toJson(),
+      'recipient': recipient?.toJson(),
       'is_read': isRead,
       'read_at': readAt?.toIso8601String(),
       'is_identity_revealed': isIdentityRevealed,
@@ -110,7 +116,7 @@ class AnonymousMessageModel {
   bool get hasGifts => giftTransactions != null && giftTransactions!.isNotEmpty;
 }
 
-/// Sender information (only available when identity is revealed)
+/// Sender/Recipient information (only available when identity is revealed)
 class MessageSender {
   final int id;
   final String username;
@@ -129,10 +135,15 @@ class MessageSender {
   factory MessageSender.fromJson(Map<String, dynamic> json) {
     return MessageSender(
       id: json['id'],
-      username: json['username'],
-      firstName: json['first_name'],
-      lastName: json['last_name'],
-      avatar: json['avatar'],
+      username: json['username'] ?? '',
+      // Accepter soit first_name, soit extraire de full_name
+      firstName: json['first_name'] ??
+                 (json['full_name']?.toString().split(' ').first ?? ''),
+      lastName: json['last_name'] ??
+                (json['full_name']!.toString().split(' ').length > 1
+                  ? json['full_name']?.toString().split(' ').sublist(1).join(' ')
+                  : null),
+      avatar: json['avatar'] ?? json['avatar_url'],
     );
   }
 
@@ -143,12 +154,17 @@ class MessageSender {
       'first_name': firstName,
       'last_name': lastName,
       'avatar': avatar,
+      'full_name': fullName,
     };
   }
 
-  String get fullName => lastName != null && lastName!.isNotEmpty
-      ? '$firstName $lastName'
-      : firstName;
+  String get fullName {
+    // Si full_name est disponible, l'utiliser directement
+    if (lastName != null && lastName!.isNotEmpty) {
+      return '$firstName $lastName';
+    }
+    return firstName;
+  }
 }
 
 /// Pagination metadata

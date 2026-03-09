@@ -61,6 +61,7 @@ dependencies:
   permission_handler: ^12.0.1
   audioplayers: ^6.1.0
   timeago: ^3.7.1
+  animate_do: ^4.2.0
 
 dev_dependencies:
   flutter_test:
@@ -105,5 +106,5 @@ flutter_launcher_icons:
   # Configuration iOS
   remove_alpha_ios: true
   # Configuration Android
-  adaptive_icon_background: "#EDEBEF"
+  adaptive_icon_background: "#323134"
   adaptive_icon_foreground: "assets/images/logo.png"

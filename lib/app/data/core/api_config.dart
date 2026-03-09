@@ -31,6 +31,7 @@ class ApiConfig {
   static const String sentMessages = '/messages/sent';
   static const String messageStats = '/messages/stats';
   static String sendMessage(String username) => '/messages/send/$username';
+  static const String sendReply = '/messages/send/reply';
 
   // Confessions endpoints
   static const String confessions = '/confessions';
@@ -45,6 +46,7 @@ class ApiConfig {
   // Groups endpoints
   static const String groups = '/groups';
   static const String discoverGroups = '/groups/discover';
+  static const String groupCategories = '/group-categories';
 
   // Gifts endpoints
   static const String gifts = '/gifts';

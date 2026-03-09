@@ -2,6 +2,7 @@ import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/group_model.dart';
 import '../models/group_message_model.dart';
+import '../models/group_category_model.dart';
 
 class GroupService {
   final _api = ApiService();
@@ -36,18 +37,26 @@ class GroupService {
     }
   }
 
-  /// Discover public groups with pagination
+  /// Discover public groups with pagination and optional category filter
   Future<GroupListResponse> discoverGroups({
     int page = 1,
     int perPage = 20,
+    int? categoryId,
   }) async {
     try {
+      final queryParams = {
+        'page': page,
+        'per_page': perPage,
+      };
+
+      // Ajouter category_id seulement si fourni
+      if (categoryId != null) {
+        queryParams['category_id'] = categoryId;
+      }
+
       final response = await _api.get(
         ApiConfig.discoverGroups,
-        queryParameters: {
-          'page': page,
-          'per_page': perPage,
-        },
+        queryParameters: queryParams,
       );
 
       final data = response.data;
@@ -61,6 +70,22 @@ class GroupService {
         groups: groups,
         meta: meta,
       );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get all group categories
+  Future<List<GroupCategoryModel>> getCategories() async {
+    try {
+      final response = await _api.get(ApiConfig.groupCategories);
+      final data = response.data;
+
+      final categories = (data['categories'] as List)
+          .map((json) => GroupCategoryModel.fromJson(json))
+          .toList();
+
+      return categories;
     } catch (e) {
       rethrow;
     }
@@ -121,6 +146,117 @@ class GroupService {
     try {
       final response = await _api.get('${ApiConfig.groups}/stats');
       return GroupStats.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Join a group by group ID (for public groups)
+  Future<GroupModel> joinGroupById(int groupId) async {
+    try {
+      final response = await _api.post(
+        '${ApiConfig.groups}/join',
+        data: {
+          'group_id': groupId,
+        },
+      );
+      return GroupModel.fromJson(response.data['group']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Join a group by invite code (for private groups)
+  Future<GroupModel> joinGroupByCode(String inviteCode) async {
+    try {
+      final response = await _api.post(
+        '${ApiConfig.groups}/join',
+        data: {
+          'invite_code': inviteCode,
+        },
+      );
+      return GroupModel.fromJson(response.data['group']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Create a new group
+  Future<GroupModel> createGroup({
+    required String name,
+    String? description,
+    int? categoryId,
+    bool isPublic = false,
+    bool isDiscoverable = true,
+    int? maxMembers,
+  }) async {
+    try {
+      final data = {
+        'name': name,
+        'is_public': isPublic,
+        'is_discoverable': isDiscoverable,
+      };
+
+      if (description != null && description.isNotEmpty) {
+        data['description'] = description;
+      }
+
+      if (categoryId != null) {
+        data['category_id'] = categoryId;
+      }
+
+      if (maxMembers != null) {
+        data['max_members'] = maxMembers;
+      }
+
+      final response = await _api.post(
+        ApiConfig.groups,
+        data: data,
+      );
+
+      return GroupModel.fromJson(response.data['group']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Search/filter public groups with pagination
+  Future<GroupListResponse> searchGroups({
+    required String search,
+    int page = 1,
+    int perPage = 20,
+    int? categoryId,
+    String sortBy = 'recent',
+  }) async {
+    try {
+      final queryParams = {
+        'page': page,
+        'per_page': perPage,
+        'search': search,
+        'sort_by': sortBy,
+      };
+
+      // Ajouter category_id seulement si fourni
+      if (categoryId != null) {
+        queryParams['category_id'] = categoryId;
+      }
+
+      final response = await _api.get(
+        ApiConfig.discoverGroups,
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      final groups = (data['groups'] as List)
+          .map((json) => GroupModel.fromJson(json))
+          .toList();
+
+      final meta = GroupPaginationMeta.fromJson(data['meta']);
+
+      return GroupListResponse(
+        groups: groups,
+        meta: meta,
+      );
     } catch (e) {
       rethrow;
     }

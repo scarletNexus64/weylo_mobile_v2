@@ -151,8 +151,10 @@ class AnonymepageView extends GetView<AnonymepageController> {
 
       return AnimatedBorderCard(
         borderRadius: 20,
-        borderWidth: 3,
-        borderColor: AppThemeSystem.primaryColor,
+        borderWidth: 2,
+        borderColor: Theme.of(context).brightness == Brightness.dark
+            ? AppThemeSystem.grey700
+            : AppThemeSystem.grey300,
         backgroundColor: Theme.of(context).brightness == Brightness.dark
             ? AppThemeSystem.darkCardColor
             : Colors.white,
@@ -521,7 +523,6 @@ class AnonymepageView extends GetView<AnonymepageController> {
                 Get.bottomSheet(
                   AnonymousChatBottomSheet(
                     originalMessage: message,
-                    recipientUsername: message.sender?.username ?? 'reply', // placeholder si pas révélé
                     onMessageSent: () {
                       // Recharger les messages après envoi
                       controller.fetchMessages();
@@ -539,9 +540,9 @@ class AnonymepageView extends GetView<AnonymepageController> {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppThemeSystem.primaryColor,
+                foregroundColor: AppThemeSystem.grey800,
                 side: BorderSide(
-                  color: AppThemeSystem.primaryColor,
+                  color: AppThemeSystem.grey800,
                   width: 1.5,
                 ),
                 shape: RoundedRectangleBorder(

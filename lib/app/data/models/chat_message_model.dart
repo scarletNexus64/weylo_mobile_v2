@@ -1,6 +1,28 @@
+import 'dart:convert';
 import 'user_model.dart';
 
 enum ChatMessageType { text, image, audio, video, gift, system }
+
+/// Représente un message anonyme simplifié lié à un message de chat
+class AnonymousMessageInfo {
+  final int id;
+  final String content;
+  final DateTime createdAt;
+
+  AnonymousMessageInfo({
+    required this.id,
+    required this.content,
+    required this.createdAt,
+  });
+
+  factory AnonymousMessageInfo.fromJson(Map<String, dynamic> json) {
+    return AnonymousMessageInfo(
+      id: json['id'],
+      content: json['content'] ?? '',
+      createdAt: DateTime.parse(json['created_at']),
+    );
+  }
+}
 
 class ChatMessageModel {
   final int id;
@@ -15,6 +37,7 @@ class ChatMessageModel {
   final DateTime? readAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final AnonymousMessageInfo? anonymousMessage; // Message anonyme original si applicable
 
   ChatMessageModel({
     required this.id,
@@ -29,25 +52,59 @@ class ChatMessageModel {
     this.readAt,
     required this.createdAt,
     required this.updatedAt,
+    this.anonymousMessage,
   });
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
+    // Pour les messages simplifiés (last_message dans conversation), certains champs peuvent manquer
+    final now = DateTime.now();
+
     return ChatMessageModel(
-      id: json['id'],
-      conversationId: json['conversation_id'],
-      senderId: json['sender_id'],
+      id: json['id'] ?? 0,
+      conversationId: json['conversation_id'] ?? 0,
+      senderId: json['sender_id'] ?? 0,
       sender: json['sender'] != null ? UserModel.fromJson(json['sender']) : null,
       content: json['content'],
       type: _parseMessageType(json['type']),
       mediaUrl: json['media_url'],
-      metadata: json['metadata'] != null
-          ? Map<String, dynamic>.from(json['metadata'])
-          : null,
-      isRead: json['is_read'] ?? false,
+      metadata: _parseMetadata(json['metadata']),
+      isRead: json['is_read'] ?? json['is_mine'] == true, // Si c'est mon message, considérer comme lu
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : now,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : now,
+      anonymousMessage: json['anonymous_message'] != null
+          ? AnonymousMessageInfo.fromJson(json['anonymous_message'])
+          : null,
     );
+  }
+
+  static Map<String, dynamic>? _parseMetadata(dynamic metadata) {
+    if (metadata == null) return null;
+
+    // Si c'est déjà un Map, retourner tel quel
+    if (metadata is Map<String, dynamic>) {
+      return metadata;
+    }
+
+    // Si c'est un Map avec un autre type de clés, convertir
+    if (metadata is Map) {
+      return Map<String, dynamic>.from(metadata);
+    }
+
+    // Si c'est une String JSON, la décoder
+    if (metadata is String) {
+      try {
+        final decoded = jsonDecode(metadata);
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded);
+        }
+      } catch (e) {
+        print('Error parsing metadata JSON: $e');
+        return null;
+      }
+    }
+
+    return null;
   }
 
   static ChatMessageType _parseMessageType(String? type) {
@@ -100,6 +157,12 @@ class ChatMessageModel {
       'read_at': readAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      if (anonymousMessage != null)
+        'anonymous_message': {
+          'id': anonymousMessage!.id,
+          'content': anonymousMessage!.content,
+          'created_at': anonymousMessage!.createdAt.toIso8601String(),
+        },
     };
   }
 
