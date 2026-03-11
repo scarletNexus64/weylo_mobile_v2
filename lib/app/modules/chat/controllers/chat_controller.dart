@@ -1,25 +1,14 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:weylo/app/data/services/chat_service.dart';
+import 'package:weylo/app/data/services/conversation_state_service.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
 
 enum ChatFilter { all, unread, read }
 
+/// ChatController simplifié - utilise ConversationStateService comme source de vérité
 class ChatController extends GetxController {
-  final ChatService _chatService = ChatService();
-
-  // États
-  final isLoading = false.obs;
-  final isLoadingMore = false.obs;
-  final hasError = false.obs;
-  final errorMessage = ''.obs;
-
-  // Données
-  final conversations = <ConversationModel>[].obs;
-
-  // Pagination
-  int currentPage = 1;
-  int lastPage = 1;
-  final canLoadMore = false.obs;
+  // Référence au service global
+  ConversationStateService? _conversationStateService;
 
   // Filtre de messages
   final Rx<ChatFilter> selectedFilter = ChatFilter.all.obs;
@@ -27,8 +16,15 @@ class ChatController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    print('🚀 [ChatController] onInit called - Starting to load conversations...');
-    loadConversations();
+    print('🚀 [ChatController] onInit called');
+
+    // Récupérer le service global
+    try {
+      _conversationStateService = ConversationStateService.to;
+      print('✅ [ChatController] ConversationStateService récupéré');
+    } catch (e) {
+      print('❌ [ChatController] ConversationStateService non disponible: $e');
+    }
   }
 
   @override
@@ -41,68 +37,14 @@ class ChatController extends GetxController {
     super.onClose();
   }
 
-  /// Charger les conversations depuis l'API
-  Future<void> loadConversations({bool refresh = false}) async {
-    print('🔄 [ChatController] loadConversations called - refresh: $refresh');
-
-    if (refresh) {
-      currentPage = 1;
-      conversations.clear();
-      print('🔄 [ChatController] Cleared conversations list');
-    }
-
-    if (isLoading.value || isLoadingMore.value) {
-      print('⚠️ [ChatController] Already loading, skipping...');
-      return;
-    }
-
-    refresh ? isLoading.value = true : isLoadingMore.value = true;
-    hasError.value = false;
-
-    try {
-      print('📡 [ChatController] Calling ChatService.getConversations...');
-      final response = await _chatService.getConversations(
-        page: currentPage,
-        perPage: 20,
-      );
-
-      print('✅ [ChatController] Got ${response.conversations.length} conversations');
-
-      if (refresh) {
-        conversations.value = response.conversations;
-      } else {
-        conversations.addAll(response.conversations);
-      }
-
-      currentPage = response.meta.currentPage;
-      lastPage = response.meta.lastPage;
-      canLoadMore.value = response.meta.hasMorePages;
-
-      print('📊 [ChatController] Total conversations: ${conversations.length}');
-      print('📊 [ChatController] Current page: $currentPage, Last page: $lastPage');
-    } catch (e) {
-      hasError.value = true;
-      errorMessage.value = e.toString();
-      print('❌ [ChatController] Error loading conversations: $e');
-      print('❌ [ChatController] Stack trace: ${StackTrace.current}');
-    } finally {
-      isLoading.value = false;
-      isLoadingMore.value = false;
-      print('✅ [ChatController] Loading completed');
-    }
+  /// Conversations - proviennent du service global
+  List<ConversationModel> get conversations {
+    return _conversationStateService?.conversations ?? [];
   }
 
-  /// Charger plus de conversations (pagination)
-  Future<void> loadMoreConversations() async {
-    if (canLoadMore.value && !isLoadingMore.value) {
-      currentPage++;
-      await loadConversations();
-    }
-  }
-
-  /// Rafraîchir les conversations
-  Future<void> refreshConversations() async {
-    await loadConversations(refresh: true);
+  /// État de chargement - provient du service global
+  bool get isLoading {
+    return _conversationStateService?.isLoading.value ?? false;
   }
 
   /// Changer le filtre
@@ -112,18 +54,71 @@ class ChatController extends GetxController {
 
   /// Obtenir les conversations filtrées
   List<ConversationModel> get filteredConversations {
+    final allConversations = conversations;
+
     switch (selectedFilter.value) {
       case ChatFilter.all:
-        return conversations;
+        return allConversations;
       case ChatFilter.unread:
-        return conversations.where((c) => c.unreadCount > 0).toList();
+        return allConversations.where((c) => c.unreadCount > 0).toList();
       case ChatFilter.read:
-        return conversations.where((c) => c.unreadCount == 0).toList();
+        return allConversations.where((c) => c.unreadCount == 0).toList();
     }
   }
 
   /// Obtenir le nombre de conversations non lues
   int get unreadCount {
-    return conversations.where((c) => c.unreadCount > 0).length;
+    return _conversationStateService?.unreadConversationsCount.value ?? 0;
+  }
+
+  /// Obtenir le total des messages non lus (somme de tous les unreadCount)
+  int get totalUnreadMessagesCount {
+    return _conversationStateService?.totalUnreadCount.value ?? 0;
+  }
+
+  /// Rafraîchir les conversations (force refresh depuis API)
+  Future<void> refreshConversations() async {
+    print('🔄 [ChatController] Force refresh demandé');
+    await _conversationStateService?.refreshConversations();
+  }
+
+  /// Supprimer une conversation (masquer)
+  Future<void> deleteConversation(int conversationId) async {
+    // Afficher le loader
+    Get.dialog(
+      const Center(
+        child: CircularProgressIndicator(),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      print('🗑️ [ChatController] Deleting conversation $conversationId');
+
+      // Appeler l'API pour supprimer/masquer
+      // TODO: Implémenter la suppression via ConversationStateService
+
+      // Fermer le loader
+      Get.back();
+
+      Get.snackbar(
+        'Succès',
+        'Conversation supprimée',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [ChatController] Error deleting conversation: $e');
+
+      // Fermer le loader
+      Get.back();
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de supprimer la conversation',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 }

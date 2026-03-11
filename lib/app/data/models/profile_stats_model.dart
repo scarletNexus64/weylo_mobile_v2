@@ -15,6 +15,30 @@ class ProfileStatsModel {
     this.streakDays = 0,
   });
 
+  /// Helper method to safely parse a value to int
+  /// Handles both string and numeric types from JSON
+  static int _parseInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
+  /// Helper method to safely parse a value to double
+  /// Handles both string and numeric types from JSON
+  static double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   factory ProfileStatsModel.fromJson(Map<String, dynamic> json) {
     return ProfileStatsModel(
       messages: MessageStats.fromJson(json['messages'] ?? {}),
@@ -22,7 +46,7 @@ class ProfileStatsModel {
       conversations: ConversationStats.fromJson(json['conversations'] ?? {}),
       gifts: GiftStats.fromJson(json['gifts'] ?? {}),
       wallet: WalletStats.fromJson(json['wallet'] ?? {}),
-      streakDays: json['streak_days'] ?? 0,
+      streakDays: _parseInt(json['streak_days']),
     );
   }
 
@@ -51,9 +75,9 @@ class MessageStats {
 
   factory MessageStats.fromJson(Map<String, dynamic> json) {
     return MessageStats(
-      received: json['received'] ?? 0,
-      sent: json['sent'] ?? 0,
-      unread: json['unread'] ?? 0,
+      received: ProfileStatsModel._parseInt(json['received']),
+      sent: ProfileStatsModel._parseInt(json['sent']),
+      unread: ProfileStatsModel._parseInt(json['unread']),
     );
   }
 
@@ -79,8 +103,8 @@ class ConfessionStats {
 
   factory ConfessionStats.fromJson(Map<String, dynamic> json) {
     return ConfessionStats(
-      received: json['received'] ?? 0,
-      sent: json['sent'] ?? 0,
+      received: ProfileStatsModel._parseInt(json['received']),
+      sent: ProfileStatsModel._parseInt(json['sent']),
     );
   }
 
@@ -105,8 +129,8 @@ class ConversationStats {
 
   factory ConversationStats.fromJson(Map<String, dynamic> json) {
     return ConversationStats(
-      total: json['total'] ?? 0,
-      active: json['active'] ?? 0,
+      total: ProfileStatsModel._parseInt(json['total']),
+      active: ProfileStatsModel._parseInt(json['active']),
     );
   }
 
@@ -129,8 +153,8 @@ class GiftStats {
 
   factory GiftStats.fromJson(Map<String, dynamic> json) {
     return GiftStats(
-      received: json['received'] ?? 0,
-      sent: json['sent'] ?? 0,
+      received: ProfileStatsModel._parseInt(json['received']),
+      sent: ProfileStatsModel._parseInt(json['sent']),
     );
   }
 
@@ -155,8 +179,8 @@ class WalletStats {
 
   factory WalletStats.fromJson(Map<String, dynamic> json) {
     return WalletStats(
-      balance: (json['balance'] ?? 0).toDouble(),
-      formatted: json['formatted'] ?? '0 FCFA',
+      balance: ProfileStatsModel._parseDouble(json['balance']),
+      formatted: json['formatted']?.toString() ?? '0 FCFA',
     );
   }
 

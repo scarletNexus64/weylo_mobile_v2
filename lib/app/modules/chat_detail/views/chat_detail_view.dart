@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import '../controllers/chat_detail_controller.dart';
+import 'widgets/chat_image_picker_bottom_sheet.dart';
 
 class ChatDetailView extends GetView<ChatDetailController> {
   const ChatDetailView({super.key});
@@ -72,11 +73,44 @@ class ChatDetailView extends GetView<ChatDetailController> {
               // Main content
               Column(
                 children: [
+              // NOUVEAU: Typing indicator
+              Obx(() {
+                if (controller.showTypingIndicator.value) {
+                  return Container(
+                    padding: EdgeInsets.all(context.elementSpacing),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppThemeSystem.primaryColor,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '${controller.typingUserName.value} est en train d\'écrire...',
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: AppThemeSystem.primaryColor,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
+
               // Messages list
               Expanded(
                 child: Obx(() {
                   print('📱 [ListView] Building message list - ${controller.messages.length} messages');
                   return ListView.builder(
+                    controller: controller.scrollController,
                     padding: EdgeInsets.all(context.elementSpacing),
                     itemCount: controller.messages.length,
                     itemBuilder: (context, index) {
@@ -197,9 +231,37 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
   Widget _buildMessageBubble(BuildContext context, ChatMessageModel message, bool isDark) {
     final isSentByMe = controller.isSentByMe(message);
-    return Align(
-      alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+    return Dismissible(
+      key: ValueKey(message.id),
+      direction: isSentByMe ? DismissDirection.endToStart : DismissDirection.startToEnd,
+      confirmDismiss: (direction) async {
+        // Ne pas vraiment supprimer lors du swipe, juste répondre
+        controller.setReplyToMessage(message);
+        return false; // Ne pas supprimer le message
+      },
+      background: Container(
+        alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+        child: Icon(
+          Icons.reply_rounded,
+          color: AppThemeSystem.primaryColor,
+          size: 24,
+        ),
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: () {
+          print('🔴 Long press detected on message ${message.id}, isSentByMe: $isSentByMe');
+          if (isSentByMe) {
+            _showMessageActions(context, message);
+          } else {
+            // Pour les messages reçus, on peut aussi afficher des options (répondre, etc.)
+            _showReceivedMessageActions(context, message);
+          }
+        },
+        child: Align(
+          alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
         margin: EdgeInsets.only(
           bottom: context.elementSpacing * 0.5,
           left: isSentByMe ? context.horizontalPadding * 2 : 0,
@@ -249,19 +311,37 @@ class ChatDetailView extends GetView<ChatDetailController> {
               child: _buildMessageContent(context, message, isDark, isSentByMe),
             ),
 
-            // Timestamp
+            // Timestamp with read receipts
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-              child: Text(
-                _formatTime(message.createdAt),
-                style: context.textStyle(FontSizeType.caption).copyWith(
-                  color: AppThemeSystem.grey600,
-                  fontSize: 10,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Read receipt indicators (only for sent messages)
+                  if (isSentByMe) ...[
+                    Icon(
+                      Icons.done_all_rounded,
+                      size: 14,
+                      color: message.isRead
+                          ? const Color(0xFF4FC3F7) // Blue for read
+                          : AppThemeSystem.grey600,  // Gray for delivered
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    _formatTime(message.createdAt),
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: AppThemeSystem.grey600,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
+        ),
+      ),
       ),
     );
   }
@@ -269,7 +349,81 @@ class ChatDetailView extends GetView<ChatDetailController> {
   Widget _buildMessageContent(BuildContext context, ChatMessageModel message, bool isDark, bool isSentByMe) {
     // Widget pour le "reply-to" style WhatsApp
     Widget? replyWidget;
-    if (message.anonymousMessage != null) {
+
+    // Debug: Log metadata
+    if (message.metadata != null) {
+      print('📦 Message ${message.id} metadata: ${message.metadata}');
+    }
+
+    // Si c'est une réponse à un message (vérifier metadata)
+    if (message.metadata != null && message.metadata!['reply_to_message_id'] != null) {
+      print('✅ Reply widget should display for message ${message.id}');
+      final replyContent = message.metadata!['reply_to_content'] as String? ?? '(Media)';
+      final replySender = message.metadata!['reply_to_sender'] as String? ?? 'Utilisateur';
+
+      replyWidget = Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.elementSpacing * 0.6,
+          vertical: context.elementSpacing * 0.4,
+        ),
+        decoration: BoxDecoration(
+          color: isSentByMe
+              ? Colors.white.withValues(alpha: 0.2)
+              : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                  .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(6),
+          border: Border(
+            left: BorderSide(
+              color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.reply_rounded,
+              size: 12,
+              color: isSentByMe
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : AppThemeSystem.grey600,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    replySender,
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    replyContent,
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: isSentByMe
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : AppThemeSystem.grey600,
+                      fontSize: 12,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // Sinon, si c'est un message anonyme
+    else if (message.anonymousMessage != null) {
       final anonMsg = message.anonymousMessage!;
 
       replyWidget = Container(
@@ -348,6 +502,19 @@ class ChatDetailView extends GetView<ChatDetailController> {
                     : (isDark ? Colors.white : AppThemeSystem.blackColor),
               ),
             ),
+            // NOUVEAU: Badge "édité" si message édité
+            if (message.isEdited)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '(édité)',
+                  style: context.textStyle(FontSizeType.caption).copyWith(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                    color: isSentByMe ? Colors.white70 : Colors.grey,
+                  ),
+                ),
+              ),
           ],
         );
 
@@ -782,7 +949,69 @@ class ChatDetailView extends GetView<ChatDetailController> {
         ],
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Reply preview (if replying to a message)
+            Obx(() {
+              final replyMsg = controller.replyToMessage.value;
+              if (replyMsg == null) return const SizedBox.shrink();
+
+              return Container(
+                margin: EdgeInsets.only(bottom: context.elementSpacing * 0.5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.elementSpacing,
+                  vertical: context.elementSpacing * 0.5,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border(
+                    left: BorderSide(
+                      color: AppThemeSystem.primaryColor,
+                      width: 3,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Répondre à ${replyMsg.sender?.username ?? "Utilisateur"}',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: AppThemeSystem.primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            replyMsg.content ?? '(Media)',
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, size: 18),
+                      onPressed: controller.cancelReply,
+                      color: AppThemeSystem.grey600,
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints(),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Input row
+            Row(
           children: [
             // Gift button
             IconButton(
@@ -795,8 +1024,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
             IconButton(
               icon: const Icon(Icons.image_rounded),
               onPressed: () {
-                // TODO: Implement sendImage when POST is ready
-                // controller.sendImage('fake_image.jpg');
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => const ChatImagePickerBottomSheet(),
+                );
               },
               color: AppThemeSystem.primaryColor,
             ),
@@ -804,7 +1037,11 @@ class ChatDetailView extends GetView<ChatDetailController> {
             // Input field
             Expanded(
               child: TextField(
-                onChanged: (value) => controller.messageText.value = value,
+                controller: controller.messageTextController,
+                onChanged: (text) {
+                  controller.messageText.value = text;
+                  controller.onMessageTextChanged(text); // NOUVEAU - Typing indicator
+                },
                 decoration: InputDecoration(
                   hintText: 'Message...',
                   hintStyle: context.textStyle(FontSizeType.body2).copyWith(
@@ -836,8 +1073,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
               return GestureDetector(
                 onTap: hasText
                     ? () {
-                        // TODO: Implement sendMessage when POST is ready
-                        // controller.sendMessage();
+                        controller.sendMessage(
+                          content: controller.messageText.value,
+                          type: 'text',
+                        );
                       }
                     : () => controller.toggleRecording(),
                 child: Container(
@@ -871,6 +1110,8 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 ),
               );
             }),
+            ],
+          ),
           ],
         ),
       ),
@@ -1181,6 +1422,211 @@ class ChatDetailView extends GetView<ChatDetailController> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Bottom sheet avec actions pour long-press
+  void _showMessageActions(BuildContext context, ChatMessageModel message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppThemeSystem.darkCardColor
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final canEdit = message.canBeEdited(controller.currentUserId!);
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Modifier (si < 15 min et texte)
+              if (canEdit && message.type == ChatMessageType.text)
+                ListTile(
+                  leading: Icon(Icons.edit, color: AppThemeSystem.primaryColor),
+                  title: Text('Modifier'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditDialog(context, message);
+                  },
+                ),
+
+              // Supprimer
+              ListTile(
+                leading: Icon(Icons.delete, color: Colors.red),
+                title: Text('Supprimer', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmation(context, message);
+                },
+              ),
+
+              // Répondre
+              ListTile(
+                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
+                title: Text('Répondre'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.setReplyToMessage(message);
+                },
+              ),
+
+              // Annuler
+              ListTile(
+                leading: Icon(Icons.close, color: Colors.grey),
+                title: Text('Annuler'),
+                onTap: () => Navigator.pop(context),
+              ),
+
+              SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Bottom sheet avec actions pour les messages reçus (long-press)
+  void _showReceivedMessageActions(BuildContext context, ChatMessageModel message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppThemeSystem.darkCardColor
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Répondre
+              ListTile(
+                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
+                title: Text('Répondre'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.setReplyToMessage(message);
+                },
+              ),
+
+              // Annuler
+              ListTile(
+                leading: Icon(Icons.close, color: Colors.grey),
+                title: Text('Annuler'),
+                onTap: () => Navigator.pop(context),
+              ),
+
+              SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Dialogue d'édition
+  void _showEditDialog(BuildContext context, ChatMessageModel message) {
+    final TextEditingController editController = TextEditingController(text: message.content);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? AppThemeSystem.darkCardColor
+              : Colors.white,
+          title: Text('Modifier le message'),
+          content: TextField(
+            controller: editController,
+            maxLines: 3,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Nouveau texte...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newText = editController.text.trim();
+                if (newText.isNotEmpty && newText != message.content) {
+                  controller.editMessage(message, newText);
+                }
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppThemeSystem.primaryColor,
+              ),
+              child: Text('Modifier'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Confirmation de suppression
+  void _showDeleteConfirmation(BuildContext context, ChatMessageModel message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? AppThemeSystem.darkCardColor
+              : Colors.white,
+          title: Text('Supprimer le message'),
+          content: Text('Êtes-vous sûr de vouloir supprimer ce message ? Cette action est irréversible.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                controller.deleteMessage(message);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: Text('Supprimer'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

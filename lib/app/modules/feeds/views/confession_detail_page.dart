@@ -1418,33 +1418,31 @@ class _ConfessionDetailPageState extends State<ConfessionDetailPage> {
                         ],
                       ],
                     ),
-                    if (comment.likesCount > 0) ...[
-                      const SizedBox(width: 12),
-                      // Like count
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF1877F2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.thumb_up,
-                              size: 10,
-                              color: Colors.white,
-                            ),
+                    const SizedBox(width: 12),
+                    // Like count - Toujours afficher, même si 0
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1877F2),
+                            shape: BoxShape.circle,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${comment.likesCount}',
-                            style: context.caption.copyWith(
-                              color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey700,
-                            ),
+                          child: const Icon(
+                            Icons.thumb_up,
+                            size: 10,
+                            color: Colors.white,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${comment.likesCount}',
+                          style: context.caption.copyWith(
+                            color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],

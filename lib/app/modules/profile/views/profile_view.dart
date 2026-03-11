@@ -1148,11 +1148,12 @@ class _ProfileViewState extends State<ProfileView>
                     ),
                   ),
 
-                  // "Supprimé" badge overlay (only if deleted)
+                  // "Supprimé par l'auteur" badge overlay (only if deleted)
                   if (favorite.isDeleted)
                     Positioned(
                       top: 8,
                       left: 8,
+                      right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -1171,12 +1172,16 @@ class _ProfileViewState extends State<ProfileView>
                               size: 12,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Supprimé',
-                              style: context.textStyle(FontSizeType.caption).copyWith(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                            Flexible(
+                              child: Text(
+                                'SUPPRIMÉ PAR L\'AUTEUR',
+                                style: context.textStyle(FontSizeType.caption).copyWith(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -1266,7 +1271,7 @@ class _ProfileViewState extends State<ProfileView>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Confession supprimée',
+                'Supprimé par l\'auteur',
                 style: context.textStyle(FontSizeType.h5).copyWith(
                   fontWeight: FontWeight.bold,
                   color: isDark ? Colors.white : AppThemeSystem.blackColor,
@@ -1276,7 +1281,7 @@ class _ProfileViewState extends State<ProfileView>
           ],
         ),
         content: Text(
-          'Cette confession a été supprimée par son auteur. Voulez-vous la retirer de vos favoris ?',
+          'Cette confession a été supprimée par son auteur. Voulez-vous la retirer de vos confessions enregistrées ?',
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700,
             height: 1.5,

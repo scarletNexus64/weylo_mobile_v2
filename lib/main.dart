@@ -7,6 +7,8 @@ import 'app/widgets/app_theme_system.dart';
 import 'app/data/services/storage_service.dart';
 import 'app/data/core/api_service.dart';
 import 'app/data/services/deeplink_service.dart';
+import 'app/data/services/conversation_state_service.dart';
+import 'app/data/services/auth_service.dart';
 
 void main() async {
   print('🚀 [MAIN] Démarrage de l\'application Weylo');
@@ -26,6 +28,27 @@ void main() async {
   print('🔗 [MAIN] Initialisation du DeeplinkService...');
   await DeeplinkService().init();
   print('✅ [MAIN] DeeplinkService initialisé');
+
+  // Initialize ConversationStateService (global) si l'utilisateur est connecté
+  print('💬 [MAIN] Vérification de l\'authentification...');
+  final authService = AuthService();
+  final currentUser = authService.getCurrentUser();
+
+  if (currentUser != null) {
+    print('✅ [MAIN] Utilisateur connecté: ${currentUser.username}');
+    print('💬 [MAIN] Initialisation du ConversationStateService...');
+
+    // Initialiser le service global de manière asynchrone
+    await Get.putAsync(() async {
+      final service = ConversationStateService();
+      await service.onInit();
+      return service;
+    }, permanent: true);
+
+    print('✅ [MAIN] ConversationStateService initialisé');
+  } else {
+    print('⚠️ [MAIN] Utilisateur non connecté, ConversationStateService non initialisé');
+  }
 
   // Configuration de la barre de statut
   SystemChrome.setSystemUIOverlayStyle(

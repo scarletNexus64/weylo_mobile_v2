@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 import 'package:weylo/app/modules/anonymepage/controllers/anonymepage_controller.dart';
+import 'package:weylo/app/data/services/realtime_service.dart';
 
 class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
   // Scaffold key for drawer
@@ -38,6 +39,42 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
     // Écouter le scroll du NestedScrollView pour détecter les anomalies
     nestedScrollController.addListener(_onNestedScrollChanged);
+
+    // ═══════════════════════════════════════════════════════════
+    // INITIALISER LA CONNEXION WEBSOCKET (TEMPS RÉEL)
+    // ═══════════════════════════════════════════════════════════
+    _initializeRealtimeConnection();
+  }
+
+  /// Initialiser la connexion WebSocket pour les messages en temps réel
+  void _initializeRealtimeConnection() {
+    print('');
+    print('╔═══════════════════════════════════════════════════════════╗');
+    print('║ 🔌 INITIALISATION WEBSOCKET DEPUIS HOME CONTROLLER');
+    print('╚═══════════════════════════════════════════════════════════╝');
+
+    try {
+      // Créer ou récupérer le RealtimeService
+      if (!Get.isRegistered<RealtimeService>()) {
+        print('📝 RealtimeService n\'est pas encore enregistré, création...');
+        Get.put(RealtimeService());
+        print('✅ RealtimeService créé et enregistré dans GetX');
+      } else {
+        print('✅ RealtimeService déjà enregistré');
+      }
+
+      // La connexion WebSocket se fera automatiquement dans onInit() du service
+      print('⏳ La connexion WebSocket démarre automatiquement...');
+      print('╚═══════════════════════════════════════════════════════════╝');
+      print('');
+    } catch (e) {
+      print('');
+      print('❌❌❌ ERREUR LORS DE L\'INITIALISATION WEBSOCKET ❌❌❌');
+      print('Erreur: $e');
+      print('Stack trace: ${StackTrace.current}');
+      print('═══════════════════════════════════════════════════════════');
+      print('');
+    }
   }
 
   /// Callback appelé quand on change de tab

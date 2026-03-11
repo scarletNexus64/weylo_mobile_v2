@@ -37,6 +37,7 @@ class ChatMessageModel {
   final DateTime? readAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? editedAt; // Date d'édition du message
   final AnonymousMessageInfo? anonymousMessage; // Message anonyme original si applicable
 
   ChatMessageModel({
@@ -52,6 +53,7 @@ class ChatMessageModel {
     this.readAt,
     required this.createdAt,
     required this.updatedAt,
+    this.editedAt,
     this.anonymousMessage,
   });
 
@@ -72,6 +74,7 @@ class ChatMessageModel {
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : now,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : now,
+      editedAt: json['edited_at'] != null ? DateTime.parse(json['edited_at']) : null,
       anonymousMessage: json['anonymous_message'] != null
           ? AnonymousMessageInfo.fromJson(json['anonymous_message'])
           : null,
@@ -157,6 +160,7 @@ class ChatMessageModel {
       'read_at': readAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'edited_at': editedAt?.toIso8601String(),
       if (anonymousMessage != null)
         'anonymous_message': {
           'id': anonymousMessage!.id,
@@ -173,6 +177,19 @@ class ChatMessageModel {
   bool get isVideoMessage => type == ChatMessageType.video;
   bool get isGiftMessage => type == ChatMessageType.gift;
   bool get isSystemMessage => type == ChatMessageType.system;
+
+  /// Vérifier si le message a été édité
+  bool get isEdited => editedAt != null;
+
+  /// Vérifier si le message peut être édité (< 15 min et texte uniquement)
+  bool canBeEdited(int currentUserId) {
+    if (senderId != currentUserId) return false;
+    if (type != ChatMessageType.text) return false;
+
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+    return difference.inMinutes < 15;
+  }
 }
 
 /// Pagination metadata pour les messages

@@ -2,9 +2,15 @@ class ApiConfig {
   // Pour le développement local, utilisez:
   // 10.0.2.2 pour Android Emulator (redirige vers localhost de votre Mac)
   // 127.0.0.1 pour iOS Simulator
-  // 10.83.249.46 pour un vrai téléphone sur le même WiFi
+  // nonhedonic-slung-aura.ngrok-free.dev pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://10.83.249.46:8001/api/v1';
+  static const String baseUrl = 'http://192.168.1.185:8001/api/v1';
+
+  // WebSocket/Reverb configuration
+  static const String wsHost = '192.168.1.185';
+  static const int wsPort = 8080;
+  static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
+  static const String wsAppId = 'Weylo-app';
 
   // Auth endpoints
   static const String register = '/auth/register';

@@ -1,12 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/conversation_model.dart';
 import '../models/chat_message_model.dart';
+import 'message_cache_service.dart';
 
 class ChatService {
   final _api = ApiService();
+  final _cacheService = MessageCacheService();
 
   /// Get conversations with pagination
   Future<ConversationListResponse> getConversations({
@@ -146,6 +149,12 @@ class ChatService {
           formData.fields.add(MapEntry('voice_type', voiceType));
         }
 
+        // Ajouter les metadata si fournis
+        if (metadata != null) {
+          // FormData nécessite des strings, donc encoder en JSON
+          formData.fields.add(MapEntry('metadata', jsonEncode(metadata)));
+        }
+
         // Ajouter le fichier
         if (audioFile != null) {
           formData.files.add(MapEntry(
@@ -194,6 +203,97 @@ class ChatService {
       }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Update/Edit a message
+  Future<ChatMessageModel> updateMessage({
+    required int conversationId,
+    required int messageId,
+    required String content,
+  }) async {
+    try {
+      print('✏️ [ChatService] Updating message $messageId in conversation $conversationId');
+
+      final response = await _api.patch(
+        '${ApiConfig.conversations}/$conversationId/messages/$messageId',
+        data: {'content': content},
+      );
+
+      print('✅ [ChatService] Message updated successfully');
+      return ChatMessageModel.fromJson(response.data['message']);
+    } catch (e) {
+      print('❌ [ChatService] Error updating message: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a message
+  Future<void> deleteMessage({
+    required int conversationId,
+    required int messageId,
+  }) async {
+    try {
+      print('🗑️ [ChatService] Deleting message $messageId from conversation $conversationId');
+
+      await _api.delete(
+        '${ApiConfig.conversations}/$conversationId/messages/$messageId',
+      );
+
+      print('✅ [ChatService] Message deleted successfully');
+    } catch (e) {
+      print('❌ [ChatService] Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  /// Send typing indicator
+  Future<void> sendTypingIndicator(int conversationId) async {
+    try {
+      print('⌨️ [ChatService] Sending typing indicator for conversation $conversationId');
+
+      await _api.post('${ApiConfig.conversations}/$conversationId/typing');
+
+      print('✅ [ChatService] Typing indicator sent');
+    } catch (e) {
+      // Fail silently - typing indicator n'est pas critique
+      print('⚠️ [ChatService] Typing indicator failed (non-critical): $e');
+    }
+  }
+
+  /// Delete a conversation
+  Future<void> deleteConversation(int conversationId) async {
+    try {
+      print('🗑️ [ChatService] Deleting conversation $conversationId');
+
+      await _api.delete('${ApiConfig.conversations}/$conversationId');
+
+      // Invalider le cache des messages de cette conversation
+      await _cacheService.invalidateConversationCache(conversationId);
+
+      // Invalider aussi le cache de la liste des conversations
+      await _cacheService.invalidateAllConversationsCache();
+
+      print('✅ [ChatService] Conversation deleted and cache invalidated');
+    } catch (e) {
+      print('❌ [ChatService] Error deleting conversation: $e');
+      rethrow;
+    }
+  }
+
+  /// Get total unread message count across all conversations
+  Future<int> getTotalUnreadCount() async {
+    try {
+      print('📊 [ChatService] Fetching total unread count');
+
+      final response = await _api.get('/chat/unread-count');
+
+      print('✅ [ChatService] Total unread count: ${response.data['total_unread_count']}');
+
+      return response.data['total_unread_count'] ?? 0;
+    } catch (e) {
+      print('❌ [ChatService] Error fetching total unread count: $e');
+      return 0; // Return 0 on error instead of throwing
     }
   }
 }

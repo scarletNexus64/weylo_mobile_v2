@@ -147,14 +147,14 @@ class ConfessionDetailController extends GetxController {
     );
 
     try {
-      final newCount = wasLiked
+      final result = wasLiked
           ? await _confessionService.unlikeConfession(confessionId)
           : await _confessionService.likeConfession(confessionId);
 
       // Update avec le vrai count du serveur
       confession.value = currentConfession.copyWith(
-        isLiked: !wasLiked,
-        likesCount: newCount,
+        isLiked: result['is_liked'] as bool,
+        likesCount: result['likes_count'] as int,
       );
     } catch (e) {
       // Rollback en cas d'erreur

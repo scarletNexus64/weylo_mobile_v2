@@ -3,9 +3,11 @@ import 'package:dio/dio.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/anonymous_message_model.dart';
+import 'message_cache_service.dart';
 
 class MessageService {
   final _api = ApiService();
+  final _cacheService = MessageCacheService();
 
   /// Get received anonymous messages with pagination
   Future<MessageListResponse> getReceivedMessages({
@@ -215,7 +217,16 @@ class MessageService {
           data: formData,
         );
 
-        return SendMessageResponse.fromJson(response.data);
+        final sendMessageResponse = SendMessageResponse.fromJson(response.data);
+
+        // Invalider le cache de la conversation si elle a été créée/mise à jour
+        if (sendMessageResponse.conversationId != null) {
+          await _cacheService.invalidateConversationCache(sendMessageResponse.conversationId!);
+          await _cacheService.invalidateAllConversationsCache();
+          print('✅ [MessageService] Cache invalidated for conversation ${sendMessageResponse.conversationId}');
+        }
+
+        return sendMessageResponse;
       } else {
         // Sinon, utiliser JSON classique (texte uniquement)
         final data = {
@@ -229,7 +240,16 @@ class MessageService {
           data: data,
         );
 
-        return SendMessageResponse.fromJson(response.data);
+        final sendMessageResponse = SendMessageResponse.fromJson(response.data);
+
+        // Invalider le cache de la conversation si elle a été créée/mise à jour
+        if (sendMessageResponse.conversationId != null) {
+          await _cacheService.invalidateConversationCache(sendMessageResponse.conversationId!);
+          await _cacheService.invalidateAllConversationsCache();
+          print('✅ [MessageService] Cache invalidated for conversation ${sendMessageResponse.conversationId}');
+        }
+
+        return sendMessageResponse;
       }
     } catch (e) {
       rethrow;

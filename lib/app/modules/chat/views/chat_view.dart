@@ -17,8 +17,7 @@ class ChatView extends GetView<ChatController> {
 
     if (Get.isRegistered<ChatController>()) {
       print('📊 [ChatView] Conversations count: ${controller.conversations.length}');
-      print('⏳ [ChatView] isLoading: ${controller.isLoading.value}');
-      print('❌ [ChatView] hasError: ${controller.hasError.value}');
+      print('⏳ [ChatView] isLoading: ${controller.isLoading}');
     }
 
     return Column(
@@ -33,37 +32,9 @@ class ChatView extends GetView<ChatController> {
             print('🔄 [ChatView] Obx rebuild - conversations: ${controller.conversations.length}');
 
             // État de chargement
-            if (controller.isLoading.value && controller.conversations.isEmpty) {
+            if (controller.isLoading && controller.conversations.isEmpty) {
               print('⏳ [ChatView] Showing loading indicator');
               return const Center(child: CircularProgressIndicator());
-            }
-
-            // État d'erreur
-            if (controller.hasError.value && controller.conversations.isEmpty) {
-              return RefreshIndicator(
-                onRefresh: controller.refreshConversations,
-                child: SingleChildScrollView(
-                  physics: AlwaysScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.7,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('Erreur de chargement', style: context.textStyle(FontSizeType.body1)),
-                          SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: controller.refreshConversations,
-                            child: Text('Réessayer'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
             }
 
             // État vide
@@ -115,21 +86,54 @@ class ChatView extends GetView<ChatController> {
                   onRefresh: controller.refreshConversations,
                   child: ListView.builder(
                     padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
-                    itemCount: filteredConvs.length + (controller.canLoadMore.value ? 1 : 0),
+                    itemCount: filteredConvs.length,
                     itemBuilder: (context, index) {
-                      // Item de chargement pour la pagination
-                      if (index == filteredConvs.length) {
-                        controller.loadMoreConversations();
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      }
-
                       final conversation = filteredConvs[index];
-                      return _buildChatCardFromModel(context, conversation);
+                      return Dismissible(
+                        key: Key('conversation_${conversation.id}'),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (direction) async {
+                          // Afficher une boîte de dialogue de confirmation
+                          return await Get.dialog<bool>(
+                            AlertDialog(
+                              title: const Text('Supprimer la conversation'),
+                              content: const Text(
+                                'Voulez-vous vraiment supprimer cette conversation ?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Get.back(result: false),
+                                  child: const Text('Annuler'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Get.back(result: true),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                  ),
+                                  child: const Text('Supprimer'),
+                                ),
+                              ],
+                            ),
+                          ) ?? false;
+                        },
+                        onDismissed: (direction) {
+                          controller.deleteConversation(conversation.id);
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                        child: _buildChatCardFromModel(context, conversation),
+                      );
                     },
                   ),
                 ),

@@ -847,36 +847,34 @@ class _ConfessionsViewState extends State<ConfessionsView>
             padding: EdgeInsets.all(context.elementSpacing),
             child: Row(
               children: [
-                // Reactions count
-                if (post['reactions'] != null && post['reactions'] > 0) ...[
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppThemeSystem.errorColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.favorite,
-                          size: 12,
-                          color: Colors.white,
-                        ),
+                // Reactions count - Toujours afficher, même si 0
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.errorColor,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post['reactions']}',
-                        style: context.textStyle(FontSizeType.caption).copyWith(
-                          color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                        ),
+                      child: const Icon(
+                        Icons.favorite,
+                        size: 12,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${post['reactions'] ?? 0}',
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                      ),
+                    ),
+                  ],
+                ),
                 const Spacer(),
                 // Comments count
                 Text(
-                  '${post['comments']} commentaires',
+                  '${post['comments'] ?? 0} commentaires',
                   style: context.textStyle(FontSizeType.caption).copyWith(
                     color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
                   ),

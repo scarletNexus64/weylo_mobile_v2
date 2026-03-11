@@ -135,26 +135,32 @@ class ConfessionService {
   }
 
   /// Like a confession
-  Future<int> likeConfession(int confessionId) async {
+  Future<Map<String, dynamic>> likeConfession(int confessionId) async {
     try {
       final response = await _api.post(
         '${ApiConfig.confessions}/$confessionId/like',
       );
 
-      return response.data['likes_count'] as int;
+      return {
+        'likes_count': response.data['likes_count'] as int,
+        'is_liked': response.data['is_liked'] as bool? ?? true,
+      };
     } catch (e) {
       rethrow;
     }
   }
 
   /// Unlike a confession
-  Future<int> unlikeConfession(int confessionId) async {
+  Future<Map<String, dynamic>> unlikeConfession(int confessionId) async {
     try {
       final response = await _api.delete(
         '${ApiConfig.confessions}/$confessionId/like',
       );
 
-      return response.data['likes_count'] as int;
+      return {
+        'likes_count': response.data['likes_count'] as int,
+        'is_liked': response.data['is_liked'] as bool? ?? false,
+      };
     } catch (e) {
       rethrow;
     }

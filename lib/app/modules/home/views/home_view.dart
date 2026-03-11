@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/modules/anonymepage/views/anonymepage_view.dart';
 import 'package:weylo/app/modules/chat/views/chat_view.dart';
+import 'package:weylo/app/modules/chat/controllers/chat_controller.dart';
 import 'package:weylo/app/modules/feeds/views/feeds_view.dart';
 import 'package:weylo/app/modules/groupe/views/groupe_view.dart';
 import 'package:weylo/app/modules/profile/views/profile_view.dart';
@@ -190,10 +191,10 @@ class HomeView extends GetView<HomeController> {
                           label: controller.tabNames[0],
                         ),
                       ),
-                      // Chat - Nouvelle icône custom
+                      // Chat - Nouvelle icône custom avec badge
                       Tab(
                         height: deviceType == DeviceType.mobile ? 64 : 72,
-                        child: _AnimatedTabIcon(
+                        child: _AnimatedTabIconWithBadge(
                           controller: controller.tabController,
                           index: 1,
                           iconBuilder: (color) => CustomIcons.chat(
@@ -412,6 +413,116 @@ class _AnimatedTabIconState extends State<_AnimatedTabIcon> {
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+}
+
+/// Widget d'icône de tab animé avec badge pour afficher le nombre de messages non lus
+class _AnimatedTabIconWithBadge extends StatefulWidget {
+  final TabController controller;
+  final int index;
+  final Widget Function(Color color) iconBuilder;
+  final String label;
+
+  const _AnimatedTabIconWithBadge({
+    required this.controller,
+    required this.index,
+    required this.iconBuilder,
+    required this.label,
+  });
+
+  @override
+  State<_AnimatedTabIconWithBadge> createState() => _AnimatedTabIconWithBadgeState();
+}
+
+class _AnimatedTabIconWithBadgeState extends State<_AnimatedTabIconWithBadge> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isSelected = widget.controller.index == widget.index;
+
+    final color = isSelected
+        ? AppThemeSystem.primaryColor
+        : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600);
+
+    return GetX<ChatController>(
+      builder: (chatController) {
+        final unreadCount = chatController.totalUnreadMessagesCount;
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  height: context.deviceType == DeviceType.mobile ? 28 : 32,
+                  child: widget.iconBuilder(color),
+                ),
+                // Badge pour les messages non lus
+                if (unreadCount > 0)
+                  Positioned(
+                    right: -8,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.errorColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? AppThemeSystem.darkCardColor
+                              : Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        );
+      },
     );
   }
 }

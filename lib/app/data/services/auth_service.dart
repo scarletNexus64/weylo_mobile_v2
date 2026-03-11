@@ -161,6 +161,11 @@ class AuthService {
     return _storage.getUser();
   }
 
+  /// Get authentication token from local storage
+  String? getToken() {
+    return _storage.getToken();
+  }
+
   /// Verify token validity by calling /me endpoint
   Future<bool> verifyToken() async {
     print('🔍 [AUTH_SERVICE] Vérification du token...');

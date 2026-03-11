@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
-import 'package:weylo/app/data/services/cache_service.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'story_controller.dart';
 
 enum ConfessionFilter { all, popular, recent }
 
 class ConfessionsController extends GetxController {
   final _confessionService = ConfessionService();
-  final _cache = CacheService();
 
   // Scroll controller for scroll to top functionality
   final scrollController = ScrollController();
@@ -72,9 +71,6 @@ class ConfessionsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Nettoyer les caches expirés au démarrage
-    _cache.cleanExpiredCaches();
-
     _loadStories();
     loadConfessions();
   }
@@ -174,6 +170,7 @@ class ConfessionsController extends GetxController {
   }
 
   /// Scroll to top of the feed with smooth animation
+  /// Rafraîchit aussi les stories et le feed
   void scrollToTop() {
     // Vérifier et nettoyer avant de scroller
     _ensureScrollHealthy();
@@ -196,6 +193,11 @@ class ConfessionsController extends GetxController {
         }
       }
     }
+
+    // Rafraîchir les stories ET le feed quand on clique sur l'icône Confession
+    print('🔄 [REFRESH] Rafraîchissement des stories et du feed via scroll to top');
+    _loadStories();
+    loadConfessions(refresh: true);
   }
 
   /// Get or create GlobalKey for a confession
@@ -256,7 +258,7 @@ class ConfessionsController extends GetxController {
     _applyFilter();
   }
 
-  /// Load confessions from API with smart caching persistant
+  /// Load confessions from API (pagination simple)
   Future<void> loadConfessions({bool refresh = false}) async {
     // Prevent multiple simultaneous loads
     if (isLoading.value || isLoadingMore.value || isRefreshing.value) return;
@@ -264,39 +266,12 @@ class ConfessionsController extends GetxController {
 
     try {
       if (refresh) {
-        // Pull-to-refresh: ne pas vider la liste, juste marquer qu'on rafraîchit
         isRefreshing.value = true;
         currentPage = 1;
         hasMorePages = true;
       } else if (confessions.isEmpty) {
-        // Premier chargement: vérifier d'abord le cache
         isLoading.value = true;
-
-        // Essayer de charger depuis le cache persistant
-        final cachedConfessions = _cache.getConfessionsCache();
-        if (cachedConfessions != null && _cache.isConfessionsCacheValid()) {
-          print('📦 [CONFESSION] Utilisation du cache (${cachedConfessions.length} confessions)');
-
-          // Charger depuis le cache
-          for (final confession in cachedConfessions) {
-            _confessionCache[confession.id] = confession;
-          }
-          confessions.value = cachedConfessions;
-
-          // Récupérer la page actuelle du cache
-          currentPage = _cache.getConfessionsCachedPage() + 1;
-
-          // Apply current filter
-          _applyFilter();
-
-          isLoading.value = false;
-
-          // Charger en arrière-plan pour refresh silencieux
-          _silentRefreshConfessions();
-          return;
-        }
       } else {
-        // Chargement de plus (pagination)
         isLoadingMore.value = true;
       }
 
@@ -306,33 +281,24 @@ class ConfessionsController extends GetxController {
       );
 
       if (refresh) {
-        // Pull-to-refresh: remplacer les données SANS vider la liste d'abord
-        // (évite le flash visuel désagréable)
+        // Pull-to-refresh: remplacer les données
         _confessionCache.clear();
 
-        // Ajouter toutes les confessions au cache
         for (final confession in response.confessions) {
           _confessionCache[confession.id] = confession;
         }
 
-        // Remplacer la liste directement (pas de .clear() avant)
         confessions.value = List.from(response.confessions);
-
-        // Sauvegarder dans le cache persistant
-        await _cache.saveConfessionsCache(response.confessions, page: 1);
-        currentPage = 2; // Prochaine page sera 2
+        currentPage = 2;
       } else if (confessions.isEmpty) {
-        // Premier chargement: remplacer tout
+        // Premier chargement
         for (final confession in response.confessions) {
           _confessionCache[confession.id] = confession;
         }
         confessions.value = response.confessions;
-
-        // Sauvegarder dans le cache persistant
-        await _cache.saveConfessionsCache(response.confessions, page: 1);
-        currentPage = 2; // Prochaine page sera 2
+        currentPage = 2;
       } else {
-        // Pagination: ajouter seulement les nouvelles à la fin
+        // Pagination: ajouter les nouvelles
         final newConfessions = <ConfessionModel>[];
         for (final confession in response.confessions) {
           if (!_confessionCache.containsKey(confession.id)) {
@@ -341,9 +307,6 @@ class ConfessionsController extends GetxController {
           }
         }
         confessions.addAll(newConfessions);
-
-        // Mettre à jour le cache persistant avec toutes les confessions
-        await _cache.saveConfessionsCache(confessions.toList(), page: currentPage);
         currentPage++;
       }
 
@@ -355,58 +318,20 @@ class ConfessionsController extends GetxController {
       // Nettoyer les GlobalKeys après chargement
       _cleanupOldKeys();
     } catch (e) {
-      // En cas d'erreur, essayer le cache même si expiré
-      if (confessions.isEmpty) {
-        final cachedConfessions = _cache.getConfessionsCache();
-        if (cachedConfessions != null && cachedConfessions.isNotEmpty) {
-          print('⚠️ [CONFESSION] Erreur serveur, utilisation du cache expiré');
-          for (final confession in cachedConfessions) {
-            _confessionCache[confession.id] = confession;
-          }
-          confessions.value = cachedConfessions;
-          currentPage = _cache.getConfessionsCachedPage() + 1;
-          _applyFilter();
-        } else {
-          Get.snackbar(
-            'Erreur',
-            'Impossible de charger les confessions',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: AppThemeSystem.errorColor,
-            colorText: Colors.white,
-          );
-        }
-      } else {
-        Get.snackbar(
-          'Erreur',
-          'Impossible de charger plus de confessions',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: AppThemeSystem.errorColor,
-          colorText: Colors.white,
-        );
-      }
+      Get.snackbar(
+        'Erreur',
+        confessions.isEmpty
+          ? 'Impossible de charger les confessions'
+          : 'Impossible de charger plus de confessions',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
       print('Error loading confessions: $e');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
       isRefreshing.value = false;
-    }
-  }
-
-  /// Refresh silencieux en arrière-plan pour mettre à jour le cache
-  Future<void> _silentRefreshConfessions() async {
-    try {
-      print('🔄 [CONFESSION] Refresh silencieux en arrière-plan');
-      final response = await _confessionService.getConfessions(
-        page: 1,
-        perPage: 10,
-      );
-
-      // Mettre à jour le cache persistant
-      await _cache.saveConfessionsCache(response.confessions, page: 1);
-      print('✅ [CONFESSION] Cache mis à jour en arrière-plan');
-    } catch (e) {
-      print('⚠️ [CONFESSION] Erreur lors du refresh silencieux: $e');
-      // Silencieux: pas de notification à l'utilisateur
     }
   }
 
@@ -430,9 +355,15 @@ class ConfessionsController extends GetxController {
   }
 
   void _loadStories() {
-    // Load stories from API
-    // TODO: Implement API call when story feed is ready
-    stories.value = [];
+    try {
+      // Obtenir le StoryController et rafraîchir les stories
+      final storyController = Get.find<StoryController>();
+      storyController.loadStoriesFeed(refresh: true);
+      print('✅ [STORIES] Stories rafraîchies');
+    } catch (e) {
+      print('⚠️ [STORIES] Erreur lors du rafraîchissement des stories: $e');
+      // Silencieux: pas de notification à l'utilisateur
+    }
   }
 
   void _applyFilter() {
@@ -461,13 +392,20 @@ class ConfessionsController extends GetxController {
   Future<void> toggleLike(int confessionId) async {
     try {
       final index = confessions.indexWhere((c) => c.id == confessionId);
-      if (index == -1) return;
+      if (index == -1) {
+        print('⚠️ [LIKE] Confession ID $confessionId not found in list');
+        return;
+      }
 
       final confession = confessions[index];
+      print('🎯 [LIKE] Toggling like for confession $confessionId, current likes: ${confession.likesCount}, isLiked: ${confession.isLiked}');
 
       if (confession.isLiked) {
         // Unlike
-        final newCount = await _confessionService.unlikeConfession(confessionId);
+        print('👎 [LIKE] Unliking confession $confessionId');
+        final result = await _confessionService.unlikeConfession(confessionId);
+        print('✅ [LIKE] Unlike response: $result');
+
         confessions[index] = ConfessionModel(
           id: confession.id,
           content: confession.content,
@@ -482,15 +420,20 @@ class ConfessionsController extends GetxController {
           authorInitial: confession.authorInitial,
           author: confession.author,
           isIdentityRevealed: confession.isIdentityRevealed,
-          likesCount: newCount,
+          likesCount: result['likes_count'] as int,
           viewsCount: confession.viewsCount,
           commentsCount: confession.commentsCount,
-          isLiked: false,
+          isLiked: result['is_liked'] as bool,
           createdAt: confession.createdAt,
         );
+
+        print('📊 [LIKE] Updated confession likes_count: ${confessions[index].likesCount}');
       } else {
         // Like
-        final newCount = await _confessionService.likeConfession(confessionId);
+        print('👍 [LIKE] Liking confession $confessionId');
+        final result = await _confessionService.likeConfession(confessionId);
+        print('✅ [LIKE] Like response: $result');
+
         confessions[index] = ConfessionModel(
           id: confession.id,
           content: confession.content,
@@ -505,13 +448,18 @@ class ConfessionsController extends GetxController {
           authorInitial: confession.authorInitial,
           author: confession.author,
           isIdentityRevealed: confession.isIdentityRevealed,
-          likesCount: newCount,
+          likesCount: result['likes_count'] as int,
           viewsCount: confession.viewsCount,
           commentsCount: confession.commentsCount,
-          isLiked: true,
+          isLiked: result['is_liked'] as bool,
           createdAt: confession.createdAt,
         );
+
+        print('📊 [LIKE] Updated confession likes_count: ${confessions[index].likesCount}');
       }
+
+      // Mettre à jour le cache mémoire
+      _confessionCache[confessionId] = confessions[index];
 
       confessions.refresh();
     } catch (e) {
@@ -520,7 +468,7 @@ class ConfessionsController extends GetxController {
         'Impossible de liker la confession',
         snackPosition: SnackPosition.BOTTOM,
       );
-      print('Error toggling like: $e');
+      print('❌ [LIKE] Error toggling like: $e');
     }
   }
 
