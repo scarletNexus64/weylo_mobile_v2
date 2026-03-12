@@ -519,25 +519,77 @@ class ChatDetailView extends GetView<ChatDetailController> {
         );
 
       case ChatMessageType.gift:
-        // Extract gift info from metadata
-        final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
-        final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
+        final gift = message.giftData;
+        final giftIcon = (gift?.icon.trim().isNotEmpty ?? false) ? gift!.icon.trim() : '🎁';
+        final giftName = (gift?.name.trim().isNotEmpty ?? false) ? gift!.name.trim() : 'Cadeau';
+        final giftPrice = gift?.formattedPrice ?? (gift?.price != null ? '${gift!.price} FCFA' : null);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (replyWidget != null) replyWidget,
-            Text(
-              giftIcon,
-              style: const TextStyle(fontSize: 48),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              giftName,
-              style: context.textStyle(FontSizeType.caption).copyWith(
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
                 color: isSentByMe
-                    ? Colors.white
-                    : (isDark ? Colors.white : AppThemeSystem.blackColor),
-                fontWeight: FontWeight.w600,
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                        .withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSentByMe
+                      ? Colors.white.withValues(alpha: 0.25)
+                      : AppThemeSystem.grey300.withValues(alpha: 0.8),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(giftIcon, style: const TextStyle(fontSize: 34)),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          giftName,
+                          style: context.textStyle(FontSizeType.body2).copyWith(
+                            color: isSentByMe
+                                ? Colors.white
+                                : (isDark ? Colors.white : AppThemeSystem.blackColor),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (giftPrice != null && giftPrice.trim().isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            giftPrice,
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: isSentByMe
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : AppThemeSystem.grey600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                        if ((message.content ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            message.content!.trim(),
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: isSentByMe
+                                  ? Colors.white.withValues(alpha: 0.92)
+                                  : AppThemeSystem.grey700,
+                              fontSize: 12,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -821,7 +873,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
           // Bouton Play/Pause
           GestureDetector(
             onTap: message.mediaUrl != null
-                ? () => controller.toggleAudioPlayback(message.id, message.mediaUrl!)
+                ? () {
+                    controller.initializeAudioPlayer(message.id);
+                    controller.toggleAudioPlayback(message.id, message.mediaUrl!);
+                  }
                 : null,
             child: Container(
               padding: const EdgeInsets.all(8),

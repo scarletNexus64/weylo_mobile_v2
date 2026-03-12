@@ -25,6 +25,10 @@ abstract class Routes {
   static const CREATE_CONFESSION = _Paths.CREATE_CONFESSION;
   static const EDIT_CONFESSION = _Paths.EDIT_CONFESSION;
   static const CONFESSION_DETAIL = _Paths.CONFESSION_DETAIL;
+  static const MY_WALLET = _Paths.MY_WALLET;
+  static const WALLET_DEPOSIT = _Paths.WALLET_DEPOSIT;
+  static const WALLET_WITHDRAW = _Paths.WALLET_WITHDRAW;
+  static const SPONSORING = _Paths.SPONSORING;
 }
 
 abstract class _Paths {
@@ -51,4 +55,8 @@ abstract class _Paths {
   static const CREATE_CONFESSION = '/create-confession';
   static const EDIT_CONFESSION = '/edit-confession';
   static const CONFESSION_DETAIL = '/confession/:id';
+  static const MY_WALLET = '/my-wallet';
+  static const WALLET_DEPOSIT = '/my-wallet/deposit';
+  static const WALLET_WITHDRAW = '/my-wallet/withdraw';
+  static const SPONSORING = '/sponsoring';
 }

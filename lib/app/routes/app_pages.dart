@@ -41,6 +41,12 @@ import '../modules/welcomer/bindings/welcomer_binding.dart';
 import '../modules/welcomer/views/welcomer_view.dart';
 import '../modules/sendmessage/bindings/sendmessage_binding.dart';
 import '../modules/sendmessage/views/sendmessage_view.dart';
+import '../modules/MyWallet/bindings/my_wallet_binding.dart';
+import '../modules/MyWallet/views/my_wallet_view.dart';
+import '../modules/MyWallet/views/deposit_view.dart';
+import '../modules/MyWallet/views/withdraw_view.dart';
+import '../modules/sponsoring/bindings/sponsoring_binding.dart';
+import '../modules/sponsoring/views/sponsoring_view.dart';
 
 part 'app_routes.dart';
 
@@ -174,6 +180,26 @@ class AppPages {
         }
         return ConfessionDetailPage(confessionId: id);
       },
+    ),
+    GetPage(
+      name: _Paths.MY_WALLET,
+      page: () => const MyWalletView(),
+      binding: MyWalletBinding(),
+    ),
+    GetPage(
+      name: _Paths.WALLET_DEPOSIT,
+      page: () => const DepositView(),
+      binding: MyWalletBinding(),
+    ),
+    GetPage(
+      name: _Paths.WALLET_WITHDRAW,
+      page: () => const WithdrawView(),
+      binding: MyWalletBinding(),
+    ),
+    GetPage(
+      name: _Paths.SPONSORING,
+      page: () => const SponsoringView(),
+      binding: SponsoringBinding(),
     ),
   ];
 }

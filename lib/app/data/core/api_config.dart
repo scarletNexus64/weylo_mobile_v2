@@ -4,10 +4,10 @@ class ApiConfig {
   // 127.0.0.1 pour iOS Simulator
   // nonhedonic-slung-aura.ngrok-free.dev pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://192.168.1.185:8001/api/v1';
+  static const String baseUrl = 'http://192.168.100.44:8001/api/v1';
 
   // WebSocket/Reverb configuration
-  static const String wsHost = '192.168.1.185';
+  static const String wsHost = '192.168.100.44';
   static const int wsPort = 8080;
   static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
   static const String wsAppId = 'Weylo-app';
@@ -67,6 +67,10 @@ class ApiConfig {
   static const String wallet = '/wallet';
   static const String transactions = '/wallet/transactions';
   static const String walletStats = '/wallet/stats';
+
+  // Sponsoring endpoints
+  static const String sponsorshipPackages = '/sponsorship-packages';
+  static const String sponsorshipPurchase = '/sponsorships/purchase';
 
   // Notifications endpoints
   static const String notifications = '/notifications';

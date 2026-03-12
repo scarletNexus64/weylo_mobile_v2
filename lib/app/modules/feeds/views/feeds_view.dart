@@ -8,6 +8,7 @@ import 'widgets/stories_vertical_bar.dart';
 import 'widgets/confession_shimmer_loader.dart';
 import 'widgets/feed_video_player.dart';
 import 'widgets/confession_actions_bottom_sheet.dart';
+import 'widgets/sponsored_ads_carousel.dart';
 import 'image_viewer_page.dart';
 
 class ConfessionsView extends StatefulWidget {
@@ -193,11 +194,40 @@ class _ConfessionsViewState extends State<ConfessionsView>
               }
 
               // Afficher les confessions
+              const confessionsBetweenAds = 7;
+              final hasAds = controller.sponsoredAds.isNotEmpty;
+              final combinedCount = hasAds
+                  ? (controller.confessions.length +
+                      (controller.confessions.length ~/ confessionsBetweenAds))
+                  : controller.feedItems.length;
+
               return SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final confession = controller.confessions[index];
-                    final item = controller.feedItems[index];
+                    bool isAdSlot(int i) {
+                      if (!hasAds) return false;
+                      if (i <= 0) return false;
+                      return i % (confessionsBetweenAds + 1) == confessionsBetweenAds;
+                    }
+
+                    if (isAdSlot(index)) {
+                      final ads = controller.sponsoredAds;
+                      const perCarousel = 5;
+                      final slotNumber = index ~/ (confessionsBetweenAds + 1);
+                      final start = ads.isEmpty ? 0 : (slotNumber * perCarousel) % ads.length;
+                      final count = ads.length < perCarousel ? ads.length : perCarousel;
+                      final adsForSlot = List.generate(count, (i) => ads[(start + i) % ads.length]);
+
+                      return SponsoredAdsCarousel(
+                        ads: adsForSlot,
+                        onImpression: controller.trackAdImpression,
+                      );
+                    }
+
+                    final adsBefore = hasAds ? (index ~/ (confessionsBetweenAds + 1)) : 0;
+                    final confessionIndex = index - adsBefore;
+                    final confession = controller.confessions[confessionIndex];
+                    final item = controller.feedItems[confessionIndex];
                     final confessionKey = controller.getConfessionKey(confession.id);
 
                     return Obx(() {
@@ -226,7 +256,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
                       );
                     });
                   },
-                  childCount: controller.feedItems.length,
+                  childCount: combinedCount,
                 ),
               );
             }),

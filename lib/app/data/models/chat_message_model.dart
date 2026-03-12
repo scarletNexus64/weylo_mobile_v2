@@ -3,6 +3,70 @@ import 'user_model.dart';
 
 enum ChatMessageType { text, image, audio, video, gift, system }
 
+class ChatGiftData {
+  final int? id;
+  final String name;
+  final String icon;
+  final String? animation;
+  final int? price;
+  final String? formattedPrice;
+  final String? tier;
+  final String? tierColor;
+  final String? backgroundColor;
+  final String? description;
+  final int? amount;
+  final bool isAnonymous;
+
+  ChatGiftData({
+    this.id,
+    required this.name,
+    required this.icon,
+    this.animation,
+    this.price,
+    this.formattedPrice,
+    this.tier,
+    this.tierColor,
+    this.backgroundColor,
+    this.description,
+    this.amount,
+    this.isAnonymous = false,
+  });
+
+  factory ChatGiftData.fromJson(Map<String, dynamic> json) {
+    return ChatGiftData(
+      id: (json['id'] as num?)?.toInt(),
+      name: json['name'] as String? ?? 'Cadeau',
+      icon: json['icon'] as String? ?? '🎁',
+      animation: json['animation'] as String?,
+      price: (json['price'] as num?)?.toInt(),
+      formattedPrice: json['formatted_price'] as String?,
+      tier: json['tier'] as String?,
+      tierColor: json['tier_color'] as String?,
+      backgroundColor: json['background_color'] as String?,
+      description: json['description'] as String?,
+      amount: (json['amount'] as num?)?.toInt(),
+      isAnonymous: json['is_anonymous'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'icon': icon,
+      'animation': animation,
+      'price': price,
+      'formatted_price': formattedPrice,
+      'tier': tier,
+      'tier_color': tierColor,
+      'background_color': backgroundColor,
+      'description': description,
+      'amount': amount,
+      'is_anonymous': isAnonymous,
+    };
+  }
+}
+
 /// Représente un message anonyme simplifié lié à un message de chat
 class AnonymousMessageInfo {
   final int id;
@@ -33,6 +97,7 @@ class ChatMessageModel {
   final ChatMessageType type;
   final String? mediaUrl;
   final Map<String, dynamic>? metadata;
+  final ChatGiftData? giftData;
   final bool isRead;
   final DateTime? readAt;
   final DateTime createdAt;
@@ -49,6 +114,7 @@ class ChatMessageModel {
     required this.type,
     this.mediaUrl,
     this.metadata,
+    this.giftData,
     this.isRead = false,
     this.readAt,
     required this.createdAt,
@@ -61,6 +127,11 @@ class ChatMessageModel {
     // Pour les messages simplifiés (last_message dans conversation), certains champs peuvent manquer
     final now = DateTime.now();
 
+    final giftDataRaw = json['gift_data'];
+    final ChatGiftData? parsedGiftData = giftDataRaw is Map
+        ? ChatGiftData.fromJson(Map<String, dynamic>.from(giftDataRaw))
+        : null;
+
     return ChatMessageModel(
       id: json['id'] ?? 0,
       conversationId: json['conversation_id'] ?? 0,
@@ -70,6 +141,7 @@ class ChatMessageModel {
       type: _parseMessageType(json['type']),
       mediaUrl: json['media_url'],
       metadata: _parseMetadata(json['metadata']),
+      giftData: parsedGiftData,
       isRead: json['is_read'] ?? json['is_mine'] == true, // Si c'est mon message, considérer comme lu
       readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : now,
@@ -156,6 +228,7 @@ class ChatMessageModel {
       'type': messageTypeToString(type),
       'media_url': mediaUrl,
       'metadata': metadata,
+      'gift_data': giftData?.toJson(),
       'is_read': isRead,
       'read_at': readAt?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),

@@ -60,7 +60,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // ====================
   FlutterSoundRecorder? _audioRecorder;
   final _isRecording = false.obs;
-  String? _recordedAudioPath;
+  final _recordedAudioPath = Rxn<String>(); // Variable reactive pour que Obx() détecte les changements
   Duration _recordDuration = Duration.zero;
   Timer? _recordTimer;
   final _selectedVoiceType = 'normal'.obs;
@@ -188,6 +188,79 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   }
 
   // ====================
+  // SEND AUDIO MESSAGE (appelée automatiquement après enregistrement)
+  // ====================
+  Future<void> _sendAudioMessage(File audioFile) async {
+    try {
+      _isSending.value = true;
+
+      // Réinitialiser immédiatement pour cacher l'interface de preview
+      _recordedAudioPath.value = null;
+      _recordDuration = Duration.zero;
+
+      final response = await _messageService.sendReply(
+        replyToMessageId: widget.originalMessage.id,
+        content: null,
+        mediaFile: audioFile,
+        mediaType: 'audio',
+        voiceType: _selectedVoiceType.value,
+        giftId: null,
+        giftMessage: null,
+        revealIdentity: false, // Les messages vocaux sont toujours anonymes
+      );
+
+      // Supprimer le fichier audio temporaire
+      if (await audioFile.exists()) {
+        await audioFile.delete();
+      }
+
+      // Succès
+      Get.back();
+
+      // Callback
+      widget.onMessageSent?.call();
+
+      // Afficher un message de succès
+      Get.snackbar(
+        'Succès',
+        response.conversationId != null
+            ? 'Conversation créée! Consultez l\'onglet Chat'
+            : 'Message audio envoyé avec succès',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+
+      // Rafraîchir la liste des conversations si une conversation a été créée
+      if (response.conversationId != null) {
+        try {
+          final chatController = Get.find<ChatController>();
+          await chatController.refreshConversations();
+          print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
+        } catch (e) {
+          print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
+        }
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Impossible d\'envoyer le message audio: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+
+      // Supprimer le fichier audio temporaire en cas d'erreur
+      if (await audioFile.exists()) {
+        await audioFile.delete();
+      }
+    } finally {
+      _isSending.value = false;
+    }
+  }
+
+  // ====================
   // SEND MESSAGE
   // ====================
   Future<void> _sendMessage() async {
@@ -252,7 +325,9 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
         revealIdentity = _revealIdentityText.value;
       } else if (_currentTabIndex == 1) {
         // Voice - pas de révélation d'identité (voix modifiées)
-        mediaFile = File(_recordedAudioPath!);
+        if (_recordedAudioPath.value != null) {
+          mediaFile = File(_recordedAudioPath.value!);
+        }
         mediaType = 'audio';
         voiceType = _selectedVoiceType.value;
       } else if (_currentTabIndex == 2) {
@@ -343,11 +418,11 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       // Générer un nom de fichier unique
       final directory = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      _recordedAudioPath = '${directory.path}/voice_$timestamp.aac';
+      _recordedAudioPath.value = '${directory.path}/voice_$timestamp.aac';
 
       // Démarrer l'enregistrement
       await _audioRecorder!.startRecorder(
-        toFile: _recordedAudioPath,
+        toFile: _recordedAudioPath.value,
         codec: Codec.aacADTS,
       );
 
@@ -374,23 +449,69 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // ====================
   Future<void> _stopRecording() async {
     try {
-      await _audioRecorder!.stopRecorder();
+      final path = await _audioRecorder!.stopRecorder();
       _isRecording.value = false;
       _recordTimer?.cancel();
 
-      // Initialiser le player pour la lecture
-      _audioPlayer = ap.AudioPlayer();
-      _audioPlayer!.onDurationChanged.listen((duration) {
-        _recordedAudioDuration.value = duration;
-      });
-      _audioPlayer!.onPositionChanged.listen((position) {
-        _recordedAudioPosition.value = position;
-      });
-      _audioPlayer!.onPlayerComplete.listen((_) {
-        _isPlayingRecordedAudio.value = false;
-        _recordedAudioPosition.value = Duration.zero;
-      });
+      print('🎤 [DEBUG] Recording stopped');
+      print('🎤 [DEBUG] Selected voice type: ${_selectedVoiceType.value}');
+      print('🎤 [DEBUG] Recorded path: ${_recordedAudioPath.value}');
+      print('🎤 [DEBUG] Path from recorder: $path');
+
+      // Envoyer automatiquement l'audio pour TOUS les types de voix
+      // Le backend appliquera l'effet vocal approprié selon le type sélectionné
+      print('🎤 [DEBUG] Sending audio automatically...');
+
+      final audioPath = path ?? _recordedAudioPath.value;
+
+      if (audioPath != null) {
+        final audioFile = File(audioPath);
+
+        if (await audioFile.exists()) {
+          final fileSize = await audioFile.length();
+          print('🎤 [DEBUG] File exists! Size: $fileSize bytes');
+
+          if (fileSize > 0) {
+            // Envoyer automatiquement sans permettre l'écoute
+            print('🎤 [DEBUG] Calling _sendAudioMessage...');
+            await _sendAudioMessage(audioFile);
+            return; // Sortir de la fonction après l'envoi
+          } else {
+            print('❌ [DEBUG] Audio file is empty!');
+            Get.snackbar(
+              'Erreur',
+              'L\'enregistrement audio est vide. Veuillez réessayer.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
+            );
+            _cancelRecording();
+            return;
+          }
+        } else {
+          print('❌ [DEBUG] Audio file does NOT exist!');
+          Get.snackbar(
+            'Erreur',
+            'Fichier audio introuvable',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          _cancelRecording();
+          return;
+        }
+      } else {
+        print('❌ [DEBUG] No audio path recorded!');
+        Get.snackbar(
+          'Erreur',
+          'Aucun fichier audio enregistré',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     } catch (e) {
+      print('❌ [DEBUG] Error in _stopRecording: $e');
       Get.snackbar(
         'Erreur',
         'Impossible d\'arrêter l\'enregistrement: $e',
@@ -403,13 +524,13 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // VOICE: CANCEL RECORDING
   // ====================
   void _cancelRecording() {
-    if (_recordedAudioPath != null) {
-      final file = File(_recordedAudioPath!);
+    if (_recordedAudioPath.value != null) {
+      final file = File(_recordedAudioPath.value!);
       if (file.existsSync()) {
         file.deleteSync();
       }
     }
-    _recordedAudioPath = null;
+    _recordedAudioPath.value = null;
     _recordDuration = Duration.zero;
     _audioPlayer?.dispose();
     _audioPlayer = null;
@@ -419,13 +540,13 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // VOICE: PLAY/PAUSE RECORDED AUDIO
   // ====================
   Future<void> _togglePlayRecordedAudio() async {
-    if (_audioPlayer == null || _recordedAudioPath == null) return;
+    if (_audioPlayer == null || _recordedAudioPath.value == null) return;
 
     if (_isPlayingRecordedAudio.value) {
       await _audioPlayer!.pause();
       _isPlayingRecordedAudio.value = false;
     } else {
-      await _audioPlayer!.play(ap.DeviceFileSource(_recordedAudioPath!));
+      await _audioPlayer!.play(ap.DeviceFileSource(_recordedAudioPath.value!));
       _isPlayingRecordedAudio.value = true;
     }
   }
@@ -765,7 +886,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       }
 
       // Si audio enregistré
-      if (_recordedAudioPath != null) {
+      if (_recordedAudioPath.value != null) {
         return _buildRecordedAudioInterface(isDark);
       }
 

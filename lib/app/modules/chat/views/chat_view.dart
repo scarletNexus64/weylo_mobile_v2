@@ -94,7 +94,7 @@ class ChatView extends GetView<ChatController> {
                         direction: DismissDirection.endToStart,
                         confirmDismiss: (direction) async {
                           // Afficher une boîte de dialogue de confirmation
-                          return await Get.dialog<bool>(
+                          final confirmed = await Get.dialog<bool>(
                             AlertDialog(
                               title: const Text('Supprimer la conversation'),
                               content: const Text(
@@ -115,9 +115,18 @@ class ChatView extends GetView<ChatController> {
                               ],
                             ),
                           ) ?? false;
+
+                          // Si confirmé, supprimer immédiatement via le controller
+                          if (confirmed) {
+                            // Ne pas attendre - laisser la suppression se faire en arrière-plan
+                            controller.deleteConversation(conversation.id);
+                          }
+
+                          return confirmed;
                         },
                         onDismissed: (direction) {
-                          controller.deleteConversation(conversation.id);
+                          // onDismissed est appelé automatiquement après l'animation
+                          // La suppression a déjà été déclenchée dans confirmDismiss
                         },
                         background: Container(
                           alignment: Alignment.centerRight,
@@ -463,6 +472,12 @@ class ChatView extends GetView<ChatController> {
       case ChatMessageType.video:
         return '🎥 Vidéo';
       case ChatMessageType.gift:
+        final gift = message.giftData;
+        if (gift != null) {
+          final name = gift.name.trim().isEmpty ? 'Cadeau' : gift.name.trim();
+          final icon = gift.icon.trim().isEmpty ? '🎁' : gift.icon.trim();
+          return '$icon $name';
+        }
         return '🎁 Cadeau';
       case ChatMessageType.system:
         return message.content ?? 'Message système';

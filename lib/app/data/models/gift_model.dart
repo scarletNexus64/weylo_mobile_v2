@@ -128,35 +128,71 @@ class GiftCategory {
 
 class GiftTransactionModel {
   final int id;
-  final int senderId;
-  final int recipientId;
-  final int giftId;
+  // NOTE: selon l'endpoint, ces champs peuvent être absents/null (ex: gift_transactions imbriqués dans un message).
+  final int? senderId;
+  final int? recipientId;
+  final int? giftId;
+  final int? conversationId;
+  final int amount;
+  final String? formattedAmount;
+  final String? message;
+  final bool isAnonymous;
   final String status; // 'pending', 'completed', 'failed'
   final GiftModel gift;
   final GiftUser? sender;
   final GiftUser? recipient;
   final DateTime createdAt;
+  final DateTime? completedAt;
 
   GiftTransactionModel({
     required this.id,
-    required this.senderId,
-    required this.recipientId,
-    required this.giftId,
+    this.senderId,
+    this.recipientId,
+    this.giftId,
+    this.conversationId,
+    this.amount = 0,
+    this.formattedAmount,
+    this.message,
+    this.isAnonymous = false,
     required this.status,
     required this.gift,
     this.sender,
     this.recipient,
     required this.createdAt,
+    this.completedAt,
   });
 
   factory GiftTransactionModel.fromJson(Map<String, dynamic> json) {
+    final giftJson = json['gift'] as Map<String, dynamic>?;
+
     return GiftTransactionModel(
       id: json['id'] as int,
-      senderId: json['sender_id'] as int,
-      recipientId: json['recipient_id'] as int,
-      giftId: json['gift_id'] as int,
+      senderId: json['sender_id'] as int? ?? (json['sender'] as Map<String, dynamic>?)?['id'] as int?,
+      recipientId: json['recipient_id'] as int? ?? (json['recipient'] as Map<String, dynamic>?)?['id'] as int?,
+      giftId: json['gift_id'] as int? ?? (giftJson?['id'] as int?),
+      conversationId: json['conversation_id'] as int?,
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      formattedAmount: json['formatted_amount'] as String?,
+      message: json['message'] as String?,
+      isAnonymous: json['is_anonymous'] as bool? ?? false,
       status: json['status'] as String? ?? 'pending',
-      gift: GiftModel.fromJson(json['gift'] as Map<String, dynamic>),
+      gift: giftJson != null
+          ? GiftModel.fromJson(giftJson)
+          : GiftModel(
+              id: (json['gift_id'] as int?) ?? 0,
+              name: '',
+              slug: '',
+              description: '',
+              icon: '🎁',
+              animation: '',
+              price: 0,
+              formattedPrice: '0 FCFA',
+              tier: 'bronze',
+              tierColor: '#CD7F32',
+              backgroundColor: '#FF6B6B',
+              isActive: false,
+              sortOrder: 0,
+            ),
       sender: json['sender'] != null
           ? GiftUser.fromJson(json['sender'] as Map<String, dynamic>)
           : null,
@@ -164,6 +200,9 @@ class GiftTransactionModel {
           ? GiftUser.fromJson(json['recipient'] as Map<String, dynamic>)
           : null,
       createdAt: DateTime.parse(json['created_at'] as String),
+      completedAt: json['completed_at'] == null
+          ? null
+          : DateTime.tryParse(json['completed_at'] as String),
     );
   }
 
@@ -173,11 +212,17 @@ class GiftTransactionModel {
       'sender_id': senderId,
       'recipient_id': recipientId,
       'gift_id': giftId,
+      'conversation_id': conversationId,
+      'amount': amount,
+      'formatted_amount': formattedAmount,
+      'message': message,
+      'is_anonymous': isAnonymous,
       'status': status,
       'gift': gift.toJson(),
       'sender': sender?.toJson(),
       'recipient': recipient?.toJson(),
       'created_at': createdAt.toIso8601String(),
+      'completed_at': completedAt?.toIso8601String(),
     };
   }
 }

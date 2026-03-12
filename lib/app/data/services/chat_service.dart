@@ -122,6 +122,22 @@ class ChatService {
     }
   }
 
+  /// Start (or get) a conversation with a username
+  Future<ConversationModel> startConversation({
+    required String username,
+  }) async {
+    try {
+      final response = await _api.post(
+        ApiConfig.conversations,
+        data: {'username': username},
+      );
+
+      return ConversationModel.fromJson(response.data['conversation']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Send a message in a conversation
   Future<ChatMessageModel> sendMessage({
     required int conversationId,

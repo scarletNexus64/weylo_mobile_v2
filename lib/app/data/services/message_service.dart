@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/anonymous_message_model.dart';
@@ -217,7 +218,23 @@ class MessageService {
           data: formData,
         );
 
-        final sendMessageResponse = SendMessageResponse.fromJson(response.data);
+        if (kDebugMode) {
+          print('📥 [MessageService] RESPONSE[${response.statusCode}] => ${ApiConfig.sendReply}');
+          print('📦 [MessageService] Raw data: ${response.data}');
+        }
+
+        late final SendMessageResponse sendMessageResponse;
+        try {
+          sendMessageResponse = SendMessageResponse.fromJson(response.data as Map<String, dynamic>);
+        } catch (e, st) {
+          if (kDebugMode) {
+            print('❌ [MessageService] SendMessageResponse parsing failed: $e');
+            print('🧩 [MessageService] Raw data type: ${response.data.runtimeType}');
+            print('🧩 [MessageService] Raw data: ${response.data}');
+            print('🧵 [MessageService] Stack: $st');
+          }
+          rethrow;
+        }
 
         // Invalider le cache de la conversation si elle a été créée/mise à jour
         if (sendMessageResponse.conversationId != null) {
@@ -240,7 +257,23 @@ class MessageService {
           data: data,
         );
 
-        final sendMessageResponse = SendMessageResponse.fromJson(response.data);
+        if (kDebugMode) {
+          print('📥 [MessageService] RESPONSE[${response.statusCode}] => ${ApiConfig.sendReply}');
+          print('📦 [MessageService] Raw data: ${response.data}');
+        }
+
+        late final SendMessageResponse sendMessageResponse;
+        try {
+          sendMessageResponse = SendMessageResponse.fromJson(response.data as Map<String, dynamic>);
+        } catch (e, st) {
+          if (kDebugMode) {
+            print('❌ [MessageService] SendMessageResponse parsing failed: $e');
+            print('🧩 [MessageService] Raw data type: ${response.data.runtimeType}');
+            print('🧩 [MessageService] Raw data: ${response.data}');
+            print('🧵 [MessageService] Stack: $st');
+          }
+          rethrow;
+        }
 
         // Invalider le cache de la conversation si elle a été créée/mise à jour
         if (sendMessageResponse.conversationId != null) {
@@ -319,7 +352,7 @@ class SendMessageResponse {
   factory SendMessageResponse.fromJson(Map<String, dynamic> json) {
     return SendMessageResponse(
       message: AnonymousMessageModel.fromJson(json['data']),
-      conversationId: json['conversation_id'],
+      conversationId: (json['conversation_id'] as num?)?.toInt(),
     );
   }
 }

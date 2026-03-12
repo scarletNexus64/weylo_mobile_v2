@@ -6,6 +6,7 @@ import 'package:weylo/app/data/services/chat_service.dart';
 import 'package:weylo/app/data/services/message_cache_service.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
+import 'package:weylo/app/modules/anonymepage/controllers/anonymepage_controller.dart';
 
 /// Service global pour gérer l'état des conversations en temps réel
 /// Ce service est initialisé au démarrage de l'app et reste actif partout
@@ -164,17 +165,43 @@ class ConversationStateService extends GetxService {
   }
 
   /// Gérer les événements du canal global utilisateur
-  void _handleGlobalUserEvent(Map<String, dynamic> eventData) {
+  Future<void> _handleGlobalUserEvent(Map<String, dynamic> eventData) async {
     try {
       print('');
       print('┌─────────────────────────────────────────────────────────┐');
       print('│ 📨 [ConversationStateService] ÉVÉNEMENT CANAL GLOBAL');
       print('└─────────────────────────────────────────────────────────┘');
       print('🎯 Event: ${eventData['_event']}');
+      print('📦 Data: $eventData');
 
       final event = eventData['_event'] as String?;
 
-      if (event == 'message.sent') {
+      // Message anonyme reçu
+      if (event == 'message.received') {
+        print('📬 [ConversationStateService] Nouveau message anonyme reçu!');
+        print('📝 ID: ${eventData['id']}');
+        print('📝 Preview: ${eventData['content_preview']}');
+
+        // Recharger les conversations pour mettre à jour les badges et la liste
+        // Cela permettra de détecter si une nouvelle conversation a été créée
+        await loadConversations(refresh: true);
+
+        // Notifier aussi le module AnonymousPage pour qu'il recharge ses messages
+        try {
+          final anonymePageController = Get.find<AnonymepageController>();
+          await anonymePageController.refreshMessages();
+          print('✅ [ConversationStateService] AnonymePage rechargé');
+
+          // Recalculer le badge count APRÈS avoir rechargé les messages anonymes
+          _calculateBadgeCounts();
+        } catch (e) {
+          print('⚠️ [ConversationStateService] AnonymepageController not found: $e');
+        }
+
+        print('✅ [ConversationStateService] Rechargement terminé');
+      }
+      // Message de conversation (message.sent pour les conversations existantes)
+      else if (event == 'message.sent') {
         // Extraire l'ID de la conversation depuis les données
         final conversationId = eventData['conversation_id'] as int?;
         if (conversationId != null) {
@@ -185,6 +212,8 @@ class ConversationStateService extends GetxService {
         }
       } else if (event == 'user.typing') {
         print('⌨️ [ConversationStateService] User typing event (not implemented yet)');
+      } else {
+        print('⚠️ [ConversationStateService] Événement non géré: $event');
       }
 
       print('└─────────────────────────────────────────────────────────┘');
@@ -362,17 +391,23 @@ class ConversationStateService extends GetxService {
 
   /// Calculer les badge counts globaux
   void _calculateBadgeCounts() {
-    totalUnreadCount.value = conversations.fold<int>(
+    // Compter les messages non lus dans les conversations
+    final conversationUnreadCount = conversations.fold<int>(
       0,
       (sum, conversation) => sum + conversation.unreadCount,
     );
+
+    // NOTE: totalUnreadCount est utilisé pour le badge de l'onglet Chat (HomeView).
+    // Il doit refléter uniquement les conversations, pas les messages anonymes.
+    totalUnreadCount.value = conversationUnreadCount;
 
     unreadConversationsCount.value = conversations.where(
       (conversation) => conversation.unreadCount > 0,
     ).length;
 
     print('📊 [ConversationStateService] Badge counts recalculés:');
-    print('   - Total unread messages: ${totalUnreadCount.value}');
+    print('   - Conversation unread: $conversationUnreadCount');
+    print('   - Total unread chat messages: ${totalUnreadCount.value}');
     print('   - Unread conversations: ${unreadConversationsCount.value}');
   }
 
@@ -408,6 +443,33 @@ class ConversationStateService extends GetxService {
       return conversations.firstWhere((c) => c.id == conversationId);
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Supprimer une conversation (masquer côté serveur)
+  Future<void> deleteConversation(int conversationId) async {
+    try {
+      print('🗑️ [ConversationStateService] Suppression de la conversation $conversationId');
+
+      // Retirer immédiatement de la liste locale pour l'UI
+      final index = conversations.indexWhere((c) => c.id == conversationId);
+      if (index != -1) {
+        conversations.removeAt(index);
+        _calculateBadgeCounts();
+        print('✅ [ConversationStateService] Conversation retirée de la liste locale');
+      }
+
+      // Appeler l'API pour masquer la conversation côté serveur
+      await _chatService.deleteConversation(conversationId);
+
+      print('✅ [ConversationStateService] Conversation masquée côté serveur');
+    } catch (e) {
+      print('❌ [ConversationStateService] Erreur lors de la suppression: $e');
+
+      // En cas d'erreur, recharger les conversations pour remettre à jour l'UI
+      await refreshConversations();
+
+      rethrow;
     }
   }
 }

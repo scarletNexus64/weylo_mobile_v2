@@ -11,6 +11,7 @@ import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/data/services/conversation_state_service.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
+import 'package:weylo/app/data/models/user_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
@@ -57,6 +58,7 @@ class ChatDetailController extends GetxController {
 
   // Reply state
   final Rx<ChatMessageModel?> replyToMessage = Rx<ChatMessageModel?>(null);
+  Map<String, dynamic>? _oneShotMetadata;
 
   // Audio recording
   FlutterSoundRecorder? _audioRecorder;
@@ -192,6 +194,45 @@ class ChatDetailController extends GetxController {
       if (args != null && args['conversationId'] != null) {
         conversationId = args['conversationId'];
         print('✅ [ChatDetailController] conversationId set to: $conversationId');
+
+        // Pré-configurer une réponse (ex: depuis un post sponsorisé dans le feed)
+        if (args is Map && args['replyPreset'] is Map) {
+          try {
+            final preset = args['replyPreset'] as Map;
+            final senderUsername = (preset['sender'] as String?) ?? 'Sponsorisé';
+            final content = (preset['content'] as String?) ?? '(Media)';
+            final sponsorshipId = preset['sponsorshipId'];
+
+            final sender = UserModel.fromJson({
+              'id': 0,
+              'first_name': senderUsername,
+              'full_name': senderUsername,
+              'username': senderUsername,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+
+            final fakeId = sponsorshipId is int ? -sponsorshipId : -1;
+            replyToMessage.value = ChatMessageModel(
+              id: fakeId,
+              conversationId: conversationId!,
+              senderId: 0,
+              sender: sender,
+              content: content,
+              type: ChatMessageType.text,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+
+            if (preset['meta'] is Map) {
+              _oneShotMetadata = Map<String, dynamic>.from(preset['meta'] as Map);
+            }
+
+            print('🧩 [ChatDetailController] Reply preset applied');
+          } catch (e) {
+            print('⚠️ [ChatDetailController] Reply preset failed: $e');
+          }
+        }
 
         // IMPORTANT: Marquer cette conversation comme ouverte (pour ne pas incrémenter le badge)
         _conversationStateService?.markConversationAsOpen(conversationId!);
@@ -412,7 +453,13 @@ class ChatDetailController extends GetxController {
 
     try {
       // Si on répond à un message, ajouter le replyToMessageId dans metadata
-      Map<String, dynamic>? finalMetadata = metadata ?? {};
+      final finalMetadata = <String, dynamic>{};
+      if (_oneShotMetadata != null) {
+        finalMetadata.addAll(_oneShotMetadata!);
+      }
+      if (metadata != null) {
+        finalMetadata.addAll(metadata);
+      }
       if (replyToMessage.value != null) {
         finalMetadata['reply_to_message_id'] = replyToMessage.value!.id;
         finalMetadata['reply_to_content'] = replyToMessage.value!.content;
@@ -442,6 +489,7 @@ class ChatDetailController extends GetxController {
       messageText.value = '';
       messageTextController.clear();
       cancelReply();
+      _oneShotMetadata = null;
 
       // Invalider le cache après envoi
       await _cacheService.invalidateConversationCache(conversationId!);
@@ -928,44 +976,28 @@ class ChatDetailController extends GetxController {
       audioPlayerUpdate.value++; // Trigger rebuild
       print('⏳ Loading state set to true');
 
+      final position = audioPositions[messageId] ?? Duration.zero;
+      final duration = audioDurations[messageId] ?? Duration.zero;
+
+      print('📊 Position: ${position.inSeconds}s, Duration: ${duration.inSeconds}s');
+
       try {
-        final position = audioPositions[messageId] ?? Duration.zero;
-        final duration = audioDurations[messageId] ?? Duration.zero;
-
-        print('📊 Position: ${position.inSeconds}s, Duration: ${duration.inSeconds}s');
-
         if (position.inSeconds > 0 && position.inSeconds < duration.inSeconds) {
           print('▶️ Resuming audio...');
-          await player.resume().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Audio resume timeout');
-            },
-          );
+          player.resume(); // Ne pas attendre, les listeners mettront à jour l'état
         } else {
           print('▶️ Playing audio from URL...');
-          await player.play(ap.UrlSource(audioUrl)).timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Audio play timeout');
-            },
-          );
+          player.play(ap.UrlSource(audioUrl)); // Ne pas attendre, les listeners mettront à jour l'état
         }
         print('✅ Audio play command sent');
       } catch (e) {
         print('❌ Error playing audio: $e');
-        print('❌ Stack trace: ${StackTrace.current}');
         audioLoadingStates[messageId] = false;
         audioPlayerUpdate.value++; // Trigger rebuild
 
-        String errorMessage = 'Impossible de lire l\'audio';
-        if (e is TimeoutException) {
-          errorMessage = 'Le fichier audio ne peut pas être chargé. Veuillez réessayer.';
-        }
-
         Get.snackbar(
           'Erreur',
-          errorMessage,
+          'Impossible de lire l\'audio',
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 3),
         );

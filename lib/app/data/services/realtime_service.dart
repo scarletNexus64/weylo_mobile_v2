@@ -27,7 +27,7 @@ class RealtimeService extends GetxService {
   final Map<String, Function(Map<String, dynamic>)> _channelCallbacks = {};
 
   // Configuration Reverb
-  static const String wsHost = '192.168.1.185';
+  static const String wsHost = '192.168.100.44';
   static const int wsPort = 8080;
   static const String appKey = '1425cdd3ef7425fa6746d2895a233e52';
   static const String appId = 'Weylo-app';
@@ -63,7 +63,9 @@ class RealtimeService extends GetxService {
       print('🔑 App ID: $appId');
 
       // Créer la connexion WebSocket avec Reverb
-      final wsUrl = Uri.parse('ws://$wsHost:$wsPort/app/$appKey?protocol=7&client=js&version=8.4.0-rc2&flash=false');
+      final wsUrl = Uri.parse(
+        'ws://$wsHost:$wsPort/app/$appKey?protocol=7&client=js&version=8.4.0-rc2&flash=false',
+      );
       print('🌐 WebSocket URL: $wsUrl');
       print('⏳ Tentative de connexion...');
 
@@ -80,7 +82,9 @@ class RealtimeService extends GetxService {
       isConnected.value = true;
       connectionState.value = 'connected';
       print('✅ [RealtimeService] Stream listener configuré');
-      print('✅ [RealtimeService] Connexion établie - En attente du message pusher:connection_established');
+      print(
+        '✅ [RealtimeService] Connexion établie - En attente du message pusher:connection_established',
+      );
       print('═══════════════════════════════════════════════════════════');
       print('');
 
@@ -126,7 +130,8 @@ class RealtimeService extends GetxService {
   }
 
   /// S'abonner à un canal privé
-  Future<void> subscribeToPrivateChannel({
+  /// Retourne true si l'abonnement a réussi, false sinon
+  Future<bool> subscribeToPrivateChannel({
     required String channelName,
     required Function(Map<String, dynamic>) onEvent,
   }) async {
@@ -135,7 +140,9 @@ class RealtimeService extends GetxService {
     print('║ 🔔 ABONNEMENT À UN CANAL');
     print('╚═══════════════════════════════════════════════════════════╝');
     print('📺 Canal: $channelName');
-    print('🔌 État connexion: ${isConnected.value ? "CONNECTÉ" : "DÉCONNECTÉ"}');
+    print(
+      '🔌 État connexion: ${isConnected.value ? "CONNECTÉ" : "DÉCONNECTÉ"}',
+    );
 
     if (!isConnected.value) {
       print('⚠️ Pas encore connecté, connexion en cours...');
@@ -155,7 +162,7 @@ class RealtimeService extends GetxService {
     if (_socketId == null) {
       print('❌ ERREUR: Socket ID non reçu après 1 seconde');
       print('Impossible de s\'abonner sans Socket ID');
-      return;
+      return false;
     }
 
     try {
@@ -163,7 +170,7 @@ class RealtimeService extends GetxService {
       if (token == null) {
         print('❌ ERREUR: Aucun token d\'authentification trouvé');
         print('Impossible de s\'abonner aux canaux privés sans token');
-        return;
+        return false;
       }
 
       print('🔑 Token trouvé: ${token.substring(0, 20)}...');
@@ -179,8 +186,12 @@ class RealtimeService extends GetxService {
       );
 
       if (authSignature == null) {
-        print('❌ ERREUR: Impossible d\'obtenir la signature d\'authentification');
-        return;
+        print(
+          '❌ ERREUR: Impossible d\'obtenir la signature d\'authentification',
+        );
+        print('╚═══════════════════════════════════════════════════════════╝');
+        print('');
+        return false;
       }
 
       print('✅ Signature d\'authentification reçue');
@@ -188,10 +199,7 @@ class RealtimeService extends GetxService {
       // Construire le message d'abonnement avec l'auth
       final subscribeMessage = {
         'event': 'pusher:subscribe',
-        'data': {
-          'channel': channelName,
-          'auth': authSignature,
-        },
+        'data': {'channel': channelName, 'auth': authSignature},
       };
 
       print('📤 Message d\'abonnement avec authentification:');
@@ -213,6 +221,7 @@ class RealtimeService extends GetxService {
       print('⏳ En attente de la confirmation d\'abonnement...');
       print('╚═══════════════════════════════════════════════════════════╝');
       print('');
+      return true;
     } catch (e) {
       print('');
       print('❌❌❌ ERREUR LORS DE L\'ABONNEMENT ❌❌❌');
@@ -221,53 +230,83 @@ class RealtimeService extends GetxService {
       print('Stack trace: ${StackTrace.current}');
       print('═══════════════════════════════════════════════════════════');
       print('');
+      return false;
     }
   }
 
   /// Authentifier un canal privé auprès du backend Laravel
+  /// Avec système de retry et backoff exponentiel en cas de rate limiting
   Future<String?> _authenticateChannel({
     required String channelName,
     required String socketId,
     required String token,
+    int maxRetries = 3,
   }) async {
-    try {
-      print('🔐 Authentication - Canal: $channelName');
-      print('🔐 Authentication - Socket ID: $socketId');
+    int attempt = 0;
 
-      final authUrl = Uri.parse('http://$wsHost:8001/api/v1/broadcasting/auth');
-      print('🔐 Auth URL: $authUrl');
+    while (attempt < maxRetries) {
+      try {
+        if (attempt > 0) {
+          // Backoff exponentiel: 1s, 2s, 4s
+          final delaySeconds = (1 << attempt); // 2^attempt
+          print('⏰ Retry ${attempt + 1}/$maxRetries après ${delaySeconds}s...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+        }
 
-      final response = await http.post(
-        authUrl,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: {
-          'socket_id': socketId,
-          'channel_name': channelName,
-        },
-      );
+        print(
+          '🔐 Authentication - Canal: $channelName (tentative ${attempt + 1}/$maxRetries)',
+        );
+        print('🔐 Authentication - Socket ID: $socketId');
 
-      print('🔐 Auth response status: ${response.statusCode}');
-      print('🔐 Auth response body: ${response.body}');
+        final authUrl = Uri.parse(
+          'http://$wsHost:8001/api/v1/broadcasting/auth',
+        );
+        print('🔐 Auth URL: $authUrl');
 
-      if (response.statusCode == 200) {
-        final authData = jsonDecode(response.body);
-        final auth = authData['auth'] as String;
-        print('✅ Auth signature obtenue: ${auth.substring(0, 20)}...');
-        return auth;
-      } else {
-        print('❌ Auth failed with status ${response.statusCode}');
-        print('❌ Response: ${response.body}');
-        return null;
+        final response = await http.post(
+          authUrl,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: {'socket_id': socketId, 'channel_name': channelName},
+        );
+
+        print('🔐 Auth response status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          final authData = jsonDecode(response.body);
+          final auth = authData['auth'] as String;
+          print('✅ Auth signature obtenue: ${auth.substring(0, 20)}...');
+          return auth;
+        } else if (response.statusCode == 429) {
+          // Rate limiting - on va réessayer
+          print('⚠️ Rate limiting détecté (429 Too Many Requests)');
+          print('🔐 Auth response body: ${response.body}');
+          attempt++;
+          if (attempt >= maxRetries) {
+            print('❌ Nombre maximum de tentatives atteint');
+            return null;
+          }
+          continue;
+        } else {
+          print('❌ Auth failed with status ${response.statusCode}');
+          print('❌ Response: ${response.body}');
+          return null;
+        }
+      } catch (e) {
+        print('❌ Exception during authentication: $e');
+        attempt++;
+        if (attempt >= maxRetries) {
+          print('❌ Nombre maximum de tentatives atteint après exception');
+          return null;
+        }
+        continue;
       }
-    } catch (e) {
-      print('❌ Exception during authentication: $e');
-      print('Stack trace: ${StackTrace.current}');
-      return null;
     }
+
+    return null;
   }
 
   /// Se désabonner d'un canal
@@ -277,9 +316,7 @@ class RealtimeService extends GetxService {
 
       final unsubscribeMessage = jsonEncode({
         'event': 'pusher:unsubscribe',
-        'data': {
-          'channel': channelName,
-        },
+        'data': {'channel': channelName},
       });
 
       _channel?.sink.add(unsubscribeMessage);
@@ -346,7 +383,8 @@ class RealtimeService extends GetxService {
           print('🔔 ÉVÉNEMENT CUSTOM REÇU: $event');
           print('Canal: $channelName');
 
-          if (channelName != null && _channelCallbacks.containsKey(channelName)) {
+          if (channelName != null &&
+              _channelCallbacks.containsKey(channelName)) {
             print('✅ Callback trouvé pour ce canal');
 
             final eventData = data['data'];
@@ -441,7 +479,6 @@ class RealtimeService extends GetxService {
     });
   }
 
-
   /// Ré-abonner à tous les canaux après une reconnexion
   Future<void> _resubscribeToAllChannels() async {
     if (_channelCallbacks.isEmpty) {
@@ -457,7 +494,11 @@ class RealtimeService extends GetxService {
     print('');
 
     // Créer une copie de la map pour éviter les modifications pendant l'itération
-    final channelsToResubscribe = Map<String, Function(Map<String, dynamic>)>.from(_channelCallbacks);
+    final channelsToResubscribe =
+        Map<String, Function(Map<String, dynamic>)>.from(_channelCallbacks);
+
+    int successCount = 0;
+    int failureCount = 0;
 
     for (var entry in channelsToResubscribe.entries) {
       final channelName = entry.key;
@@ -466,18 +507,36 @@ class RealtimeService extends GetxService {
       print('🔄 [RealtimeService] Ré-abonnement au canal: $channelName');
 
       // Ré-abonner au canal (cela va refaire l'authentification)
-      await subscribeToPrivateChannel(
+      final success = await subscribeToPrivateChannel(
         channelName: channelName,
         onEvent: callback,
       );
 
-      // Petit délai entre chaque ré-abonnement pour éviter de surcharger le serveur
-      await Future.delayed(const Duration(milliseconds: 100));
+      if (success) {
+        successCount++;
+      } else {
+        failureCount++;
+      }
+
+      // Délai entre chaque ré-abonnement pour éviter le rate limiting
+      await Future.delayed(const Duration(milliseconds: 500));
     }
 
     print('');
-    print('✅✅✅ RÉ-ABONNEMENT TERMINÉ AVEC SUCCÈS');
-    print('📊 Total canaux ré-abonnés: ${_channelCallbacks.length}');
+    if (failureCount == 0) {
+      print('✅✅✅ RÉ-ABONNEMENT TERMINÉ AVEC SUCCÈS');
+      print('📊 Total canaux ré-abonnés: $successCount');
+    } else {
+      print('⚠️⚠️⚠️ RÉ-ABONNEMENT TERMINÉ AVEC DES ERREURS');
+      print('✅ Canaux réussis: $successCount');
+      print('❌ Canaux échoués: $failureCount');
+      if (failureCount > 0) {
+        print(
+          '💡 Astuce: Les canaux échoués peuvent être dus au rate limiting.',
+        );
+        print('💡 Ils seront réessayés lors de la prochaine reconnexion.');
+      }
+    }
     print('╚═══════════════════════════════════════════════════════════╝');
     print('');
   }

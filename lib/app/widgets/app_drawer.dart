@@ -75,11 +75,7 @@ class AppDrawer extends StatelessWidget {
                           subtitle: 'Gérer mes fonds',
                           onTap: () {
                             Get.back();
-                            Get.snackbar(
-                              'Wallet',
-                              'Fonctionnalité à venir',
-                              snackPosition: SnackPosition.BOTTOM,
-                            );
+                            Get.toNamed(Routes.MY_WALLET);
                           },
                           gradient: LinearGradient(
                             colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
@@ -91,11 +87,7 @@ class AppDrawer extends StatelessWidget {
                           subtitle: 'Faire connaître Weylo',
                           onTap: () {
                             Get.back();
-                            Get.snackbar(
-                              'Sponsoring',
-                              'Fonctionnalité à venir',
-                              snackPosition: SnackPosition.BOTTOM,
-                            );
+                            Get.toNamed(Routes.SPONSORING);
                           },
                         ),
                         _DrawerMenuItem(

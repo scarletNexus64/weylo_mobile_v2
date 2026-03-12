@@ -1,0 +1,1068 @@
+{
+  "info": {
+    "_postman_id": "f82cae6e-2a1a-402d-bb34-b415c349ca6b",
+    "name": "Freemopay api v2",
+    "description": "**Introduction générale**\n\nL’API **Freemopay v2** permet aux marchands d’encaisser des fonds de particuliers via Mobile Money ou Orange Money. Elle expose :\n\n- L'url de base de l'api [https://api-v2.freemopay.com/](https://api-v2.freemopay.com/) (baseUrl)\n    \n- **L’initialisation d’un paiement** (`POST /api/v2/payment`)\n    \n- **La récupération du statut d’un paiement** (`GET /api/v2/payment/:reference`)\n    \n- **La génération d’un token d’authentification** (`POST /api/v2/payment/token`)\n    \n- **Le callback** envoyé au marchand lorsque la transaction aboutit (SUCCESS) ou échoue (FAILED)\n    \n\n**Flux de statut**\n\n1. Après appel à `POST /payment`, la transaction passe en **PENDING** jusqu’à validation du payeur.\n    \n2. Lorsque le payeur valide ou annule, Freemopay envoie un **callback** au webhook du marchand avec un `status` final :\n    \n    - `SUCCESS` → paiement effectué\n        \n    - `FAILED` → paiement échoué (accompagné d’un message d’erreur)\n        \n3. Le marchand peut aussi interroger à tout moment l’état en **GET /payment/:reference**.\n    \n\n**Authentification**\n\n- **Basic Auth** : `username` = `appKey`, `password` = `secretKey`\n    \n- **Bearer Token** : jeton JWT obtenu via `/token` (expires in 3600 s)\n    \n\nRate limiting\n\n100 requêtes par minute par compte marchand\n\nAu-delà, réponse 429 Too Many Requests avec en-tête Retry-After indiquant le délai à attendre",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "24109236"
+  },
+  "item": [
+    {
+      "name": "payment",
+      "item": [
+        {
+          "name": "token",
+          "item": [
+            {
+              "name": "generate Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"appKey\": \"<string>\",\n  \"secretKey\": \"<string>\"\n}",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v2/payment/token",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment",
+                    "token"
+                  ]
+                },
+                "description": "### Create Payment Token\n\nThis endpoint allows you to create a payment token by providing the required authentication credentials.\n\n**Request Body**\n\n- `appKey` (string) - The application key for authentication.\n    \n- `secretKey` (string) - The secret key for authentication.\n    \n\n**Response**  \nThe bearer token for make payment request."
+              },
+              "response": [
+                {
+                  "name": "Success get token",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"appKey\": \"<string>\",\n  \"secretKey\": \"<string>\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/token",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        "token"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 11:58:00 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Transfer-Encoding",
+                      "value": "chunked"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"d9-fbP0Cq+eb2KcOQPIQpbubuIAXkw\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "Content-Encoding",
+                      "value": "br"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365e7df597733e5-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiI2NzNjNjAzZGZmZmVkNTE0ZjAzNDQyNWYiLCJpYXQiOjE3NDU2Njg2ODAsImV4cCI6MTc0NTY3MjI4MH0.tL_pBYc-y0wmRJI3vDhKpa0ohuNwV0tVXnTuMgAP_CY\",\n    \"expires_in\": 3600\n}"
+                },
+                {
+                  "name": "Bad Credentials",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"appKey\": \"<string>\",\n  \"secretKey\": \"<string>\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/token",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        "token"
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 11:59:25 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "103"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"67-grhh3DMY2W6KR6twbCZt6KTfQww\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365e9f1d83e93cc-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"code\": \"BAD_API_CREDENTIALS\",\n    \"message\": {\n        \"en\": \"Invalid api key credention\",\n        \"fr\": \"Clé d'api invalide\"\n    }\n}"
+                }
+              ]
+            }
+          ],
+          "description": "### POST **/api/v2/payment/token**\n\nGénère un **Bearer Token** pour les appels ultérieurs.\n\n**Requête**\n\n```\nPOST {{baseUrl}}/api/v2/payment/token\nContent-Type: application/json\n{\n  \"appKey\":    \"<string>\",\n  \"secretKey\": \"<string>\"\n}\n\n ```\n\n**Réponses**\n\n- { \"access_token\": \"\", \"expires_in\": 3600}\n    \n- { \"code\": \"BAD_API_CREDENTIALS\", \"message\": { \"en\": \"Invalid api key credentials\", \"fr\": \"Clé d'api invalide\" }}"
+        },
+        {
+          "name": "Get transactions  status",
+          "item": [
+            {
+              "name": "Get Payment Status with token",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bearerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v2/payment/:reference",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment",
+                    ":reference"
+                  ],
+                  "variable": [
+                    {
+                      "key": "reference",
+                      "value": ""
+                    }
+                  ]
+                },
+                "description": "### Retrieve Payment Details\n\nThis endpoint retrieves the details of a specific payment by providing the payment reference in the URL.\n\n#### Request\n\n- Method: GET\n    \n- URL: `{{baseUrl}}/api/v2/payment/:reference`\n    \n\n#### Response\n\nThe response for this request is a JSON schema. Here are some examples of the response:\n\n``` json\n{\n  \"reference\": \"62a11f7a-7c58-3efe-0000-637877bcdac4\",\n  \"merchandRef\": \"12343\",\n  \"amount\": 1000,\n  \"status\": \"FAILED\",\n  \"reason\": \"cancelled\"\n}\n\n ```"
+              },
+              "response": [
+                {
+                  "name": "ERROR auth",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/:reference",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        ":reference"
+                      ],
+                      "variable": [
+                        {
+                          "key": "reference",
+                          "value": "cecb550c-f542-4f63-abe6-40534a02ddf1"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 12:06:19 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "43"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"2b-dGnJzt6gv1nJjX6DJ9RztDWptng\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365f4131aac0d06-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"message\": \"Unauthorized\",\n    \"statusCode\": 401\n}"
+                },
+                {
+                  "name": "Sucess get status",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/:reference",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        ":reference"
+                      ],
+                      "variable": [
+                        {
+                          "key": "reference",
+                          "value": "cecb550c-f542-4f63-abe6-40534a02ddf1"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 12:06:59 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Transfer-Encoding",
+                      "value": "chunked"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"a5-7WubokeFBSZCODh1hS3eiqsOL8Q\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "Content-Encoding",
+                      "value": "br"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365f50b7a070d06-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"reference\": \"cecb550c-f542-4f63-abe6-40534a02ddf1\",\n    \"merchandRef\": \"yourid2252626252\",\n    \"amount\": 100,\n    \"status\": \"FAILED\",\n    \"reason\": \"Transaction canceled by the customer.\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Get Payment Status with basic auth",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "username",
+                      "value": "app-key",
+                      "type": "string"
+                    },
+                    {
+                      "key": "password",
+                      "value": "app-secret",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "https://api-v2.freemopay.com/api/v2/payment/:reference",
+                  "protocol": "https",
+                  "host": [
+                    "api-v2",
+                    "freemopay",
+                    "com"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment",
+                    ":reference"
+                  ],
+                  "variable": [
+                    {
+                      "key": "reference",
+                      "value": "873006fb-75f8-446e-9474-604f5e734ab2"
+                    }
+                  ]
+                },
+                "description": "### Retrieve Payment Details\n\nThis endpoint retrieves the details of a specific payment by providing the payment reference in the URL.\n\n#### Request\n\n- Method: GET\n    \n- URL: `{{baseUrl}}/api/v2/payment/:reference`\n    \n\n#### Response\n\nThe response for this request is a JSON schema. Here are some examples of the response:\n\n``` json\n{\n  \"reference\": \"62a11f7a-7c58-3efe-0000-637877bcdac4\",\n  \"merchandRef\": \"12343\",\n  \"amount\": 1000,\n  \"status\": \"FAILED\",\n  \"reason\": \"cancelled\"\n}\n\n ```"
+              },
+              "response": [
+                {
+                  "name": "ERROR auth",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/:reference",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        ":reference"
+                      ],
+                      "variable": [
+                        {
+                          "key": "reference",
+                          "value": "cecb550c-f542-4f63-abe6-40534a02ddf1"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 12:06:19 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "43"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"2b-dGnJzt6gv1nJjX6DJ9RztDWptng\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365f4131aac0d06-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"message\": \"Unauthorized\",\n    \"statusCode\": 401\n}"
+                },
+                {
+                  "name": "Transaction status with basic auth",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/:reference",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        ":reference"
+                      ],
+                      "variable": [
+                        {
+                          "key": "reference",
+                          "value": "a67691ed-3185-4153-9ede-7dc62601a177"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 12:15:03 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Transfer-Encoding",
+                      "value": "chunked"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"a0-2JDLP40uFO3FN2eUsbs8SVapiHc\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "Content-Encoding",
+                      "value": "br"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "936600d99c6073dd-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"reference\": \"a67691ed-3185-4153-9ede-7dc62601a177\",\n    \"merchandRef\": \"yourid225262625342\",\n    \"amount\": 100,\n    \"status\": \"PENDING\",\n    \"reason\": \"Paiement initié avec success\"\n}"
+                }
+              ]
+            }
+          ],
+          "description": "## Dossier **payment/Get transactions status**\n\nRécupère le détail d’un paiement par sa référence.\n\n### GET **/api/v2/payment/:reference** _(Bearer)_\n\n**Requête**\n\n```\nGET {{baseUrl}}/api/v2/payment/:reference\nAuthorization: Bearer {{bearerToken}}\n\n ```\n\n**Réponses**\n\n- { \"reference\": \"uuid\", \"merchandRef\": \"votre-externalId\", \"amount\": 100, \"status\": \"FAILED\", // ou PENDING, SUCCESS \"reason\": \"cancelled\" // motif en cas d’échec}\n    \n- { \"message\": \"Unauthorized\", \"statusCode\": 401}\n    \n\n### GET **/api/v2/payment/:reference** _(Basic Auth)_\n\nIdentique à la version Bearer, mais en en-tête Basic Auth.\n\n```\nGET {{baseUrl}}/api/v2/payment/:reference\nAuthorization: Basic base64(appKey:secretKey)\n\n ```\n\n---"
+        },
+        {
+          "name": "Init payment",
+          "item": [
+            {
+              "name": "Init Payment with token (bearer)",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{bearerToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiI2N2JiMzZhOTQ0MGVkMTgzNzdiMTQ1MTMiLCJpYXQiOjE3NTY1MzkxMzQsImV4cCI6MTc1NjU0MjczNH0.JnXNtF3k2fX0Wvmy73h7308--YPFuX0b9Oa20YhBI-E",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"payer\": \"237658895572\",\n  \"amount\": \"100\",\n  \"externalId\": \"yourid2252626252\",\n  \"description\": \"Paiement Package Stockage\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v2/payment",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment"
+                  ]
+                },
+                "description": "### POST /api/v2/payment\n\nThis endpoint is used to make a payment with the provided details.\n\n#### Request Body\n\n- `payer` (string) - The payer's identifier.\n    \n- `amount` (number) - The amount of the payment.\n    \n- `externalId` (string) - The external identifier for the payment.\n    \n- `description` (string) - A description of the payment.\n    \n- `callback` (string) - The callback URL for receiving payment status updates.\n    \n\n#### Response\n\nThe response for this request is expected to be in JSON format. However, the response examples are not available at the moment.\n\n#### JSON Schema\n\n``` json\n{\n  \"reference\": \"b4766726-ccbb-0000-b53c-0b387686a397\",\n  \"status\": \"SUCCESS\",\n  \"message\": \"\"\n}\n\n ```"
+              },
+              "response": [
+                {
+                  "name": "Init with token success",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"payer\": \"2376xxxxxxxx\",\n  \"amount\": \"100\",\n  \"externalId\": \"yourid2252626252\",\n  \"description\": \"test\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Date",
+                      "value": "Sat, 26 Apr 2025 12:04:11 GMT"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Transfer-Encoding",
+                      "value": "chunked"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Server",
+                      "value": "cloudflare"
+                    },
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Etag",
+                      "value": "W/\"71-ACn5mUEM2ezdaP17v1sAWnvcLWg\""
+                    },
+                    {
+                      "key": "Cf-Cache-Status",
+                      "value": "DYNAMIC"
+                    },
+                    {
+                      "key": "Content-Encoding",
+                      "value": "br"
+                    },
+                    {
+                      "key": "CF-RAY",
+                      "value": "9365f0d25cd9bbf0-JNB"
+                    },
+                    {
+                      "key": "alt-svc",
+                      "value": "h3=\":443\"; ma=86400"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"reference\": \"cecb550c-f542-4f63-abe6-40534a02ddf1\",\n    \"status\": \"SUCCESS\",\n    \"message\": \"Paiement initié avec success\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "Init Payment with basic auth",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "username",
+                      "value": "2d0667ec-c7e0-493f-a03e-2f379c618182",
+                      "type": "string"
+                    },
+                    {
+                      "key": "password",
+                      "value": "J1NdEjA3Fv10XMZhSMQA",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"payer\": \"2376xxxxxxxx\",\n  \"amount\": \"10000\",\n  \"externalId\": \"yourid225262625342\",\n  \"description\": \"test\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v2/payment",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment"
+                  ]
+                },
+                "description": "### POST /api/v2/payment\n\nThis endpoint is used to make a payment with the provided details.\n\n#### Request Body\n\n- `payer` (string) - The payer's identifier.\n    \n- `amount` (number) - The amount of the payment.\n    \n- `externalId` (string) - The external identifier for the payment.\n    \n- `description` (string) - A description of the payment.\n    \n- `callback` (string) - The callback URL for receiving payment status updates.\n    \n\n#### Response\n\nThe response for this request is expected to be in JSON format. However, the response examples are not available at the moment.\n\n#### JSON Schema\n\n``` json\n{\n  \"reference\": \"b4766726-ccbb-0000-b53c-0b387686a397\",\n  \"status\": \"SUCCESS\",\n  \"message\": \"\"\n}\n\n ```"
+              },
+              "response": [
+                {
+                  "name": "SUCCESS Init Payment with basic auth",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"payer\": \"2376xxxxxxxx\",\n  \"amount\": \"10000\",\n  \"externalId\": \"yourid225262625342\",\n  \"description\": \"test\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}\n",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "Text",
+                  "header": [
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "103"
+                    },
+                    {
+                      "key": "ETag",
+                      "value": "W/\"67-MTX5a6JU7nolFnjQNOPg6oXfyCg\""
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Sun, 03 Aug 2025 13:28:14 GMT"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Keep-Alive",
+                      "value": "timeout=5"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"reference\": \"27aa4ac4-a9d1-4d63-a805-77fd0794031c\",\n    \"status\": \"CREATED\",\n    \"message\": \"Transaction created\"\n}"
+                }
+              ]
+            }
+          ],
+          "description": "## Dossier **payment/Init payment**\n\nInitie une demande de paiement.\n\n### POST **/api/v2/payment** _(Bearer)_\n\n**Requête**\n\n```\nPOST {{baseUrl}}/api/v2/payment\nAuthorization: Bearer {{bearerToken}}\nContent-Type: application/json\n{\n  \"payer\":      \"2376xxxxxxxx\",\n  \"amount\":     \"100\",\n  \"externalId\": \"votreIdUniqe\",\n  \"description\":\"Test de paiement\",\n  \"callback\":   \"https://votresite.com/webhook/freemopay\"\n}\n\n ```\n\n**Réponse (200 OK)**\n\n```\n{\n  \"reference\": \"uuid-de-transaction\",\n  \"status\":    \"SUCCESS\",  // INITIALIZATION_SUCCESS ou FAILED\n  \"message\":   \"\"\n}\n\n ```\n\n### POST **/api/v2/payment** _(Basic Auth)_\n\nMême schéma, avec Basic Auth en lieu et place du Bearer.\n\nGET {{baseUrl}}/api/v2/payment/:reference  \nAuthorization: Bearer bearerToken"
+        },
+        {
+          "name": "Callback",
+          "item": [
+            {
+              "name": "Callback request you receive after a transaction Success or failed",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "\r\n{\r\n  \"status\": \"FAILED\",\r\n  \"reference\": \"cecb550c-f542-4f63-abe6-40534a02ddf2\",\r\n  \"amount\": 100,\r\n  \"transactionType\": \"DEPOSIT\",\r\n  \"externalId\": \"yourid2252626252\",\r\n  \"message\": \"Transaction canceled by the customer.\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "https://yoursite.com/webhook/freemopay",
+                  "protocol": "https",
+                  "host": [
+                    "yoursite",
+                    "com"
+                  ],
+                  "path": [
+                    "webhook",
+                    "freemopay"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "## Dossier **payment/Callback**\n\n### POST **Webhook marchand**\n\nFreemopay appelle ce endpoint pour notifier le résultat final :\n\n**Exemple de payload**\n\n```\nPOST https://votresite.com/webhook/freemopay\nContent-Type: application/json\n{\n  \"status\":          \"FAILED\",              // SUCCESS ou FAILED\n  \"reference\":       \"uuid-de-transaction\",\n  \"amount\":          100,\n  \"transactionType\": \"DEPOSIT\",\n  \"externalId\":      \"votreIdUniqe\",\n  \"message\":         \"Transaction canceled by the customer.\"\n}\n\n ```\n\n  \n  \n  \n\n> \n\n**À noter :**\n\n- `status` reflète l’état **final** du paiement.\n    \n- `externalId` permet de faire le lien avec votre système interne.\n    \n- Vos callbacks doivent renvoyer un **200 OK**, même si le paiement a échoué, pour valider la réception."
+        },
+        {
+          "name": "Withdraw",
+          "item": [
+            {
+              "name": "Init Withdraw with basic auth",
+              "request": {
+                "auth": {
+                  "type": "basic",
+                  "basic": [
+                    {
+                      "key": "password",
+                      "value": "J1NdEjA3Fv10XMZhSMQA",
+                      "type": "string"
+                    },
+                    {
+                      "key": "username",
+                      "value": "2d0667ec-c7e0-493f-a03e-2f379c618182",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"receiver\": \"237695509408\",\n  \"amount\": \"100\",\n  \"externalId\": \"yourid225262625342\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}\n",
+                  "options": {
+                    "raw": {
+                      "headerFamily": "json",
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/v2/payment/direct-withdraw",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v2",
+                    "payment",
+                    "direct-withdraw"
+                  ]
+                },
+                "description": "### POST /api/v2/payment/direct-withdraw\n\nThis endpoint is used to make a withdraw with the provided details.\n\n#### Request Body\n\n- `receiver` (string) - The receiver's phone.\n    \n- `amount` (number) - The amount of the payment.\n    \n- `externalId` (string) - The external identifier for the payment.\n    \n- `callback` (string) - The callback URL for receiving payment status updates.\n    \n\n#### Response\n\nThe response for this request is expected to be in JSON format. However, the response examples are not available at the moment.\n\n#### JSON Schema\n\n``` json\n{\n  \"reference\": \"b4766726-ccbb-0000-b53c-0b387686a397\",\n  \"status\": \"CREATED\",\n  \"message\": \"cashout created\"\n}\n\n ```"
+              },
+              "response": [
+                {
+                  "name": "SUCCESS Init Cashout with basic auth",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"receiver\": \"2376xxxxxxxx\",\n  \"amount\": \"100\",\n  \"externalId\": \"yourid225262625342\",\n  \"callback\": \"https://webhook.site/048fef35-a7ce-4ee2-bee1-e7b0d2be0c2a\"\n}\n",
+                      "options": {
+                        "raw": {
+                          "headerFamily": "json",
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseUrl}}/api/v2/payment/direct-withdraw",
+                      "host": [
+                        "{{baseUrl}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v2",
+                        "payment",
+                        "direct-withdraw"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "Text",
+                  "header": [
+                    {
+                      "key": "X-Powered-By",
+                      "value": "Express"
+                    },
+                    {
+                      "key": "Access-Control-Allow-Origin",
+                      "value": "*"
+                    },
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "99"
+                    },
+                    {
+                      "key": "ETag",
+                      "value": "W/\"63-3eQtX5iZ43SvUYLJbqToqWqMg68\""
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Sun, 03 Aug 2025 13:54:22 GMT"
+                    },
+                    {
+                      "key": "Connection",
+                      "value": "keep-alive"
+                    },
+                    {
+                      "key": "Keep-Alive",
+                      "value": "timeout=5"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"reference\": \"0e8d2768-e3fd-4224-b76f-3f7ae7bf9d27\",\n    \"status\": \"CREATED\",\n    \"message\": \"cashout created\"\n}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

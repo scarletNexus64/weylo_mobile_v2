@@ -19,9 +19,10 @@ class WebSocketService extends GetxService {
   final Map<String, dynamic> _activeChannels = {};
 
   // Configuration
-  static const String wsHost = '192.168.1.185';
+  static const String wsHost = '192.168.100.44';
   static const int wsPort = 8080;
-  static const String authEndpoint = 'http://192.168.1.185:8001/broadcasting/auth';
+  static const String authEndpoint =
+      'http://192.168.100.44:8001/broadcasting/auth';
   static const String appId = 'Weylo-app';
   static const String appKey = '1425cdd3ef7425fa6746d2895a233e52'; // Clé Reverb
   static const String cluster = 'mt1'; // Cluster par défaut
@@ -78,13 +79,12 @@ class WebSocketService extends GetxService {
                 'Authorization': 'Bearer $token',
                 'Accept': 'application/json',
               },
-              body: {
-                'socket_id': socketId,
-                'channel_name': channelName,
-              },
+              body: {'socket_id': socketId, 'channel_name': channelName},
             );
 
-            print('🔐 [WebSocketService] Auth response status: ${response.statusCode}');
+            print(
+              '🔐 [WebSocketService] Auth response status: ${response.statusCode}',
+            );
             print('🔐 [WebSocketService] Auth response body: ${response.body}');
 
             if (response.statusCode == 200) {
@@ -212,7 +212,9 @@ class WebSocketService extends GetxService {
       await pusher.unsubscribe(channelName: channelName);
       _activeChannels.remove(channelName);
 
-      print('🔕 [WebSocketService] Unsubscribed from conversation $conversationId');
+      print(
+        '🔕 [WebSocketService] Unsubscribed from conversation $conversationId',
+      );
     } catch (e) {
       print('❌ [WebSocketService] Error unsubscribing: $e');
     }
@@ -239,7 +241,9 @@ class WebSocketService extends GetxService {
   // ==================== EVENT HANDLERS ====================
 
   void _onConnectionStateChange(dynamic currentState, dynamic previousState) {
-    print('🔄 [WebSocketService] Connection state changed: $previousState -> $currentState');
+    print(
+      '🔄 [WebSocketService] Connection state changed: $previousState -> $currentState',
+    );
     connectionState.value = currentState.toString();
 
     if (currentState == 'CONNECTED') {
@@ -259,7 +263,9 @@ class WebSocketService extends GetxService {
   }
 
   void _onEvent(PusherEvent event) {
-    print('📨 [WebSocketService] Global event: ${event.eventName} on ${event.channelName}');
+    print(
+      '📨 [WebSocketService] Global event: ${event.eventName} on ${event.channelName}',
+    );
   }
 
   void _onSubscriptionSucceeded(String channelName, dynamic data) {
@@ -277,11 +283,15 @@ class WebSocketService extends GetxService {
   }
 
   void _onMemberAdded(String channelName, PusherMember member) {
-    print('👤 [WebSocketService] Member added to $channelName: ${member.userId}');
+    print(
+      '👤 [WebSocketService] Member added to $channelName: ${member.userId}',
+    );
   }
 
   void _onMemberRemoved(String channelName, PusherMember member) {
-    print('👤 [WebSocketService] Member removed from $channelName: ${member.userId}');
+    print(
+      '👤 [WebSocketService] Member removed from $channelName: ${member.userId}',
+    );
   }
 
   /// Obtenir l'état de connexion sous forme lisible

@@ -715,7 +715,7 @@ class _ProfileViewState extends State<ProfileView>
       final giftTransactions = <int, dynamic>{};
 
       for (var transaction in controller.sentGifts) {
-        final giftId = transaction.giftId;
+        final giftId = transaction.giftId ?? transaction.gift.id;
         giftCounts[giftId] = (giftCounts[giftId] ?? 0) + 1;
         giftTransactions[giftId] = transaction;
       }

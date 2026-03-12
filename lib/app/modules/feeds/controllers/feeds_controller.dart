@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:weylo/app/data/core/api_service.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
+import 'package:weylo/app/data/models/sponsored_ad_model.dart';
+import 'package:weylo/app/data/services/sponsorship_service.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
 import 'package:weylo/app/routes/app_pages.dart';
@@ -12,6 +15,7 @@ enum ConfessionFilter { all, popular, recent }
 
 class ConfessionsController extends GetxController {
   final _confessionService = ConfessionService();
+  final _sponsorshipService = SponsorshipService();
 
   // Scroll controller for scroll to top functionality
   final scrollController = ScrollController();
@@ -27,6 +31,11 @@ class ConfessionsController extends GetxController {
 
   // Stories data
   final stories = <Map<String, dynamic>>[].obs;
+
+  // Sponsored ads (carousel in feed)
+  final sponsoredAds = <SponsoredAdModel>[].obs;
+  final isLoadingAds = false.obs;
+  final _trackedImpressions = <int>{};
 
   // Confessions data
   final confessions = <ConfessionModel>[].obs;
@@ -73,6 +82,7 @@ class ConfessionsController extends GetxController {
     super.onInit();
     _loadStories();
     loadConfessions();
+    loadSponsoredAds();
   }
 
   @override
@@ -341,6 +351,7 @@ class ConfessionsController extends GetxController {
       // Délai minimum pour une meilleure UX (évite que le spinner disparaisse trop vite)
       await Future.wait([
         loadConfessions(refresh: true),
+        loadSponsoredAds(refresh: true),
         Future.delayed(const Duration(milliseconds: 500)), // Délai minimum
       ]);
 
@@ -352,6 +363,38 @@ class ConfessionsController extends GetxController {
       // L'erreur est déjà gérée dans loadConfessions
       print('Error refreshing feed: $e');
     }
+  }
+
+  Future<void> loadSponsoredAds({bool refresh = false}) async {
+    if (isLoadingAds.value) return;
+    isLoadingAds.value = true;
+    try {
+      final ads = await _sponsorshipService.getFeedAds(limit: 10);
+      final now = DateTime.now();
+      sponsoredAds.value = ads
+          .where((a) => a.endsAt == null || a.endsAt!.isAfter(now))
+          .toList();
+      if (refresh) {
+        _trackedImpressions.clear();
+      }
+    } catch (e) {
+      // Silencieux: les ads sont optionnelles dans le feed
+      print('⚠️ [ADS] Impossible de charger les ads: $e');
+    } finally {
+      isLoadingAds.value = false;
+    }
+  }
+
+  void trackAdImpression(int sponsorshipId) {
+    if (_trackedImpressions.contains(sponsorshipId)) return;
+    _trackedImpressions.add(sponsorshipId);
+    _sponsorshipService.trackImpression(sponsorshipId).catchError((e) {
+      if (e is ApiException && e.statusCode == 410) {
+        // Ad expirée ou complétée: retirer localement et rafraîchir le pool
+        sponsoredAds.removeWhere((a) => a.id == sponsorshipId);
+        loadSponsoredAds();
+      }
+    });
   }
 
   void _loadStories() {

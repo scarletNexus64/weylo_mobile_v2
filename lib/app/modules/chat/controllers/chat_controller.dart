@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/data/services/conversation_state_service.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
@@ -84,22 +83,12 @@ class ChatController extends GetxController {
 
   /// Supprimer une conversation (masquer)
   Future<void> deleteConversation(int conversationId) async {
-    // Afficher le loader
-    Get.dialog(
-      const Center(
-        child: CircularProgressIndicator(),
-      ),
-      barrierDismissible: false,
-    );
-
     try {
       print('🗑️ [ChatController] Deleting conversation $conversationId');
 
-      // Appeler l'API pour supprimer/masquer
-      // TODO: Implémenter la suppression via ConversationStateService
-
-      // Fermer le loader
-      Get.back();
+      // Appeler le service global pour supprimer la conversation
+      // Cela va retirer immédiatement de la liste locale et appeler l'API
+      await _conversationStateService?.deleteConversation(conversationId);
 
       Get.snackbar(
         'Succès',
@@ -109,9 +98,6 @@ class ChatController extends GetxController {
       );
     } catch (e) {
       print('❌ [ChatController] Error deleting conversation: $e');
-
-      // Fermer le loader
-      Get.back();
 
       Get.snackbar(
         'Erreur',
