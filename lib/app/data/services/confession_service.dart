@@ -14,6 +14,7 @@ class ConfessionService {
     int perPage = 20,
   }) async {
     try {
+      print('🌐 [API] GET ${ApiConfig.confessions}?page=$page&per_page=$perPage');
       final response = await _api.get(
         ApiConfig.confessions,
         queryParameters: {
@@ -22,8 +23,44 @@ class ConfessionService {
         },
       );
 
-      return ConfessionListResponse.fromJson(response.data);
-    } catch (e) {
+      print('✅ [API] Réponse reçue - Status: ${response.statusCode}');
+      print('📦 [API] Data type: ${response.data.runtimeType}');
+
+      if (response.data == null) {
+        print('❌ [API] La réponse est null!');
+        throw Exception('La réponse du serveur est vide');
+      }
+
+      // Vérifier la structure de la réponse
+      if (response.data is! Map<String, dynamic>) {
+        print('❌ [API] Format de réponse incorrect: ${response.data.runtimeType}');
+        throw Exception('Format de réponse incorrect');
+      }
+
+      final data = response.data as Map<String, dynamic>;
+
+      // Vérifier que les champs nécessaires sont présents
+      if (!data.containsKey('confessions')) {
+        print('❌ [API] Champ "confessions" manquant dans la réponse');
+        print('📦 [API] Clés disponibles: ${data.keys.toList()}');
+        throw Exception('Champ "confessions" manquant');
+      }
+
+      if (!data.containsKey('meta')) {
+        print('❌ [API] Champ "meta" manquant dans la réponse');
+        print('📦 [API] Clés disponibles: ${data.keys.toList()}');
+        throw Exception('Champ "meta" manquant');
+      }
+
+      print('✅ [API] Structure de réponse valide');
+      print('📦 [API] Nombre de confessions: ${(data['confessions'] as List).length}');
+
+      return ConfessionListResponse.fromJson(data);
+    } catch (e, stackTrace) {
+      print('❌ [API] ERREUR dans getConfessions:');
+      print('   Type: ${e.runtimeType}');
+      print('   Message: $e');
+      print('   StackTrace: $stackTrace');
       rethrow;
     }
   }

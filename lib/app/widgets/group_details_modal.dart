@@ -4,6 +4,46 @@ import '../data/models/group_model.dart';
 import '../modules/groupe/controllers/groupe_controller.dart';
 import 'app_theme_system.dart';
 
+/// Cache pour éviter les fuites mémoire
+class _GroupDetailsCache {
+  static const avatarGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      AppThemeSystem.tertiaryColor,
+      AppThemeSystem.primaryColor,
+    ],
+  );
+
+  static const buttonGradient = LinearGradient(
+    colors: [
+      AppThemeSystem.tertiaryColor,
+      AppThemeSystem.primaryColor,
+    ],
+  );
+
+  static const dialogButtonGradient = LinearGradient(
+    colors: [
+      AppThemeSystem.tertiaryColor,
+      AppThemeSystem.secondaryColor,
+    ],
+  );
+
+  // Couleurs avec alpha en cache
+  static final grey800Alpha04 = AppThemeSystem.grey800.withValues(alpha: 0.4);
+  static final grey800Alpha03 = AppThemeSystem.grey800.withValues(alpha: 0.3);
+  static final grey700Alpha05 = AppThemeSystem.grey700.withValues(alpha: 0.5);
+  static final grey700Alpha03 = AppThemeSystem.grey700.withValues(alpha: 0.3);
+  static final tertiaryAlpha03 = AppThemeSystem.tertiaryColor.withValues(alpha: 0.3);
+  static final tertiaryAlpha01 = AppThemeSystem.tertiaryColor.withValues(alpha: 0.1);
+  static final successAlpha01 = AppThemeSystem.successColor.withValues(alpha: 0.1);
+  static final successAlpha03 = AppThemeSystem.successColor.withValues(alpha: 0.3);
+  static final warningAlpha01 = AppThemeSystem.warningColor.withValues(alpha: 0.1);
+  static final warningAlpha03 = AppThemeSystem.warningColor.withValues(alpha: 0.3);
+  static final errorAlpha01 = AppThemeSystem.errorColor.withValues(alpha: 0.1);
+  static final errorAlpha03 = AppThemeSystem.errorColor.withValues(alpha: 0.3);
+}
+
 /// Modal Discord-style pour afficher les détails d'un groupe
 class GroupDetailsModal extends StatelessWidget {
   final GroupModel group;
@@ -140,20 +180,13 @@ class GroupDetailsModal extends StatelessWidget {
           width: avatarSize,
           height: avatarSize,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppThemeSystem.tertiaryColor,
-                AppThemeSystem.primaryColor,
-              ],
-            ),
+            gradient: _GroupDetailsCache.avatarGradient,
             borderRadius: BorderRadius.circular(
               AppThemeSystem.getBorderRadius(context, BorderRadiusType.large),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                color: _GroupDetailsCache.tertiaryAlpha03,
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -161,7 +194,9 @@ class GroupDetailsModal extends StatelessWidget {
           ),
           child: Center(
             child: Text(
-              group.name.substring(0, 2).toUpperCase(),
+              group.name.length < 2
+                  ? group.name.toUpperCase()
+                  : group.name.substring(0, 2).toUpperCase(),
               style: context.textStyle(
                 deviceType == DeviceType.mobile ? FontSizeType.h4 : FontSizeType.h3
               ).copyWith(
@@ -223,15 +258,15 @@ class GroupDetailsModal extends StatelessWidget {
           padding: badgePadding,
           decoration: BoxDecoration(
             color: group.isPublic
-                ? AppThemeSystem.successColor.withValues(alpha: 0.1)
-                : AppThemeSystem.warningColor.withValues(alpha: 0.1),
+                ? _GroupDetailsCache.successAlpha01
+                : _GroupDetailsCache.warningAlpha01,
             borderRadius: BorderRadius.circular(
               AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
             ),
             border: Border.all(
               color: group.isPublic
-                  ? AppThemeSystem.successColor.withValues(alpha: 0.3)
-                  : AppThemeSystem.warningColor.withValues(alpha: 0.3),
+                  ? _GroupDetailsCache.successAlpha03
+                  : _GroupDetailsCache.warningAlpha03,
               width: 1,
             ),
           ),
@@ -277,13 +312,20 @@ class GroupDetailsModal extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  group.category!.icon ?? '🏷️',
-                  style: TextStyle(fontSize: deviceType == DeviceType.mobile ? 10 : 12),
-                ),
+                if (group.category!.iconData != null)
+                  Icon(
+                    group.category!.iconData,
+                    size: deviceType == DeviceType.mobile ? 12 : 14,
+                    color: _parseColor(group.category!.color ?? '#9E9E9E'),
+                  )
+                else
+                  Text(
+                    group.category!.emojiIcon,
+                    style: TextStyle(fontSize: deviceType == DeviceType.mobile ? 10 : 12),
+                  ),
                 SizedBox(width: spacing),
                 Text(
-                  group.category!.name ?? 'Autre',
+                  group.category!.name,
                   style: context.textStyle(FontSizeType.caption).copyWith(
                     color: _parseColor(group.category!.color ?? '#9E9E9E'),
                     fontWeight: FontWeight.w600,
@@ -299,12 +341,12 @@ class GroupDetailsModal extends StatelessWidget {
           Container(
             padding: badgePadding,
             decoration: BoxDecoration(
-              color: AppThemeSystem.errorColor.withValues(alpha: 0.1),
+              color: _GroupDetailsCache.errorAlpha01,
               borderRadius: BorderRadius.circular(
                 AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
               ),
               border: Border.all(
-                color: AppThemeSystem.errorColor.withValues(alpha: 0.3),
+                color: _GroupDetailsCache.errorAlpha03,
                 width: 1,
               ),
             ),
@@ -353,14 +395,14 @@ class GroupDetailsModal extends StatelessWidget {
               : const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isDark
-                ? AppThemeSystem.grey800.withValues(alpha: 0.3)
+                ? _GroupDetailsCache.grey800Alpha03
                 : AppThemeSystem.grey100,
             borderRadius: BorderRadius.circular(
               AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
             ),
             border: Border.all(
               color: isDark
-                  ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+                  ? _GroupDetailsCache.grey700Alpha03
                   : AppThemeSystem.grey200,
               width: 1,
             ),
@@ -445,14 +487,14 @@ class GroupDetailsModal extends StatelessWidget {
           : const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark
-            ? AppThemeSystem.grey800.withValues(alpha: 0.3)
+            ? _GroupDetailsCache.grey800Alpha03
             : AppThemeSystem.grey100,
         borderRadius: BorderRadius.circular(
           AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
         ),
         border: Border.all(
           color: isDark
-              ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+              ? _GroupDetailsCache.grey700Alpha03
               : AppThemeSystem.grey200,
           width: 1,
         ),
@@ -488,6 +530,12 @@ class GroupDetailsModal extends StatelessWidget {
   /// Barre de progression des membres
   Widget _buildProgressBar(BuildContext context, bool isDark) {
     final deviceType = context.deviceType;
+
+    // Éviter la division par zéro
+    if (group.maxMembers == 0) {
+      return const SizedBox.shrink();
+    }
+
     final progress = group.membersCount / group.maxMembers;
     final percentage = (progress * 100).toInt();
 
@@ -600,18 +648,13 @@ class GroupDetailsModal extends StatelessWidget {
       width: double.infinity,
       height: context.buttonHeight,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppThemeSystem.tertiaryColor,
-            AppThemeSystem.primaryColor,
-          ],
-        ),
+        gradient: _GroupDetailsCache.buttonGradient,
         borderRadius: BorderRadius.circular(
           AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+            color: _GroupDetailsCache.tertiaryAlpha03,
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -758,13 +801,13 @@ class GroupDetailsModal extends StatelessWidget {
                   ),
                   filled: true,
                   fillColor: isDark
-                      ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                      ? _GroupDetailsCache.grey800Alpha04
                       : AppThemeSystem.grey100,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
                       color: isDark
-                          ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                          ? _GroupDetailsCache.grey700Alpha05
                           : AppThemeSystem.grey200,
                       width: 1,
                     ),
@@ -773,7 +816,7 @@ class GroupDetailsModal extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
                       color: isDark
-                          ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                          ? _GroupDetailsCache.grey700Alpha05
                           : AppThemeSystem.grey200,
                       width: 1,
                     ),
@@ -801,7 +844,6 @@ class GroupDetailsModal extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: () {
                         Get.back();
-                        codeController.dispose();
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppThemeSystem.grey700,
@@ -828,16 +870,11 @@ class GroupDetailsModal extends StatelessWidget {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            AppThemeSystem.tertiaryColor,
-                            AppThemeSystem.secondaryColor,
-                          ],
-                        ),
+                        gradient: _GroupDetailsCache.dialogButtonGradient,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                            color: _GroupDetailsCache.tertiaryAlpha03,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -851,7 +888,6 @@ class GroupDetailsModal extends StatelessWidget {
                             if (code.isNotEmpty) {
                               Get.back();
                               await controller.joinGroupByCode(code);
-                              codeController.dispose();
                             }
                           },
                           borderRadius: BorderRadius.circular(12),
@@ -876,7 +912,10 @@ class GroupDetailsModal extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      // S'assurer que le controller est toujours disposé, peu importe comment le dialog est fermé
+      codeController.dispose();
+    });
   }
 
   /// Formater la date

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/widgets/cached_network_image_widget.dart';
 
 import '../controllers/feeds_controller.dart';
 import 'widgets/stories_vertical_bar.dart';
@@ -25,6 +26,20 @@ class _ConfessionsViewState extends State<ConfessionsView>
   bool get wantKeepAlive => true;
 
   ConfessionsController get controller => Get.find<ConfessionsController>();
+
+  /// Valider qu'une URL est bien formée
+  bool _isValidImageUrl(String? url) {
+    if (url == null || url.isEmpty) return false;
+
+    try {
+      final uri = Uri.parse(url);
+      // Vérifier que c'est une URL HTTP/HTTPS valide
+      return uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https');
+    } catch (e) {
+      print('⚠️ [IMAGE] URL invalide: $url - Erreur: $e');
+      return false;
+    }
+  }
 
   @override
   void initState() {
@@ -152,10 +167,34 @@ class _ConfessionsViewState extends State<ConfessionsView>
           // Infinite scroll: détecter quand on arrive à 80% du scroll
           // Vérifier que les métriques sont valides avant de continuer
           if (!controller.isLoadingMore.value &&
+              !controller.isLoading.value &&
+              !controller.isRefreshing.value &&
               scrollInfo.metrics.hasContentDimensions &&
-              scrollInfo.metrics.maxScrollExtent > 0 &&
-              scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent * 0.8) {
-            controller.loadConfessions();
+              scrollInfo.metrics.maxScrollExtent > 0) {
+
+            final pixels = scrollInfo.metrics.pixels;
+            final maxExtent = scrollInfo.metrics.maxScrollExtent;
+
+            // CRITIQUE: Vérifier que le scroll n'est pas dans un état invalide
+            if (pixels < 0 || pixels > maxExtent * 2) {
+              print('⚠️ [SCROLL] Scroll invalide détecté: $pixels/$maxExtent - IGNORÉ');
+              return false;
+            }
+
+            // Charger plus de confessions quand on atteint 80% du scroll
+            if (pixels >= maxExtent * 0.8) {
+              print('📜 [SCROLL] Scroll à ${pixels.toStringAsFixed(0)}/${maxExtent.toStringAsFixed(0)}');
+
+              // CRITIQUE: Charger APRÈS le frame actuel pour éviter "Build scheduled during frame"
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!controller.isLoadingMore.value &&
+                    !controller.isLoading.value &&
+                    !controller.isRefreshing.value) {
+                  print('📜 [SCROLL] Déclenchement du chargement (post-frame)');
+                  controller.loadConfessions();
+                }
+              });
+            }
           }
           return false;
         },
@@ -720,32 +759,11 @@ class _ConfessionsViewState extends State<ConfessionsView>
             child: Row(
               children: [
                 // Avatar
-                CircleAvatar(
+                CachedAvatarWidget(
+                  avatarUrl: post['avatarUrl'] as String?,
+                  initial: (post['initial'] as String?) ?? 'U',
                   radius: deviceType == DeviceType.mobile ? 22 : 26,
-                  backgroundColor: isAnonymous
-                      ? AppThemeSystem.grey700
-                      : AppThemeSystem.primaryColor,
-                  backgroundImage: !isAnonymous && post['avatarUrl'] != null
-                      ? NetworkImage('${post['avatarUrl']}?t=${DateTime.now().millisecondsSinceEpoch}')
-                      : null,
-                  child: isAnonymous
-                      ? Icon(
-                          Icons.lock_rounded,
-                          color: Colors.white,
-                          size: deviceType == DeviceType.mobile ? 22 : 26,
-                        )
-                      : (post['avatarUrl'] == null
-                          ? Text(
-                              (post['initial'] as String?)?.isNotEmpty == true
-                                  ? (post['initial'] as String).toUpperCase()
-                                  : 'U',
-                              style: TextStyle(
-                                fontSize: deviceType == DeviceType.mobile ? 18 : 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            )
-                          : null),
+                  isAnonymous: isAnonymous,
                 ),
                 SizedBox(width: context.elementSpacing),
                 Expanded(
@@ -800,7 +818,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
           ),
 
           // Media (Image or Video) - Afficher en premier
-          if (hasMedia && mediaUrl != null)
+          if (hasMedia && _isValidImageUrl(mediaUrl))
             Padding(
               padding: EdgeInsets.only(top: context.elementSpacing * 0.8),
               child: mediaType == 'image'
@@ -808,53 +826,22 @@ class _ConfessionsViewState extends State<ConfessionsView>
                       onTap: () {
                         Get.to(
                           () => ImageViewerPage(
-                            imageUrl: mediaUrl,
+                            imageUrl: mediaUrl!,
                             content: post['content'] as String,
                           ),
                           transition: Transition.fadeIn,
                         );
                       },
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(0),
-                        child: Image.network(
-                          mediaUrl,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) {
-                              // Image chargée, afficher l'image avec une animation de fondu
-                              return child;
-                            }
-                            // Image en cours de chargement, afficher le shimmer
-                            return Shimmer.fromColors(
-                              baseColor: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-                              highlightColor: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey100,
-                              child: Container(
-                                width: double.infinity,
-                                height: 320,
-                                color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: double.infinity,
-                              height: 320,
-                              color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
-                              child: Center(
-                                child: Icon(
-                                  Icons.broken_image_rounded,
-                                  size: 60,
-                                  color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey400,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                      child: CachedNetworkImageWidget(
+                        imageUrl: mediaUrl!,
+                        width: double.infinity,
+                        height: 320,
+                        fit: BoxFit.cover,
+                        borderRadius: BorderRadius.zero,
                       ),
                     )
                   : FeedVideoPlayer(
-                      videoUrl: mediaUrl,
+                      videoUrl: mediaUrl!,
                       videoId: post['id'].toString(),
                     ),
             ),

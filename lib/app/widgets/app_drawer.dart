@@ -4,6 +4,7 @@ import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/data/services/storage_service.dart';
 import 'package:weylo/app/routes/app_pages.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/modules/home/controllers/home_controller.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -38,7 +39,22 @@ class AppDrawer extends StatelessWidget {
                         title: 'Mon Profil',
                         onTap: () {
                           Get.back();
-                          // Navigate to profile
+                          // Le profil est l'onglet index 4 dans HomeView
+                          try {
+                            final homeController = Get.find<HomeController>();
+                            homeController.changeTab(4); // Index 4 = Profile
+                          } catch (e) {
+                            // Si on n'est pas sur Home, naviguer vers Home puis sélectionner le tab
+                            Get.offAllNamed(Routes.HOME);
+                            Future.delayed(const Duration(milliseconds: 100), () {
+                              try {
+                                final homeController = Get.find<HomeController>();
+                                homeController.changeTab(4);
+                              } catch (e) {
+                                print('Erreur: HomeController non trouvé - $e');
+                              }
+                            });
+                          }
                         },
                         gradient: LinearGradient(
                           colors: [
@@ -52,11 +68,7 @@ class AppDrawer extends StatelessWidget {
                         title: 'Paramètres',
                         onTap: () {
                           Get.back();
-                          Get.snackbar(
-                            'Paramètres',
-                            'Fonctionnalité à venir',
-                            snackPosition: SnackPosition.BOTTOM,
-                          );
+                          Get.toNamed(Routes.SEETING);
                         },
                       ),
                     ]),
@@ -112,18 +124,6 @@ class AppDrawer extends StatelessWidget {
                     const SizedBox(height: 8),
 
                     _buildMenuSection(context, isDark, deviceType, 'Support', [
-                      _DrawerMenuItem(
-                        icon: Icons.help_outline,
-                        title: 'Aide',
-                        onTap: () {
-                          Get.back();
-                          Get.snackbar(
-                            'Aide',
-                            'Fonctionnalité à venir',
-                            snackPosition: SnackPosition.BOTTOM,
-                          );
-                        },
-                      ),
                       _DrawerMenuItem(
                         icon: Icons.question_answer_outlined,
                         title: 'FAQ',

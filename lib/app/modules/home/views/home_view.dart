@@ -212,7 +212,7 @@ class HomeView extends GetView<HomeController> {
                       // Groupe - Nouvelle icône custom
                       Tab(
                         height: deviceType == DeviceType.mobile ? 64 : 72,
-                        child: _AnimatedTabIcon(
+                        child: _AnimatedTabIconWithGroupBadge(
                           controller: controller.tabController,
                           index: 2,
                           iconBuilder: (color) => CustomIcons.groupe(
@@ -483,6 +483,116 @@ class _AnimatedTabIconWithBadgeState extends State<_AnimatedTabIconWithBadge> {
                   child: widget.iconBuilder(color),
                 ),
                 // Badge pour les messages non lus
+                if (unreadCount > 0)
+                  Positioned(
+                    right: -8,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.errorColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? AppThemeSystem.darkCardColor
+                              : Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Widget d'icône de tab animé avec badge pour afficher le nombre de groupes non lus
+class _AnimatedTabIconWithGroupBadge extends StatefulWidget {
+  final TabController controller;
+  final int index;
+  final Widget Function(Color color) iconBuilder;
+  final String label;
+
+  const _AnimatedTabIconWithGroupBadge({
+    required this.controller,
+    required this.index,
+    required this.iconBuilder,
+    required this.label,
+  });
+
+  @override
+  State<_AnimatedTabIconWithGroupBadge> createState() => _AnimatedTabIconWithGroupBadgeState();
+}
+
+class _AnimatedTabIconWithGroupBadgeState extends State<_AnimatedTabIconWithGroupBadge> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isSelected = widget.controller.index == widget.index;
+
+    final color = isSelected
+        ? AppThemeSystem.primaryColor
+        : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600);
+
+    return GetX<HomeController>(
+      builder: (homeController) {
+        final unreadCount = homeController.groupsUnreadCount.value;
+
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                SizedBox(
+                  height: context.deviceType == DeviceType.mobile ? 28 : 32,
+                  child: widget.iconBuilder(color),
+                ),
+                // Badge pour les groupes non lus
                 if (unreadCount > 0)
                   Positioned(
                     right: -8,

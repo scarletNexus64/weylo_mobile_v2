@@ -2,11 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/group_details_modal.dart';
+import 'package:weylo/app/data/models/group_message_model.dart';
 
 import '../controllers/groupe_controller.dart';
 import '../../groupe_detail/views/groupe_detail_view.dart';
 import '../../groupe_detail/bindings/groupe_detail_binding.dart';
 import 'create_group_view.dart';
+
+/// Cache pour éviter les fuites mémoire des gradients et couleurs
+class _GroupViewCache {
+  // Gradients en cache
+  static const cardGradientLight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Colors.white,
+      Color(0xFFF5F5F5),
+    ],
+  );
+
+  static final cardGradientDark = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      AppThemeSystem.darkCardColor,
+      AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
+    ],
+  );
+
+  static const buttonGradient = LinearGradient(
+    colors: [
+      AppThemeSystem.tertiaryColor,
+      AppThemeSystem.secondaryColor,
+    ],
+  );
+
+  static final categoryBadgeGradient = LinearGradient(
+    colors: [
+      AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
+      AppThemeSystem.secondaryColor.withValues(alpha: 0.1),
+    ],
+  );
+
+  // Couleurs avec alpha en cache
+  static final grey800Alpha04 = AppThemeSystem.grey800.withValues(alpha: 0.4);
+  static final grey700Alpha05 = AppThemeSystem.grey700.withValues(alpha: 0.5);
+  static final grey700Alpha03 = AppThemeSystem.grey700.withValues(alpha: 0.3);
+  static final tertiaryAlpha03 = AppThemeSystem.tertiaryColor.withValues(alpha: 0.3);
+  static final tertiaryAlpha02 = AppThemeSystem.tertiaryColor.withValues(alpha: 0.2);
+  static final grey100Alpha03 = AppThemeSystem.grey100.withValues(alpha: 0.3);
+}
 
 class GroupeView extends GetView<GroupeController> {
   const GroupeView({super.key});
@@ -505,7 +550,7 @@ class GroupeView extends GetView<GroupeController> {
                             padding: const EdgeInsets.only(right: 8),
                             child: _buildFilterChipWidget(
                               context,
-                              category.name,
+                              category.displayName,
                               category.id,
                               controller.selectedCategoryId.value == category.id,
                             ),
@@ -588,7 +633,7 @@ class GroupeView extends GetView<GroupeController> {
           ],
         ),
         subtitle: Text(
-          lastMessage?.content ?? 'Aucun message',
+          _getMessagePreview(lastMessage),
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: AppThemeSystem.grey600,
           ),
@@ -624,8 +669,19 @@ class GroupeView extends GetView<GroupeController> {
               ),
           ],
         ),
-        onTap: () {
-          GroupDetailsModal.show(context, group, controller);
+        onTap: () async {
+          // Naviguer vers le chat du groupe
+          await Get.to(
+            () => const GroupeDetailView(),
+            binding: GroupeDetailBinding(),
+            arguments: {
+              'groupName': group.name,
+              'groupId': group.id.toString(),
+              'memberCount': group.membersCount,
+            },
+          );
+          // Rafraîchir la liste après le retour
+          controller.loadMyGroups(refresh: true);
         },
       ),
     );
@@ -643,23 +699,11 @@ class GroupeView extends GetView<GroupeController> {
         margin: EdgeInsets.only(bottom: context.elementSpacing),
         padding: EdgeInsets.all(context.elementSpacing),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    AppThemeSystem.darkCardColor,
-                    AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
-                  ]
-                : [
-                    Colors.white,
-                    AppThemeSystem.grey100.withValues(alpha: 0.3),
-                  ],
-          ),
+          gradient: isDark ? _GroupViewCache.cardGradientDark : _GroupViewCache.cardGradientLight,
           borderRadius: context.borderRadius(BorderRadiusType.medium),
           border: Border.all(
             color: isDark
-                ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+                ? _GroupViewCache.grey700Alpha03
                 : AppThemeSystem.grey300.withValues(alpha: 0.5),
             width: 1,
           ),
@@ -933,10 +977,7 @@ class GroupeView extends GetView<GroupeController> {
                             final code = codeController.text.trim();
                             if (code.isNotEmpty) {
                               Get.back();
-                              final success = await controller.joinGroupByCode(code);
-                              if (success) {
-                                codeController.dispose();
-                              }
+                              await controller.joinGroupByCode(code);
                             }
                           },
                           borderRadius: BorderRadius.circular(12),
@@ -961,7 +1002,10 @@ class GroupeView extends GetView<GroupeController> {
           ),
         ),
       ),
-    );
+    ).then((_) {
+      // S'assurer que le controller est toujours disposé, peu importe comment le dialog est fermé
+      codeController.dispose();
+    });
   }
 
   // Build Join Button Widget
@@ -1180,23 +1224,11 @@ class GroupeView extends GetView<GroupeController> {
       margin: EdgeInsets.only(bottom: context.elementSpacing),
       padding: EdgeInsets.all(context.elementSpacing),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  AppThemeSystem.darkCardColor,
-                  AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
-                ]
-              : [
-                  Colors.white,
-                  AppThemeSystem.grey100.withValues(alpha: 0.3),
-                ],
-        ),
+        gradient: isDark ? _GroupViewCache.cardGradientDark : _GroupViewCache.cardGradientLight,
         borderRadius: context.borderRadius(BorderRadiusType.medium),
         border: Border.all(
           color: isDark
-              ? AppThemeSystem.grey700.withValues(alpha: 0.3)
+              ? _GroupViewCache.grey700Alpha03
               : AppThemeSystem.grey300.withValues(alpha: 0.5),
           width: 1,
         ),
@@ -1215,12 +1247,7 @@ class GroupeView extends GetView<GroupeController> {
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  AppThemeSystem.tertiaryColor,
-                  AppThemeSystem.secondaryColor,
-                ],
-              ),
+              gradient: _GroupViewCache.buttonGradient,
             ),
             child: CircleAvatar(
               radius: 30,
@@ -1255,15 +1282,10 @@ class GroupeView extends GetView<GroupeController> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
-                            AppThemeSystem.secondaryColor.withValues(alpha: 0.1),
-                          ],
-                        ),
+                        gradient: _GroupViewCache.categoryBadgeGradient,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                          color: _GroupViewCache.tertiaryAlpha03,
                           width: 1,
                         ),
                       ),
@@ -1340,18 +1362,11 @@ class GroupeView extends GetView<GroupeController> {
           // Join Button with improved gradient
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppThemeSystem.tertiaryColor,
-                  AppThemeSystem.secondaryColor,
-                ],
-              ),
+              gradient: _GroupViewCache.buttonGradient,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                  color: _GroupViewCache.tertiaryAlpha03,
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -1498,11 +1513,11 @@ class GroupeView extends GetView<GroupeController> {
               ),
           ],
         ),
-        onTap: () {
+        onTap: () async {
           final groupName = 'Groupe ${index + 1}';
           final groupId = index.toString();
 
-          Get.to(
+          await Get.to(
             () => const GroupeDetailView(),
             binding: GroupeDetailBinding(),
             arguments: {
@@ -1513,8 +1528,32 @@ class GroupeView extends GetView<GroupeController> {
             transition: Transition.rightToLeft,
             duration: const Duration(milliseconds: 300),
           );
+          // Rafraîchir la liste après le retour
+          controller.loadMyGroups(refresh: true);
         },
       ),
     );
+  }
+
+  /// Get message preview based on message type
+  String _getMessagePreview(GroupMessageModel? message) {
+    if (message == null) return 'Aucun message';
+
+    switch (message.type) {
+      case GroupMessageType.image:
+        return '📷 Image';
+      case GroupMessageType.audio:
+        return '🎵 Audio';
+      case GroupMessageType.video:
+        return '🎥 Vidéo';
+      case GroupMessageType.gift:
+        final giftName = message.metadata?['name'] as String?;
+        return giftName != null ? '🎁 $giftName' : '🎁 Cadeau';
+      case GroupMessageType.system:
+        return message.content ?? 'Message système';
+      case GroupMessageType.text:
+      default:
+        return message.content ?? '';
+    }
   }
 }

@@ -27,7 +27,7 @@ class RealtimeService extends GetxService {
   final Map<String, Function(Map<String, dynamic>)> _channelCallbacks = {};
 
   // Configuration Reverb
-  static const String wsHost = '10.117.238.46';
+  static const String wsHost = '192.168.100.30';
   static const int wsPort = 8080;
   static const String appKey = '1425cdd3ef7425fa6746d2895a233e52';
   static const String appId = 'Weylo-app';

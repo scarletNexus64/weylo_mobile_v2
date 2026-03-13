@@ -9,6 +9,7 @@ import 'package:weylo/app/data/services/sponsorship_service.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'package:weylo/app/utils/image_cache_manager.dart';
 import 'story_controller.dart';
 
 enum ConfessionFilter { all, popular, recent }
@@ -50,6 +51,9 @@ class ConfessionsController extends GetxController {
   // Cache mémoire (pour éviter les doublons dans la même session)
   final _confessionCache = <int, ConfessionModel>{}; // Cache par ID
 
+  // Compteur pour le nettoyage automatique
+  int _itemsLoadedSinceLastCleanup = 0;
+
   // Legacy feed items for backward compatibility
   RxList<Map<String, dynamic>> get feedItems {
     // Convert confessions to legacy format
@@ -80,6 +84,13 @@ class ConfessionsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
+    // CRITIQUE: Limiter le cache d'images Flutter pour éviter les fuites mémoire
+    PaintingBinding.instance.imageCache.maximumSize = 100; // Max 100 images
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // Max 50 MB
+
+    print('🎨 [CACHE] Cache Flutter configuré: max 100 images, 50 MB');
+
     _loadStories();
     loadConfessions();
     loadSponsoredAds();
@@ -87,6 +98,15 @@ class ConfessionsController extends GetxController {
 
   @override
   void onClose() {
+    print('🗑️ [CONFESSIONS] Nettoyage avant fermeture');
+
+    // Nettoyer le cache d'images pour libérer la mémoire
+    final imageCache = ImageCacheManager();
+    final stats = imageCache.getStats();
+    print('📊 [CACHE] Stats avant nettoyage: $stats');
+
+    imageCache.clearCache();
+
     scrollController.dispose();
     super.onClose();
   }
@@ -271,27 +291,45 @@ class ConfessionsController extends GetxController {
   /// Load confessions from API (pagination simple)
   Future<void> loadConfessions({bool refresh = false}) async {
     // Prevent multiple simultaneous loads
-    if (isLoading.value || isLoadingMore.value || isRefreshing.value) return;
-    if (!hasMorePages && !refresh) return;
+    if (isLoading.value || isLoadingMore.value || isRefreshing.value) {
+      print('⚠️ [CONFESSIONS] Chargement déjà en cours, abandon');
+      return;
+    }
+    if (!hasMorePages && !refresh) {
+      print('⚠️ [CONFESSIONS] Plus de pages à charger, abandon');
+      return;
+    }
 
     try {
       if (refresh) {
+        print('🔄 [CONFESSIONS] Rafraîchissement du feed...');
         isRefreshing.value = true;
         currentPage = 1;
         hasMorePages = true;
       } else if (confessions.isEmpty) {
+        print('📥 [CONFESSIONS] Premier chargement du feed...');
         isLoading.value = true;
       } else {
+        print('📥 [CONFESSIONS] Chargement de plus de confessions (page $currentPage)...');
         isLoadingMore.value = true;
       }
 
+      print('🌐 [CONFESSIONS] Appel API - Page: $currentPage, PerPage: 10');
       final response = await _confessionService.getConfessions(
         page: currentPage,
         perPage: 10,
       );
 
+      print('✅ [CONFESSIONS] Réponse API reçue:');
+      print('   - Confessions reçues: ${response.confessions.length}');
+      print('   - Page actuelle: ${response.meta.currentPage}');
+      print('   - Dernière page: ${response.meta.lastPage}');
+      print('   - Total: ${response.meta.total}');
+      print('   - Plus de pages: ${response.meta.hasMorePages}');
+
       if (refresh) {
         // Pull-to-refresh: remplacer les données
+        print('🔄 [CONFESSIONS] Mode refresh - Remplacement des données');
         _confessionCache.clear();
 
         for (final confession in response.confessions) {
@@ -300,34 +338,69 @@ class ConfessionsController extends GetxController {
 
         confessions.value = List.from(response.confessions);
         currentPage = 2;
+        print('✅ [CONFESSIONS] Feed rafraîchi, ${confessions.length} confessions affichées');
       } else if (confessions.isEmpty) {
         // Premier chargement
+        print('📥 [CONFESSIONS] Mode premier chargement');
         for (final confession in response.confessions) {
           _confessionCache[confession.id] = confession;
         }
         confessions.value = response.confessions;
         currentPage = 2;
+        print('✅ [CONFESSIONS] Premier chargement terminé, ${confessions.length} confessions affichées');
       } else {
         // Pagination: ajouter les nouvelles
+        print('📥 [CONFESSIONS] Mode pagination - Ajout de nouvelles confessions');
+        final beforeCount = confessions.length;
         final newConfessions = <ConfessionModel>[];
         for (final confession in response.confessions) {
           if (!_confessionCache.containsKey(confession.id)) {
             _confessionCache[confession.id] = confession;
             newConfessions.add(confession);
+          } else {
+            print('⚠️ [CONFESSIONS] Confession ${confession.id} déjà en cache, ignorée');
           }
         }
         confessions.addAll(newConfessions);
         currentPage++;
+        print('✅ [CONFESSIONS] ${newConfessions.length} nouvelles confessions ajoutées (${beforeCount} -> ${confessions.length})');
       }
 
       hasMorePages = response.meta.hasMorePages;
+      print('📊 [CONFESSIONS] hasMorePages = $hasMorePages, prochaine page sera: $currentPage');
 
       // Apply current filter
       _applyFilter();
 
       // Nettoyer les GlobalKeys après chargement
       _cleanupOldKeys();
-    } catch (e) {
+
+      // Afficher les stats du cache d'images
+      final imageCache = ImageCacheManager();
+      final stats = imageCache.getStats();
+      print('📊 [CACHE] Stats du cache: $stats');
+
+      // Nettoyer automatiquement le cache tous les 50 items
+      _itemsLoadedSinceLastCleanup += response.confessions.length;
+      if (_itemsLoadedSinceLastCleanup >= 50) {
+        print('🧹 [CACHE] Nettoyage automatique déclenché (${_itemsLoadedSinceLastCleanup} items chargés)');
+
+        // Nettoyer le cache d'images Flutter
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+
+        // Nettoyer notre cache personnalisé
+        imageCache.clearCache();
+
+        _itemsLoadedSinceLastCleanup = 0;
+        print('✅ [CACHE] Nettoyage terminé');
+      }
+    } catch (e, stackTrace) {
+      print('❌ [CONFESSIONS] ERREUR lors du chargement:');
+      print('   Type: ${e.runtimeType}');
+      print('   Message: $e');
+      print('   StackTrace: $stackTrace');
+
       Get.snackbar(
         'Erreur',
         confessions.isEmpty
@@ -337,11 +410,11 @@ class ConfessionsController extends GetxController {
         backgroundColor: AppThemeSystem.errorColor,
         colorText: Colors.white,
       );
-      print('Error loading confessions: $e');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
       isRefreshing.value = false;
+      print('🏁 [CONFESSIONS] Fin du chargement - isLoading: false, isLoadingMore: false, isRefreshing: false');
     }
   }
 

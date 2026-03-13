@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import '../core/api_service.dart';
 import '../core/api_config.dart';
 import '../models/group_model.dart';
@@ -121,7 +124,7 @@ class GroupService {
           .map((json) => GroupMessageModel.fromJson(json))
           .toList();
 
-      final meta = GroupMessagePaginationMeta.fromJson(data['meta']);
+      final meta = GroupMessagePaginationMeta.fromJson(data['meta'] ?? {});
 
       return GroupMessageListResponse(
         messages: messages,
@@ -138,6 +141,17 @@ class GroupService {
       await _api.post('${ApiConfig.groups}/$groupId/read');
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Get total unread count for all groups
+  Future<int> getUnreadCount() async {
+    try {
+      final response = await _api.get('${ApiConfig.groups}/unread-count');
+      return response.data['total_unread_count'] as int? ?? 0;
+    } catch (e) {
+      print('Error getting unread count: $e');
+      return 0;
     }
   }
 
@@ -257,6 +271,108 @@ class GroupService {
         groups: groups,
         meta: meta,
       );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Send a message in a group
+  Future<GroupMessageModel> sendMessage({
+    required int groupId,
+    String? content,
+    String type = 'text',
+    File? audioFile,
+    File? imageFile,
+    Map<String, dynamic>? metadata,
+    String? voiceType,
+    int? replyToMessageId,
+  }) async {
+    try {
+      // Si on a un fichier, utiliser multipart/form-data
+      if (audioFile != null || imageFile != null) {
+        final formData = FormData();
+
+        // Ajouter les champs texte
+        formData.fields.add(MapEntry('content', content ?? ''));
+        formData.fields.add(MapEntry('type', type));
+
+        // Ajouter voice_type si fourni
+        if (voiceType != null) {
+          formData.fields.add(MapEntry('voice_type', voiceType));
+        }
+
+        // Ajouter reply_to_message_id si fourni
+        if (replyToMessageId != null) {
+          formData.fields.add(MapEntry('reply_to_message_id', replyToMessageId.toString()));
+        }
+
+        // Ajouter les metadata si fournis
+        if (metadata != null) {
+          // FormData nécessite des strings, donc encoder en JSON
+          formData.fields.add(MapEntry('metadata', jsonEncode(metadata)));
+        }
+
+        // Ajouter le fichier
+        if (audioFile != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              audioFile.path,
+              filename: audioFile.path.split('/').last,
+            ),
+          ));
+        } else if (imageFile != null) {
+          formData.files.add(MapEntry(
+            'media',
+            await MultipartFile.fromFile(
+              imageFile.path,
+              filename: imageFile.path.split('/').last,
+            ),
+          ));
+        }
+
+        final response = await _api.post(
+          '${ApiConfig.groups}/$groupId/messages',
+          data: formData,
+        );
+
+        return GroupMessageModel.fromJson(response.data['message']);
+      } else {
+        // Sinon, utiliser JSON classique pour les messages texte
+        final data = <String, dynamic>{
+          'content': content,
+          'type': type,
+        };
+
+        // Ajouter reply_to_message_id si fourni
+        if (replyToMessageId != null) {
+          data['reply_to_message_id'] = replyToMessageId;
+        }
+
+        // Encoder metadata en JSON string (le backend attend une string JSON)
+        if (metadata != null) {
+          data['metadata'] = jsonEncode(metadata);
+        }
+
+        final response = await _api.post(
+          '${ApiConfig.groups}/$groupId/messages',
+          data: data,
+        );
+
+        return GroupMessageModel.fromJson(response.data['message']);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Delete a message in a group
+  Future<void> deleteMessage({
+    required int groupId,
+    required int messageId,
+  }) async {
+    try {
+      await _api.delete('${ApiConfig.groups}/$groupId/messages/$messageId');
     } catch (e) {
       rethrow;
     }

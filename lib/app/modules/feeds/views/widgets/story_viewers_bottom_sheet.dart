@@ -170,8 +170,7 @@ class _ViewerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final username = viewer['username'] ?? 'Anonyme';
-    final avatarUrl = viewer['avatar_url'] ?? '';
+    final username = 'Anonyme'; // Toujours afficher "Anonyme" pour protéger l'identité
     final viewedAt = viewer['viewed_at'] != null
         ? DateTime.parse(viewer['viewed_at'])
         : null;
@@ -186,18 +185,13 @@ class _ViewerTile extends StatelessWidget {
       leading: CircleAvatar(
         radius: avatarRadius,
         backgroundColor: AppThemeSystem.primaryColor,
-        backgroundImage: avatarUrl.isNotEmpty && !avatarUrl.contains('ui-avatars.com')
-            ? NetworkImage(avatarUrl)
-            : null,
-        child: avatarUrl.isEmpty || avatarUrl.contains('ui-avatars.com')
-            ? Text(
-                username.isNotEmpty ? username[0].toUpperCase() : 'A',
-                style: context.textStyle(FontSizeType.body2).copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            : null,
+        child: Text(
+          'A',
+          style: context.textStyle(FontSizeType.body2).copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       title: Text(
         username,

@@ -77,6 +77,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
               Expanded(
                 child: Obx(() {
                   return ListView.builder(
+                    controller: controller.scrollController,
                     padding: EdgeInsets.all(context.elementSpacing),
                     itemCount: controller.messages.length,
                     itemBuilder: (context, index) {
@@ -199,92 +200,204 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
     final isSentByMe = controller.isSentByMe(message);
     final senderName = message.sender?.fullName;
 
-    return Align(
-      alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: EdgeInsets.only(
-          bottom: context.elementSpacing * 0.5,
-          left: isSentByMe ? context.horizontalPadding * 2 : 0,
-          right: isSentByMe ? 0 : context.horizontalPadding * 2,
+    // Skip system messages from swipe and actions
+    if (message.type == GroupMessageType.system) {
+      return Align(
+        alignment: Alignment.center,
+        child: Container(
+          margin: EdgeInsets.symmetric(vertical: context.elementSpacing * 0.5),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.elementSpacing,
+            vertical: context.elementSpacing * 0.5,
+          ),
+          decoration: BoxDecoration(
+            color: (isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200)
+                .withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            message.content ?? '',
+            style: context.textStyle(FontSizeType.caption).copyWith(
+              color: AppThemeSystem.grey600,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: isSentByMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            // Sender name for group messages (only for received messages)
-            if (!isSentByMe && senderName != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
-                child: Text(
-                  senderName,
-                  style: context.textStyle(FontSizeType.caption).copyWith(
-                    color: AppThemeSystem.tertiaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+      );
+    }
 
-            // Message content
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.elementSpacing,
-                vertical: context.elementSpacing * 0.7,
-              ),
-              decoration: BoxDecoration(
-                gradient: isSentByMe
-                    ? const LinearGradient(
-                        colors: [
-                          AppThemeSystem.primaryColor,
-                          AppThemeSystem.secondaryColor,
-                        ],
-                      )
-                    : null,
-                color: isSentByMe
-                    ? null
-                    : (isDark
-                        ? AppThemeSystem.darkCardColor
-                        : AppThemeSystem.grey100),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isSentByMe ? 16 : 4),
-                  bottomRight: Radius.circular(isSentByMe ? 4 : 16),
-                ),
-                boxShadow: [
-                  BoxShadow(
+    return Dismissible(
+      key: ValueKey(message.id),
+      direction: isSentByMe ? DismissDirection.endToStart : DismissDirection.startToEnd,
+      confirmDismiss: (direction) async {
+        // Ne pas vraiment supprimer lors du swipe, juste répondre
+        controller.setReplyToMessage(message);
+        return false; // Ne pas supprimer le message
+      },
+      background: Container(
+        alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(horizontal: context.horizontalPadding),
+        child: Icon(
+          Icons.reply_rounded,
+          color: AppThemeSystem.primaryColor,
+          size: 24,
+        ),
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: () {
+          if (isSentByMe) {
+            _showMessageActions(context, message);
+          } else {
+            _showReceivedMessageActions(context, message);
+          }
+        },
+        child: Align(
+          alignment: isSentByMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: EdgeInsets.only(
+              bottom: context.elementSpacing * 0.5,
+              left: isSentByMe ? context.horizontalPadding * 2 : 0,
+              right: isSentByMe ? 0 : context.horizontalPadding * 2,
+            ),
+            child: Column(
+              crossAxisAlignment: isSentByMe
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                // Sender name for group messages (only for received messages)
+                if (!isSentByMe && senderName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
+                    child: Text(
+                      senderName,
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: AppThemeSystem.tertiaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+
+                // Message content
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.elementSpacing,
+                    vertical: context.elementSpacing * 0.7,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: isSentByMe
+                        ? const LinearGradient(
+                            colors: [
+                              AppThemeSystem.primaryColor,
+                              AppThemeSystem.secondaryColor,
+                            ],
+                          )
+                        : null,
                     color: isSentByMe
-                        ? AppThemeSystem.primaryColor.withValues(alpha: 0.3)
-                        : Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                        ? null
+                        : (isDark
+                            ? AppThemeSystem.darkCardColor
+                            : AppThemeSystem.grey100),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isSentByMe ? 16 : 4),
+                      bottomRight: Radius.circular(isSentByMe ? 4 : 16),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSentByMe
+                            ? AppThemeSystem.primaryColor.withValues(alpha: 0.3)
+                            : Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: _buildMessageContent(context, message, isDark, isSentByMe),
-            ),
-
-            // Timestamp
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-              child: Text(
-                _formatTime(message.createdAt),
-                style: context.textStyle(FontSizeType.caption).copyWith(
-                  color: AppThemeSystem.grey600,
-                  fontSize: 10,
+                  child: _buildMessageContent(context, message, isDark, isSentByMe),
                 ),
-              ),
+
+                // Timestamp
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                  child: Text(
+                    _formatTime(message.createdAt),
+                    style: context.textStyle(FontSizeType.caption).copyWith(
+                      color: AppThemeSystem.grey600,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildMessageContent(BuildContext context, GroupMessageModel message, bool isDark, bool isSentByMe) {
+    // Widget pour afficher le message quoté (si c'est une réponse)
+    Widget? replyWidget;
+    if (message.metadata != null && message.metadata!['reply_to_message_id'] != null) {
+      final replyContent = message.metadata!['reply_to_content'] as String? ?? '(Media)';
+      final replySender = message.metadata!['reply_to_sender'] as String? ?? 'Anonyme';
+
+      replyWidget = Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.elementSpacing * 0.6,
+          vertical: context.elementSpacing * 0.4,
+        ),
+        decoration: BoxDecoration(
+          color: isSentByMe
+              ? Colors.white.withValues(alpha: 0.2)
+              : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                  .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(6),
+          border: Border(
+            left: BorderSide(
+              color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              replySender,
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: isSentByMe
+                    ? Colors.white.withValues(alpha: 0.9)
+                    : AppThemeSystem.primaryColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              replyContent,
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: isSentByMe
+                    ? Colors.white.withValues(alpha: 0.7)
+                    : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600),
+                fontSize: 11,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Contenu principal du message
+    Widget mainContent;
     switch (message.type) {
       case GroupMessageType.text:
-        return Text(
+        mainContent = Text(
           message.content ?? '',
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: isSentByMe
@@ -292,12 +405,13 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                 : (isDark ? Colors.white : AppThemeSystem.blackColor),
           ),
         );
+        break;
 
       case GroupMessageType.gift:
         // Extract gift info from metadata
         final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
         final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
-        return Column(
+        mainContent = Column(
           children: [
             Text(
               giftIcon,
@@ -315,63 +429,37 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
             ),
           ],
         );
+        break;
 
       case GroupMessageType.audio:
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.play_circle_filled_rounded,
-              color: isSentByMe
-                  ? Colors.white
-                  : AppThemeSystem.primaryColor,
-              size: 32,
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 100,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isSentByMe
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : AppThemeSystem.grey300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: 0.4,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSentByMe
-                        ? Colors.white
-                        : AppThemeSystem.primaryColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '0:15',
-              style: context.textStyle(FontSizeType.caption).copyWith(
-                color: isSentByMe
-                    ? Colors.white
-                    : AppThemeSystem.grey600,
-              ),
-            ),
-          ],
-        );
+        mainContent = _buildAudioPlayer(context, message, isDark, isSentByMe);
+        break;
 
       case GroupMessageType.image:
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: message.mediaUrl != null
-              ? Image.network(
-                  message.mediaUrl!,
-                  width: 200,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+        mainContent = GestureDetector(
+          onTap: message.mediaUrl != null
+              ? () => _showFullscreenImage(context, message.mediaUrl!)
+              : null,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: message.mediaUrl != null
+                ? Image.network(
+                    message.mediaUrl!,
+                    width: 200,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 200,
+                      height: 200,
+                      color: AppThemeSystem.grey300,
+                      child: const Icon(
+                        Icons.image_rounded,
+                        size: 64,
+                        color: AppThemeSystem.grey600,
+                      ),
+                    ),
+                  )
+                : Container(
                     width: 200,
                     height: 200,
                     color: AppThemeSystem.grey300,
@@ -381,34 +469,44 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                       color: AppThemeSystem.grey600,
                     ),
                   ),
-                )
-              : Container(
-                  width: 200,
-                  height: 200,
-                  color: AppThemeSystem.grey300,
-                  child: const Icon(
-                    Icons.image_rounded,
-                    size: 64,
-                    color: AppThemeSystem.grey600,
-                  ),
-                ),
+          ),
         );
+        break;
 
       case GroupMessageType.video:
       case GroupMessageType.system:
-        return Text(
+        mainContent = Text(
           message.content ?? '',
           style: context.textStyle(FontSizeType.body2).copyWith(
             color: AppThemeSystem.grey600,
             fontStyle: FontStyle.italic,
           ),
         );
+        break;
     }
+
+    // Retourner le contenu avec le reply widget si présent
+    if (replyWidget != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          replyWidget,
+          mainContent,
+        ],
+      );
+    }
+
+    return mainContent;
   }
 
   Widget _buildGiftPicker(BuildContext context, bool isDark) {
+    // Calculer la hauteur maximale disponible (40% de l'écran ou 280px max)
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = (screenHeight * 0.4).clamp(220.0, 280.0);
+
     return Container(
-      height: 350,
+      height: maxHeight,
       decoration: BoxDecoration(
         color: isDark
             ? AppThemeSystem.darkCardColor
@@ -515,10 +613,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                   final price = gift['price'] as int;
 
                   return GestureDetector(
-                    onTap: () {
-                      // TODO: Implement sendGift when POST is ready
-                      // controller.sendGift(gift);
-                    },
+                    onTap: () => controller.sendGift(gift),
                     child: Container(
                       decoration: BoxDecoration(
                         color: isDark
@@ -607,100 +702,289 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
           ),
         ],
       ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            // Gift button
-            IconButton(
-              icon: const Icon(Icons.card_giftcard_rounded),
-              onPressed: () => controller.toggleGiftPicker(),
-              color: AppThemeSystem.tertiaryColor,
-            ),
+      child: Obx(() {
+        // Basculer entre l'interface d'enregistrement et l'interface normale
+        if (controller.isRecording.value) {
+          return _buildRecordingInterface(context, isDark);
+        }
 
-            // Image button
-            IconButton(
-              icon: const Icon(Icons.image_rounded),
-              onPressed: () {
-                // TODO: Implement sendImage when POST is ready
-                // controller.sendImage('fake_image.jpg');
-              },
-              color: AppThemeSystem.tertiaryColor,
-            ),
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Reply preview (if replying to a message)
+              Obx(() {
+                final replyMsg = controller.replyToMessage.value;
+                if (replyMsg == null) return const SizedBox.shrink();
 
-            // Input field
-            Expanded(
-              child: TextField(
-                onChanged: (value) => controller.messageText.value = value,
-                decoration: InputDecoration(
-                  hintText: 'Message...',
-                  hintStyle: context.textStyle(FontSizeType.body2).copyWith(
-                    color: AppThemeSystem.grey600,
+                final senderName = replyMsg.sender?.fullName ?? 'Anonyme';
+
+                return Container(
+                  margin: EdgeInsets.only(bottom: context.elementSpacing * 0.5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.elementSpacing,
+                    vertical: context.elementSpacing * 0.5,
                   ),
-                  filled: true,
-                  fillColor: isDark
-                      ? AppThemeSystem.grey800.withValues(alpha: 0.4)
-                      : AppThemeSystem.grey100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-                style: context.textStyle(FontSizeType.body2),
-              ),
-            ),
-
-            const SizedBox(width: 8),
-
-            // Send/Record button
-            Obx(() {
-              final hasText = controller.messageText.value.trim().isNotEmpty;
-
-              return GestureDetector(
-                onTap: hasText
-                    ? () {
-                        // TODO: Implement sendMessage when POST is ready
-                        // controller.sendMessage();
-                      }
-                    : () => controller.toggleRecording(),
-                child: Container(
-                  width: 44,
-                  height: 44,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        AppThemeSystem.tertiaryColor,
-                        AppThemeSystem.secondaryColor,
-                      ],
+                    color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border(
+                      left: BorderSide(
+                        color: AppThemeSystem.primaryColor,
+                        width: 3,
+                      ),
                     ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Répondre à $senderName',
+                              style: context.textStyle(FontSizeType.caption).copyWith(
+                                color: AppThemeSystem.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              replyMsg.content ?? '(Media)',
+                              style: context.textStyle(FontSizeType.caption).copyWith(
+                                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, size: 18),
+                        onPressed: controller.cancelReply,
+                        color: AppThemeSystem.grey600,
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
                       ),
                     ],
                   ),
-                  child: Icon(
-                    hasText
-                        ? Icons.send_rounded
-                        : (controller.isRecording.value
-                            ? Icons.stop_rounded
-                            : Icons.mic_rounded),
-                    color: Colors.white,
-                    size: 20,
+                );
+              }),
+
+              // Input row
+              Row(
+                children: [
+                  // Gift button
+                  IconButton(
+                    icon: const Icon(Icons.card_giftcard_rounded),
+                    onPressed: () => controller.toggleGiftPicker(),
+                    color: AppThemeSystem.tertiaryColor,
+                  ),
+
+                  // Image button
+                  IconButton(
+                    icon: const Icon(Icons.image_rounded),
+                    onPressed: () => controller.sendImage(),
+                    color: AppThemeSystem.tertiaryColor,
+                  ),
+
+                  // Input field
+                  Expanded(
+                    child: TextField(
+                      controller: controller.messageController,
+                      onChanged: (value) => controller.messageText.value = value,
+                      decoration: InputDecoration(
+                        hintText: 'Message...',
+                        hintStyle: context.textStyle(FontSizeType.body2).copyWith(
+                          color: AppThemeSystem.grey600,
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                            : AppThemeSystem.grey100,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      style: context.textStyle(FontSizeType.body2),
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+              // Send/Record button
+              Obx(() {
+                final hasText = controller.messageText.value.trim().isNotEmpty;
+
+                return GestureDetector(
+                  onTap: hasText
+                      ? () => controller.sendMessage()
+                      : () => _showVoiceTypePicker(context),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppThemeSystem.tertiaryColor,
+                          AppThemeSystem.secondaryColor,
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      hasText ? Icons.send_rounded : Icons.mic_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                );
+              }),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildAudioPlayer(BuildContext context, GroupMessageModel message, bool isDark, bool isSentByMe) {
+    // Initialiser le player au premier build
+    controller.initializeAudioPlayer(message.id);
+
+    return Obx(() {
+      // Écouter audioPlayerUpdate pour forcer les rebuilds
+      final _ = controller.audioPlayerUpdate.value;
+
+      final isPlaying = controller.audioPlayingStates[message.id] ?? false;
+      final isLoading = controller.audioLoadingStates[message.id] ?? false;
+      final duration = controller.audioDurations[message.id] ?? Duration.zero;
+      final position = controller.audioPositions[message.id] ?? Duration.zero;
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Bouton Play/Pause
+          GestureDetector(
+            onTap: message.mediaUrl != null
+                ? () {
+                    controller.initializeAudioPlayer(message.id);
+                    controller.toggleAudioPlayback(message.id, message.mediaUrl!);
+                  }
+                : null,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSentByMe
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppThemeSystem.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: isLoading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Icon(
+                      isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Barre de progression
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Durées
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatAudioDuration(position),
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      _formatAudioDuration(duration),
+                      style: context.textStyle(FontSizeType.caption).copyWith(
+                        color: isSentByMe
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : AppThemeSystem.grey600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+
+                // Barre de progression
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: duration.inMilliseconds > 0
+                        ? position.inMilliseconds / duration.inMilliseconds
+                        : 0.0,
+                    backgroundColor: isSentByMe
+                        ? Colors.white.withValues(alpha: 0.3)
+                        : AppThemeSystem.grey300,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isSentByMe ? Colors.white : AppThemeSystem.primaryColor,
+                    ),
+                    minHeight: 4,
                   ),
                 ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Icône waveform
+          Icon(
+            Icons.graphic_eq,
+            color: isPlaying
+                ? (isSentByMe ? Colors.white : AppThemeSystem.primaryColor)
+                : (isSentByMe
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : AppThemeSystem.grey400),
+            size: 20,
+          ),
+        ],
+      );
+    });
+  }
+
+  String _formatAudioDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   String _formatTime(DateTime timestamp) {
@@ -714,6 +998,94 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
     } else {
       return '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
     }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  Widget _buildRecordingInterface(BuildContext context, bool isDark) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.elementSpacing * 0.5,
+        vertical: context.elementSpacing * 0.5,
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Bouton annuler
+            IconButton(
+              onPressed: () => controller.cancelRecording(),
+              icon: Icon(Icons.delete, color: AppThemeSystem.errorColor),
+              padding: const EdgeInsets.all(12),
+            ),
+            const SizedBox(width: 8),
+
+            // Durée d'enregistrement
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppThemeSystem.errorColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    // Icône micro animée (pulsation)
+                    Obx(() {
+                      return TweenAnimationBuilder<double>(
+                        key: ValueKey(controller.recordDuration.value.inSeconds),
+                        tween: Tween(begin: 0.3, end: 1.0),
+                        duration: const Duration(milliseconds: 800),
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: Icon(
+                              Icons.mic,
+                              color: AppThemeSystem.errorColor,
+                              size: 20,
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                    const SizedBox(width: 12),
+                    Obx(() {
+                      return Text(
+                        _formatDuration(controller.recordDuration.value),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppThemeSystem.errorColor,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Bouton stop/envoyer (carré)
+            Container(
+              decoration: const BoxDecoration(
+                color: AppThemeSystem.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => controller.stopRecording(),
+                icon: Icon(Icons.stop_rounded, color: Colors.white, size: 22),
+                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildGiftAnimation(BuildContext context) {
@@ -737,7 +1109,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
           final progress = value / 0.3;
           scale = 0.3 + (progress * 1.5);
           rotation = progress * 0.5;
-          opacity = progress;
+          opacity = progress.clamp(0.0, 1.0);
         } else if (value < 0.7) {
           // Bounce & Pulse
           final progress = (value - 0.3) / 0.4;
@@ -750,19 +1122,20 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
           final progress = (value - 0.7) / 0.3;
           scale = 1.3 - (progress * 0.5);
           rotation = 0.7 + (progress * 0.3);
-          opacity = 1.0 - progress;
+          opacity = (1.0 - progress).clamp(0.0, 1.0);
         }
 
         return Positioned.fill(
-          child: Container(
-            color: Colors.black.withValues(alpha: 0.4 * opacity),
-            child: Stack(
-              children: [
-                // Confetti particles
-                ..._buildConfettiParticles(screenSize, value, opacity),
+          child: IgnorePointer(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.4 * opacity),
+              child: Stack(
+                children: [
+                  // Confetti particles
+                  ..._buildConfettiParticles(screenSize, value, opacity),
 
-                // Glow rings
-                ..._buildGlowRings(screenSize, value, opacity),
+                  // Glow rings
+                  ..._buildGlowRings(screenSize, value, opacity),
 
                 // Main gift
                 Center(
@@ -822,7 +1195,8 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
                 // Sparkles
                 ..._buildSparkles(screenSize, value, opacity),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -846,7 +1220,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
       final x = screenSize.width / 2 + (distance * cos(angle * 0.5));
       final y = screenSize.height / 2 + (distance * sin(angle * 0.5));
 
-      final particleOpacity = value < 0.5 ? opacity : opacity * (1.0 - ((value - 0.5) * 2));
+      final particleOpacity = (value < 0.5 ? opacity : opacity * (1.0 - ((value - 0.5) * 2))).clamp(0.0, 1.0);
       final size = 8.0 + ((i % 3) * 4);
 
       particles.add(
@@ -882,7 +1256,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
       final delay = i * 0.1;
       final adjustedValue = (value - delay).clamp(0.0, 1.0);
       final ringSize = 100.0 + (adjustedValue * 300);
-      final ringOpacity = opacity * (1.0 - adjustedValue) * 0.3;
+      final ringOpacity = (opacity * (1.0 - adjustedValue) * 0.3).clamp(0.0, 1.0);
 
       rings.add(
         Center(
@@ -915,7 +1289,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
       final y = screenSize.height / 2 + (radius * sin(angle));
 
       final sparkleValue = ((value * 4) - (i * 0.1)) % 1.0;
-      final sparkleOpacity = opacity * (0.5 + (sparkleValue * 0.5));
+      final sparkleOpacity = (opacity * (0.5 + (sparkleValue * 0.5))).clamp(0.0, 1.0);
       final sparkleScale = 0.5 + (sparkleValue * 0.5);
 
       sparkles.add(
@@ -937,5 +1311,373 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
     }
 
     return sparkles;
+  }
+
+  /// Show voice type picker bottom sheet
+  void _showVoiceTypePicker(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final voiceTypes = [
+      {
+        'id': 'normal',
+        'name': 'Normale',
+        'icon': Icons.record_voice_over_rounded,
+        'color': AppThemeSystem.primaryColor,
+        'description': 'Voix naturelle'
+      },
+      {
+        'id': 'robot',
+        'name': 'Robot',
+        'icon': Icons.smart_toy_rounded,
+        'color': const Color(0xFF00BCD4),
+        'description': 'Voix robotique'
+      },
+      {
+        'id': 'alien',
+        'name': 'Alien',
+        'icon': Icons.psychology_rounded,
+        'color': const Color(0xFF9C27B0),
+        'description': 'Voix extraterrestre'
+      },
+      {
+        'id': 'mystery',
+        'name': 'Mystérieux',
+        'icon': Icons.masks_rounded,
+        'color': const Color(0xFF424242),
+        'description': 'Voix grave et sombre'
+      },
+      {
+        'id': 'chipmunk',
+        'name': 'Chipmunk',
+        'icon': Icons.pets_rounded,
+        'color': const Color(0xFFFF9800),
+        'description': 'Voix aiguë'
+      },
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (modalContext) => Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.mic_rounded,
+                      color: AppThemeSystem.primaryColor,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Choisir le type de voix',
+                      style: context.textStyle(FontSizeType.h6).copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Voice types
+              ...voiceTypes.map((voiceType) {
+                return Obx(() {
+                  final isSelected = controller.selectedVoiceType.value == voiceType['id'];
+                  return Column(
+                    children: [
+                      ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (voiceType['color'] as Color).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            voiceType['icon'] as IconData,
+                            color: voiceType['color'] as Color,
+                            size: 24,
+                          ),
+                        ),
+                        title: Text(
+                          voiceType['name'] as String,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          voiceType['description'] as String,
+                          style: TextStyle(
+                            color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Icon(
+                                Icons.check_circle,
+                                color: voiceType['color'] as Color,
+                              )
+                            : null,
+                        onTap: () {
+                          final selectedType = voiceType['id'] as String;
+                          controller.selectVoiceType(selectedType);
+                          Navigator.pop(modalContext);
+
+                          // Attendre que le bottom sheet soit fermé avant de démarrer l'enregistrement
+                          Future.delayed(const Duration(milliseconds: 300), () {
+                            controller.startRecording();
+                          });
+                        },
+                      ),
+                      if (voiceType != voiceTypes.last)
+                        Divider(
+                          height: 1,
+                          indent: 72,
+                          color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+                        ),
+                    ],
+                  );
+                });
+              }),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Afficher l'image en plein écran avec zoom et pinch
+  void _showFullscreenImage(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              // Image avec zoom/pinch
+              Center(
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: AppThemeSystem.primaryColor,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        size: 64,
+                        color: Colors.white54,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Bouton de fermeture
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: IconButton(
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
+  /// Bottom sheet avec actions pour les messages envoyés (long-press)
+  void _showMessageActions(BuildContext context, GroupMessageModel message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppThemeSystem.darkCardColor
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Supprimer
+              ListTile(
+                leading: Icon(Icons.delete, color: Colors.red),
+                title: Text('Supprimer', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmation(context, message);
+                },
+              ),
+
+              // Répondre
+              ListTile(
+                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
+                title: Text('Répondre'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.setReplyToMessage(message);
+                },
+              ),
+
+              // Annuler
+              ListTile(
+                leading: Icon(Icons.close, color: Colors.grey),
+                title: Text('Annuler'),
+                onTap: () => Navigator.pop(context),
+              ),
+
+              SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Bottom sheet avec actions pour les messages reçus (long-press)
+  void _showReceivedMessageActions(BuildContext context, GroupMessageModel message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppThemeSystem.darkCardColor
+          : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Répondre
+              ListTile(
+                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
+                title: Text('Répondre'),
+                onTap: () {
+                  Navigator.pop(context);
+                  controller.setReplyToMessage(message);
+                },
+              ),
+
+              // Annuler
+              ListTile(
+                leading: Icon(Icons.close, color: Colors.grey),
+                title: Text('Annuler'),
+                onTap: () => Navigator.pop(context),
+              ),
+
+              SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Dialog de confirmation de suppression
+  void _showDeleteConfirmation(BuildContext context, GroupMessageModel message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Supprimer le message ?'),
+          content: Text('Cette action est irréversible. Le message sera supprimé pour tout le monde.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Annuler', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                controller.deleteMessage(message);
+              },
+              child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

@@ -1,14 +1,21 @@
 import 'package:get/get.dart';
 import 'package:weylo/app/data/services/group_service.dart';
 import 'package:weylo/app/data/models/group_model.dart';
+import 'package:weylo/app/data/models/group_message_model.dart';
 import 'package:weylo/app/data/models/group_category_model.dart';
+import 'package:weylo/app/data/services/realtime_service.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/modules/home/controllers/home_controller.dart';
 import 'dart:async';
 
 enum GroupTab { myGroups, discover }
 
 class GroupeController extends GetxController {
   final GroupService _groupService = GroupService();
+  final AuthService _authService = AuthService();
+  RealtimeService? _realtimeService;
   Timer? _searchDebounce;
+  int? _currentUserId;
 
   // Tab selection
   final selectedTab = GroupTab.myGroups.obs;
@@ -53,10 +60,46 @@ class GroupeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadMyGroups();
+    _initialize();
+  }
+
+  @override
+  void onReady() {
+    super.onReady();
+    // Appelé quand la page est complètement construite et visible
+    print('🔄 [GroupeController] Page ready, refreshing data...');
+  }
+
+  /// Appelé quand on revient sur la page (changement de tab)
+  Future<void> onPageResumed() async {
+    print('🔄 [GroupeController] Page resumed, refreshing groups and badges...');
+
+    // Rafraîchir les groupes
+    await refreshMyGroups();
+
+    // Mettre à jour les badges dans le HomeController
+    try {
+      final homeController = Get.find<HomeController>();
+      final count = await _groupService.getUnreadCount();
+      homeController.groupsUnreadCount.value = count;
+      print('📊 [GroupeController] Updated badge count: $count');
+    } catch (e) {
+      print('❌ [GroupeController] Error updating badge: $e');
+    }
+  }
+
+  Future<void> _initialize() async {
+    // Récupérer l'ID utilisateur
+    final user = await _authService.getCurrentUser();
+    _currentUserId = user?.id;
+
+    // Charger les données
+    await loadMyGroups();
     loadCategories();
-    // Charger tous les groupes découverte dès le départ
     loadDiscoverGroups();
+
+    // Configurer les listeners WebSocket
+    _setupRealtimeListeners();
   }
 
   void setTab(GroupTab tab) {
@@ -245,8 +288,12 @@ class GroupeController extends GetxController {
       // Ajouter le groupe aux "Mes groupes"
       myGroups.insert(0, joinedGroup);
 
-      // Retirer le groupe de la liste discover
-      discoverGroups.removeWhere((g) => g.id == groupId);
+      // Mettre à jour le groupe dans la liste discover au lieu de le retirer
+      // Cela permet de garder le groupe visible mais avec l'état "membre"
+      final index = discoverGroups.indexWhere((g) => g.id == groupId);
+      if (index != -1) {
+        discoverGroups[index] = joinedGroup;
+      }
 
       Get.snackbar(
         'Succès',
@@ -290,6 +337,12 @@ class GroupeController extends GetxController {
       // Ajouter le groupe aux "Mes groupes"
       myGroups.insert(0, joinedGroup);
 
+      // Mettre à jour le groupe dans la liste discover si présent
+      final index = discoverGroups.indexWhere((g) => g.id == joinedGroup.id);
+      if (index != -1) {
+        discoverGroups[index] = joinedGroup;
+      }
+
       Get.snackbar(
         'Succès',
         'Vous avez rejoint le groupe avec succès',
@@ -327,9 +380,151 @@ class GroupeController extends GetxController {
     }
   }
 
+  /// Configurer les listeners WebSocket pour les mises à jour en temps réel
+  void _setupRealtimeListeners() {
+    try {
+      if (_currentUserId == null) {
+        print('⚠️ [GroupeController] Cannot setup listeners: user ID is null');
+        return;
+      }
+
+      // Récupérer ou créer le RealtimeService
+      if (!Get.isRegistered<RealtimeService>()) {
+        Get.put(RealtimeService());
+      }
+      _realtimeService = Get.find<RealtimeService>();
+
+      print('🔌 [GroupeController] Setting up WebSocket listeners for user $_currentUserId');
+
+      // S'abonner au canal utilisateur pour recevoir les notifications de tous les groupes
+      _realtimeService!.subscribeToPrivateChannel(
+        channelName: 'private-user.$_currentUserId',
+        onEvent: _handleNewGroupMessage,
+      );
+
+      print('✅ [GroupeController] WebSocket listeners configured');
+    } catch (e) {
+      print('❌ [GroupeController] Error setting up WebSocket: $e');
+    }
+  }
+
+  /// Gérer la réception d'un nouveau message de groupe
+  void _handleNewGroupMessage(Map<String, dynamic> eventData) {
+    try {
+      // Extraire l'événement
+      final event = eventData['_event'] as String?;
+
+      // On s'intéresse uniquement aux messages envoyés
+      if (event != 'message.sent') return;
+
+      // Vérifier si c'est un message de groupe
+      final groupId = eventData['group_id'] as int?;
+      if (groupId == null) return;
+
+      print('📨 [GroupeController] New group message received for group $groupId');
+
+      // Trouver le groupe dans la liste
+      final groupIndex = myGroups.indexWhere((g) => g.id == groupId);
+      if (groupIndex == -1) {
+        // Le groupe n'est pas dans notre liste, recharger
+        print('⚠️ [GroupeController] Group $groupId not found in list, reloading...');
+        loadMyGroups(refresh: true);
+        return;
+      }
+
+      final group = myGroups[groupIndex];
+      final senderId = eventData['sender_id'] as int?;
+      final isOwnMessage = senderId == _currentUserId;
+
+      // Créer un GroupMessageModel pour le dernier message
+      final lastMessage = GroupMessageModel(
+        id: eventData['id'] as int,
+        groupId: groupId,
+        senderId: senderId,
+        content: eventData['content'] as String?,
+        type: _mapStringToMessageType(eventData['type'] as String?),
+        mediaUrl: eventData['media_url'] as String?,
+        metadata: eventData['metadata'] as Map<String, dynamic>?,
+        createdAt: DateTime.parse(eventData['created_at'] as String),
+        updatedAt: DateTime.now(),
+      );
+
+      // Mettre à jour le groupe avec les nouvelles données
+      final updatedGroup = GroupModel(
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        categoryId: group.categoryId,
+        category: group.category,
+        creatorId: group.creatorId,
+        inviteCode: group.inviteCode,
+        isPublic: group.isPublic,
+        maxMembers: group.maxMembers,
+        membersCount: group.membersCount,
+        lastMessage: lastMessage,
+        lastMessageAt: DateTime.now(),
+        createdAt: group.createdAt,
+        updatedAt: DateTime.now(),
+        isCreator: group.isCreator,
+        isAdmin: group.isAdmin,
+        isMember: group.isMember,
+        canJoin: group.canJoin,
+        // Incrémenter le count seulement si ce n'est pas notre propre message
+        unreadCount: isOwnMessage ? group.unreadCount : group.unreadCount + 1,
+      );
+
+      // Remplacer le groupe dans la liste
+      myGroups[groupIndex] = updatedGroup;
+
+      // Trier la liste pour mettre le groupe avec le nouveau message en haut
+      myGroups.sort((a, b) {
+        final aTime = a.lastMessageAt ?? a.createdAt;
+        final bTime = b.lastMessageAt ?? b.createdAt;
+        return bTime.compareTo(aTime);
+      });
+
+      // Rafraîchir le count global dans le HomeController
+      if (Get.isRegistered<HomeController>() && !isOwnMessage) {
+        final homeController = Get.find<HomeController>();
+        homeController.refreshNotificationCounts();
+      }
+
+      print('✅ [GroupeController] Group updated and moved to top');
+    } catch (e) {
+      print('❌ [GroupeController] Error handling group message: $e');
+    }
+  }
+
+  /// Mapper le type de message string vers l'enum
+  GroupMessageType _mapStringToMessageType(String? type) {
+    switch (type) {
+      case 'text':
+        return GroupMessageType.text;
+      case 'audio':
+        return GroupMessageType.audio;
+      case 'image':
+        return GroupMessageType.image;
+      case 'video':
+        return GroupMessageType.video;
+      case 'system':
+        return GroupMessageType.system;
+      case 'gift':
+        return GroupMessageType.gift;
+      default:
+        return GroupMessageType.text;
+    }
+  }
+
   @override
   void onClose() {
     _searchDebounce?.cancel();
+
+    // Unsubscribe du WebSocket
+    if (_realtimeService != null && _currentUserId != null) {
+      _realtimeService!.unsubscribeFromChannel('private-user.$_currentUserId');
+      print('🔌 [GroupeController] Unsubscribed from WebSocket');
+    }
+
     super.onClose();
   }
 }

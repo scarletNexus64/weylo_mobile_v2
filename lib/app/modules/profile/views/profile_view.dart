@@ -431,22 +431,24 @@ class _ProfileViewState extends State<ProfileView>
   }
 
   Widget _buildProfileStat(BuildContext context, String value, String label) {
-    return InkWell(
-      onTap: () {
-        Get.snackbar(
-          label,
-          'Voir $label',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: context.textStyle(FontSizeType.h3).copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).brightness == Brightness.dark
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Get.snackbar(
+            label,
+            'Voir $label',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: context.textStyle(FontSizeType.h3).copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).brightness == Brightness.dark
                   ? Colors.white
                   : AppThemeSystem.blackColor,
             ),
@@ -459,6 +461,7 @@ class _ProfileViewState extends State<ProfileView>
             ),
           ),
         ],
+        ),
       ),
     );
   }

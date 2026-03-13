@@ -253,10 +253,17 @@ class _CreateGroupViewState extends State<CreateGroupView> {
                     value: category,
                     child: Row(
                       children: [
-                        Text(
-                          category.icon ?? '📁',
-                          style: const TextStyle(fontSize: 18),
-                        ),
+                        if (category.iconData != null)
+                          Icon(
+                            category.iconData,
+                            size: 20,
+                            color: _parseColor(category.color ?? '#9E9E9E'),
+                          )
+                        else
+                          Text(
+                            category.emojiIcon,
+                            style: const TextStyle(fontSize: 18),
+                          ),
                         const SizedBox(width: 12),
                         Text(
                           category.name,
@@ -321,9 +328,6 @@ class _CreateGroupViewState extends State<CreateGroupView> {
                   }
                   if (number < 2) {
                     return 'Le minimum est de 2 membres';
-                  }
-                  if (number > 200) {
-                    return 'Le maximum est de 200 membres';
                   }
                   return null;
                 },
@@ -574,5 +578,14 @@ class _CreateGroupViewState extends State<CreateGroupView> {
         ),
       ),
     );
+  }
+
+  /// Parser la couleur hexadécimale
+  Color _parseColor(String hexColor) {
+    try {
+      return Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      return AppThemeSystem.grey500;
+    }
   }
 }

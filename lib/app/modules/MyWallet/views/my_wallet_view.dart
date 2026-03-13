@@ -700,6 +700,7 @@ class MyWalletView extends GetView<MyWalletController> {
           ],
         ),
         trailing: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -712,11 +713,11 @@ class MyWalletView extends GetView<MyWalletController> {
                     : AppThemeSystem.errorColor,
               ),
             ),
-            SizedBox(height: context.elementSpacing * 0.25),
+            const SizedBox(height: 2),
             Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.elementSpacing * 0.5,
-                vertical: 2,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 1,
               ),
               decoration: BoxDecoration(
                 color: _getStatusColor(transaction.status).withOpacity(0.1),
@@ -726,6 +727,7 @@ class MyWalletView extends GetView<MyWalletController> {
                 transaction.statusLabel,
                 style: context.caption.copyWith(
                   color: _getStatusColor(transaction.status),
+                  fontSize: 10,
                 ),
               ),
             ),

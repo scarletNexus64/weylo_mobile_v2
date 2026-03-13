@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 import 'package:weylo/app/modules/anonymepage/controllers/anonymepage_controller.dart';
+import 'package:weylo/app/modules/groupe/controllers/groupe_controller.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
+import 'package:weylo/app/data/services/group_service.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
 
 class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
   // Scaffold key for drawer
@@ -16,6 +19,15 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
   // Current tab index
   final currentTabIndex = 0.obs;
+
+  // Unread counts
+  final groupsUnreadCount = 0.obs;
+
+  // Services
+  final _groupService = GroupService();
+  final _authService = AuthService();
+  RealtimeService? _realtimeService;
+  int? _currentUserId;
 
   // Tab names
   final List<String> tabNames = ['Anonyme', 'Chat', 'Groupe', 'Confession', 'Profile'];
@@ -44,10 +56,13 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
     // INITIALISER LA CONNEXION WEBSOCKET (TEMPS RÉEL)
     // ═══════════════════════════════════════════════════════════
     _initializeRealtimeConnection();
+
+    // Charger les counts de notifications
+    _loadNotificationCounts();
   }
 
   /// Initialiser la connexion WebSocket pour les messages en temps réel
-  void _initializeRealtimeConnection() {
+  void _initializeRealtimeConnection() async {
     print('');
     print('╔═══════════════════════════════════════════════════════════╗');
     print('║ 🔌 INITIALISATION WEBSOCKET DEPUIS HOME CONTROLLER');
@@ -61,6 +76,24 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         print('✅ RealtimeService créé et enregistré dans GetX');
       } else {
         print('✅ RealtimeService déjà enregistré');
+      }
+
+      _realtimeService = Get.find<RealtimeService>();
+
+      // Récupérer l'ID utilisateur
+      final user = await _authService.getCurrentUser();
+      _currentUserId = user?.id;
+
+      if (_currentUserId != null) {
+        print('👤 [HOME_CONTROLLER] User ID: $_currentUserId');
+
+        // S'abonner au canal privé de l'utilisateur pour recevoir les notifications de groupe
+        await _realtimeService!.subscribeToPrivateChannel(
+          channelName: 'private-user.$_currentUserId',
+          onEvent: _handleGroupMessageNotification,
+        );
+
+        print('✅ [HOME_CONTROLLER] Subscribed to private-user.$_currentUserId for group notifications');
       }
 
       // La connexion WebSocket se fera automatiquement dans onInit() du service
@@ -184,6 +217,13 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
     tabController.dispose();
     nestedScrollController.removeListener(_onNestedScrollChanged);
     nestedScrollController.dispose();
+
+    // Unsubscribe du WebSocket
+    if (_realtimeService != null && _currentUserId != null) {
+      _realtimeService!.unsubscribeFromChannel('private-user.$_currentUserId');
+      print('🔌 [HOME_CONTROLLER] Unsubscribed from WebSocket');
+    }
+
     super.onClose();
   }
 
@@ -385,8 +425,71 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         print('ConfessionsController not found: $e');
       }
     }
+
+    // If tapping on Groupe tab (index 2), refresh groups and badges
+    if (index == 2) {
+      try {
+        final groupeController = Get.find<GroupeController>();
+        groupeController.onPageResumed();
+        print('🔄 [HOME_CONTROLLER] Refreshing Groupe page');
+      } catch (e) {
+        print('❌ [HOME_CONTROLLER] GroupeController not found: $e');
+      }
+    }
+
     // Always allow tab change
     tabController.animateTo(index);
+  }
+
+  /// Gérer les notifications de nouveaux messages de groupe en temps réel
+  void _handleGroupMessageNotification(Map<String, dynamic> eventData) {
+    try {
+      // Extraire l'événement
+      final event = eventData['_event'] as String?;
+
+      // On s'intéresse uniquement aux messages envoyés
+      if (event != 'message.sent') return;
+
+      // Vérifier si c'est un message de groupe
+      final groupId = eventData['group_id'] as int?;
+      if (groupId == null) return;
+
+      // Vérifier si ce n'est pas notre propre message
+      final senderId = eventData['sender_id'] as int?;
+      if (senderId == _currentUserId) {
+        print('📨 [HOME_CONTROLLER] Own message, not incrementing badge');
+        return;
+      }
+
+      print('📨 [HOME_CONTROLLER] New group message received, incrementing badge');
+      print('   - Group ID: $groupId');
+      print('   - Sender ID: $senderId');
+      print('   - Current badge: ${groupsUnreadCount.value}');
+
+      // Incrémenter le badge
+      groupsUnreadCount.value++;
+
+      print('   - New badge: ${groupsUnreadCount.value}');
+    } catch (e) {
+      print('❌ [HOME_CONTROLLER] Error handling group message notification: $e');
+    }
+  }
+
+  /// Charger les counts de notifications
+  Future<void> _loadNotificationCounts() async {
+    try {
+      // Récupérer le count des groupes non lus
+      final count = await _groupService.getUnreadCount();
+      groupsUnreadCount.value = count;
+      print('📊 [HOME_CONTROLLER] Groups unread count: $count');
+    } catch (e) {
+      print('❌ [HOME_CONTROLLER] Error loading notification counts: $e');
+    }
+  }
+
+  /// Rafraîchir les counts de notifications (appelé quand on revient d'un groupe)
+  void refreshNotificationCounts() {
+    _loadNotificationCounts();
   }
 
   // Open drawer
