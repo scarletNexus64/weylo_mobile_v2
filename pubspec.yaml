@@ -94,6 +94,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/logo.png
+    - assets/gif/
 
   # Custom fonts
   fonts:

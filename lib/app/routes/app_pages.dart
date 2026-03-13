@@ -46,7 +46,7 @@ import '../modules/MyWallet/views/my_wallet_view.dart';
 import '../modules/MyWallet/views/deposit_view.dart';
 import '../modules/MyWallet/views/withdraw_view.dart';
 import '../modules/sponsoring/bindings/sponsoring_binding.dart';
-import '../modules/sponsoring/views/sponsoring_view.dart';
+import '../modules/sponsoring/views/sponsoring_entry_view.dart';
 
 part 'app_routes.dart';
 
@@ -198,7 +198,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.SPONSORING,
-      page: () => const SponsoringView(),
+      page: () => const SponsoringEntryView(),
       binding: SponsoringBinding(),
     ),
   ];

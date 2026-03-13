@@ -19,10 +19,10 @@ class WebSocketService extends GetxService {
   final Map<String, dynamic> _activeChannels = {};
 
   // Configuration
-  static const String wsHost = '192.168.100.44';
+  static const String wsHost = '10.117.238.46';
   static const int wsPort = 8080;
   static const String authEndpoint =
-      'http://192.168.100.44:8001/broadcasting/auth';
+      'http://10.117.238.46:8001/broadcasting/auth';
   static const String appId = 'Weylo-app';
   static const String appKey = '1425cdd3ef7425fa6746d2895a233e52'; // Clé Reverb
   static const String cluster = 'mt1'; // Cluster par défaut

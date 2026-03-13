@@ -11,10 +11,18 @@ import '../models/sponsored_ad_model.dart';
 class SponsorshipService {
   final _api = ApiService();
 
+  List<dynamic> _unwrapResourceList(dynamic value) {
+    if (value is List) return value;
+    if (value is Map<String, dynamic> && value['data'] is List) {
+      return value['data'] as List;
+    }
+    return const <dynamic>[];
+  }
+
   Future<List<SponsorshipPackageModel>> getPackages() async {
     try {
       final response = await _api.get(ApiConfig.sponsorshipPackages);
-      final packagesData = (response.data['packages'] as List?) ?? [];
+      final packagesData = _unwrapResourceList(response.data['packages']);
       return packagesData
           .map((json) =>
               SponsorshipPackageModel.fromJson(json as Map<String, dynamic>))
@@ -98,7 +106,7 @@ class SponsorshipService {
         queryParameters: {'limit': limit},
       );
 
-      final adsData = (response.data['ads'] as List?) ?? [];
+      final adsData = _unwrapResourceList(response.data['ads']);
       return adsData
           .map((json) => SponsoredAdModel.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -122,6 +130,35 @@ class SponsorshipService {
     } catch (e) {
       print('⚠️ [SPONSORSHIP_SERVICE] Impression failed: $e');
       return;
+    }
+  }
+
+  Future<List<SponsoredAdModel>> getMySponsorships({int limit = 50}) async {
+    try {
+      final safeLimit = limit.clamp(1, 100);
+      final response = await _api.get(
+        ApiConfig.sponsorshipMine,
+        queryParameters: {'limit': safeLimit},
+      );
+
+      final items = _unwrapResourceList(response.data['sponsorships']);
+      return items
+          .map((json) => SponsoredAdModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      print('❌ [SPONSORSHIP_SERVICE] Erreur getMySponsorships: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getDashboardStats() async {
+    try {
+      final response = await _api.get(ApiConfig.sponsorshipDashboard);
+      final stats = (response.data['stats'] as Map<String, dynamic>?) ?? {};
+      return stats;
+    } catch (e) {
+      print('❌ [SPONSORSHIP_SERVICE] Erreur getDashboardStats: $e');
+      rethrow;
     }
   }
 }

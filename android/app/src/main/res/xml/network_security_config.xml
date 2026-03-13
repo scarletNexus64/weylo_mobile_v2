@@ -10,7 +10,7 @@
         <!-- Plages IP privées (RFC 1918) -->
         <!-- IP de développement -->
         <domain includeSubdomains="true">nonhedonic-slung-aura.ngrok-free.dev</domain>
-        <domain includeSubdomains="true">192.168.100.44</domain>
+        <domain includeSubdomains="true">10.117.238.46</domain>
     </domain-config>
 
     <!-- ATTENTION: En production, utilisez HTTPS et supprimez cette configuration -->

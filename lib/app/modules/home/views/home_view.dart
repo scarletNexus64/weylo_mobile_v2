@@ -8,7 +8,6 @@ import 'package:weylo/app/modules/groupe/views/groupe_view.dart';
 import 'package:weylo/app/modules/profile/views/profile_view.dart';
 import 'package:weylo/app/widgets/app_drawer.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
-import 'package:weylo/app/widgets/burning_flame_icon.dart';
 import 'package:weylo/app/widgets/custom_icons.dart';
 import 'package:weylo/app/widgets/user_profile_header.dart';
 
@@ -88,9 +87,15 @@ class HomeView extends GetView<HomeController> {
                           // Flame icon animée avec badge
                           _buildIconButtonWithBadge(
                             context: context,
-                            icon: BurningFlameIcon(
-                              size: deviceType == DeviceType.mobile ? 28 : 34,
-                              color: const Color(0xFFFF6B35),
+                            icon: SizedBox(
+                              width: deviceType == DeviceType.mobile ? 28 : 34,
+                              height: deviceType == DeviceType.mobile ? 28 : 34,
+                              child: Image.asset(
+                                'assets/gif/flame.gif',
+                                fit: BoxFit.contain,
+                                gaplessPlayback: true,
+                                filterQuality: FilterQuality.high,
+                              ),
                             ),
                             badgeCount: '5',
                             badgeColor: const LinearGradient(

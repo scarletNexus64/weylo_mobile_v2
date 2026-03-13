@@ -10,6 +10,8 @@ class SponsoredAdModel {
   final DateTime? endsAt;
   final int deliveredCount;
   final int targetReach;
+  final String? status; // active|paused|completed|cancelled
+  final DateTime? createdAt;
 
   SponsoredAdModel({
     required this.id,
@@ -23,6 +25,8 @@ class SponsoredAdModel {
     required this.endsAt,
     required this.deliveredCount,
     required this.targetReach,
+    this.status,
+    this.createdAt,
   });
 
   factory SponsoredAdModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,10 @@ class SponsoredAdModel {
           : null,
       deliveredCount: (json['delivered_count'] ?? 0) as int,
       targetReach: (json['target_reach'] ?? 0) as int,
+      status: json['status'] as String?,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
     );
   }
 }
