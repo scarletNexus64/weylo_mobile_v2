@@ -394,14 +394,9 @@ class StoryController extends GetxController {
         currentUserStories[storyIndex] = updatedStory;
         currentUserStories.refresh();
 
-        // Check if all stories are now viewed
-        final allViewed = currentUserStories.every((story) => story.isViewed == true);
-
-        if (allViewed) {
-          // All stories viewed - reload feed to update order in real-time
-          print('✅ [STORY] Toutes les stories vues, rechargement du feed...');
-          await loadStoriesFeed(refresh: true);
-        }
+        // Reload feed to update story status (viewed/unviewed) immediately
+        print('✅ [STORY] Story vue, rechargement du feed pour mise à jour...');
+        await loadStoriesFeed(refresh: true);
       }
     } catch (e) {
       print('❌ Error marking story as viewed: $e');

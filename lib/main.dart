@@ -10,6 +10,7 @@ import 'app/data/services/storage_service.dart';
 import 'app/data/core/api_service.dart';
 import 'app/data/services/deeplink_service.dart';
 import 'app/data/services/conversation_state_service.dart';
+import 'app/data/services/conversation_story_service.dart';
 import 'app/data/services/auth_service.dart';
 import 'app/data/services/fcm_service.dart';
 
@@ -72,8 +73,13 @@ void main() async {
     }, permanent: true);
 
     print('✅ [MAIN] ConversationStateService initialisé');
+
+    // Initialiser le service de stories pour les conversations
+    print('📖 [MAIN] Initialisation du ConversationStoryService...');
+    Get.put(ConversationStoryService(), permanent: true);
+    print('✅ [MAIN] ConversationStoryService initialisé');
   } else {
-    print('⚠️ [MAIN] Utilisateur non connecté, ConversationStateService non initialisé');
+    print('⚠️ [MAIN] Utilisateur non connecté, services non initialisés');
   }
 
   // Configuration de la barre de statut

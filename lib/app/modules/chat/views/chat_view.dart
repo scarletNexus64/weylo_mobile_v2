@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
+import 'package:weylo/app/widgets/story_status_border.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/modules/feeds/controllers/story_controller.dart';
+import 'package:weylo/app/modules/feeds/views/story_viewer.dart';
 
 import '../controllers/chat_controller.dart';
 import '../../chat_detail/views/chat_detail_view.dart';
@@ -336,18 +339,13 @@ class ChatView extends GetView<ChatController> {
       ),
       child: ListTile(
         contentPadding: EdgeInsets.all(context.elementSpacing / 2),
-        leading: Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppThemeSystem.grey600.withValues(alpha: 0.3),
-                  width: 2.5,
-                ),
-              ),
-              child: CircleAvatar(
+        leading: Obx(() => StoryStatusBorder(
+          hasStories: controller.hasStories(otherUser?.id),
+          hasUnviewedStories: controller.hasUnviewedStories(otherUser?.id),
+          onTap: () => _openStoryViewer(context, otherUser?.id),
+          child: Stack(
+            children: [
+              CircleAvatar(
                 radius: 25,
                 backgroundColor: AppThemeSystem.primaryColor,
                 backgroundImage: otherUser?.avatarUrl != null && !isAnonymousUnrevealed
@@ -364,28 +362,28 @@ class ChatView extends GetView<ChatController> {
                       )
                     : null,
               ),
-            ),
-            if (otherUser?.isOnline == true)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: AppThemeSystem.successColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppThemeSystem.darkBackgroundColor
-                          : Colors.white,
-                      width: 2,
+              if (otherUser?.isOnline == true)
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: AppThemeSystem.successColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppThemeSystem.darkBackgroundColor
+                            : Colors.white,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
+        )),
         title: Row(
           children: [
             Flexible(
@@ -705,5 +703,49 @@ class ChatView extends GetView<ChatController> {
         },
       ),
     );
+  }
+
+  /// Open story viewer for a specific user
+  void _openStoryViewer(BuildContext context, int? userId) async {
+    if (userId == null) return;
+
+    // Check if user has stories
+    if (!controller.hasStories(userId)) {
+      return;
+    }
+
+    try {
+      // Get StoryController
+      final storyController = Get.find<StoryController>();
+
+      // Load user's stories
+      await storyController.loadUserStoriesById(userId);
+
+      // Check if stories were loaded successfully
+      if (storyController.currentUserStories.isEmpty) {
+        Get.snackbar(
+          'Info',
+          'Aucune story disponible',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        return;
+      }
+
+      // Navigate to story viewer
+      Get.to(
+        () => const StoryViewer(),
+        transition: Transition.fadeIn,
+        duration: const Duration(milliseconds: 300),
+      );
+    } catch (e) {
+      print('❌ [ChatView] Error opening story viewer: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible d\'ouvrir la story',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+    }
   }
 }

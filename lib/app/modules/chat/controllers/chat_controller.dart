@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:weylo/app/data/services/conversation_state_service.dart';
+import 'package:weylo/app/data/services/conversation_story_service.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
 
 enum ChatFilter { all, unread, read }
@@ -8,6 +9,7 @@ enum ChatFilter { all, unread, read }
 class ChatController extends GetxController {
   // Référence au service global
   ConversationStateService? _conversationStateService;
+  ConversationStoryService? _storyService;
 
   // Filtre de messages
   final Rx<ChatFilter> selectedFilter = ChatFilter.all.obs;
@@ -24,11 +26,21 @@ class ChatController extends GetxController {
     } catch (e) {
       print('❌ [ChatController] ConversationStateService non disponible: $e');
     }
+
+    // Récupérer le service de stories
+    try {
+      _storyService = ConversationStoryService.to;
+      print('✅ [ChatController] ConversationStoryService récupéré');
+    } catch (e) {
+      print('⚠️ [ChatController] ConversationStoryService non disponible: $e');
+    }
   }
 
   @override
   void onReady() {
     super.onReady();
+    // Ensure story statuses are loaded
+    _storyService?.refreshStoryStatus();
   }
 
   @override
@@ -107,5 +119,20 @@ class ChatController extends GetxController {
         duration: const Duration(seconds: 3),
       );
     }
+  }
+
+  /// Check if a conversation participant has stories
+  bool hasStories(int? userId) {
+    return _storyService?.hasStories(userId) ?? false;
+  }
+
+  /// Check if a conversation participant has unviewed stories
+  bool hasUnviewedStories(int? userId) {
+    return _storyService?.hasUnviewedStories(userId) ?? false;
+  }
+
+  /// Get story status for a conversation participant
+  ConversationStoryStatus getStoryStatus(int? userId) {
+    return _storyService?.getStoryStatus(userId) ?? ConversationStoryStatus.noStories();
   }
 }
