@@ -386,10 +386,13 @@ class EditProfileView extends GetView<ProfileController> {
     );
   }
 
-  /// Build image URL with cache buster
-  /// Adds timestamp with proper separator (& if URL already has ?, otherwise ?)
+  /// Build image URL with cache buster based on user's updatedAt
+  /// This prevents infinite reloading while still busting cache when profile is updated
   String _buildImageUrl(String url) {
+    final user = controller.user.value;
+    if (user == null) return url;
+
     final separator = url.contains('?') ? '&' : '?';
-    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+    return '$url${separator}t=${user.updatedAt.millisecondsSinceEpoch}';
   }
 }

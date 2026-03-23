@@ -15,53 +15,56 @@ class RegisterView extends GetView<RegisterController> {
 
     return Scaffold(
       backgroundColor: isDark ? AppThemeSystem.darkBackgroundColor : Colors.white,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
             // Header with back button and progress
             _buildHeader(context, isDark),
 
-            // Content
+            // Content with SingleChildScrollView
             Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.horizontalPadding * 1.5,
-                  vertical: context.verticalPadding,
-                ),
-                child: Column(
-                  children: [
-                    // Step indicator
-                    _buildStepIndicator(context, isDark),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.horizontalPadding * 1.5,
+                    vertical: context.verticalPadding,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Step indicator
+                      _buildStepIndicator(context, isDark),
 
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 32),
 
-                    // Title and subtitle
-                    Obx(() => Column(
-                      children: [
-                        Text(
-                          controller.getStepTitle(),
-                          style: context.h2.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.5,
+                      // Title and subtitle
+                      Obx(() => Column(
+                        children: [
+                          Text(
+                            controller.getStepTitle(),
+                            style: context.h2.copyWith(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          controller.getStepSubtitle(),
-                          style: context.body2.copyWith(
-                            color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                          const SizedBox(height: 8),
+                          Text(
+                            controller.getStepSubtitle(),
+                            style: context.body2.copyWith(
+                              color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    )),
+                        ],
+                      )),
 
-                    const SizedBox(height: 40),
+                      const SizedBox(height: 40),
 
-                    // Step content
-                    Expanded(
-                      child: Obx(() {
+                      // Step content
+                      Obx(() {
                         switch (controller.currentStep.value) {
                           case 0:
                             return _buildStep1(context, isDark);
@@ -73,37 +76,39 @@ class RegisterView extends GetView<RegisterController> {
                             return Container();
                         }
                       }),
-                    ),
 
-                    // Navigation buttons
-                    _buildNavigationButtons(context, isDark),
+                      const SizedBox(height: 24),
 
-                    const SizedBox(height: 16),
+                      // Navigation buttons
+                      _buildNavigationButtons(context, isDark),
 
-                    // Login link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Déjà inscrit? ",
-                          style: context.body2.copyWith(
-                            color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: controller.navigateToLogin,
-                          child: Text(
-                            "Se connecter",
+                      const SizedBox(height: 16),
+
+                      // Login link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Déjà inscrit? ",
                             style: context.body2.copyWith(
-                              color: AppThemeSystem.primaryColor,
-                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                          GestureDetector(
+                            onTap: controller.navigateToLogin,
+                            child: Text(
+                              "Se connecter",
+                              style: context.body2.copyWith(
+                                color: AppThemeSystem.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -189,82 +194,145 @@ class RegisterView extends GetView<RegisterController> {
       opacity: controller.step1Opacity.value,
       duration: const Duration(milliseconds: 300),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Username icon
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  AppThemeSystem.primaryColor.withValues(alpha: 0.2),
-                  AppThemeSystem.secondaryColor.withValues(alpha: 0.2),
-                ],
-              ),
-            ),
-            child: Icon(
-              Icons.person_outline,
-              size: 40,
-              color: AppThemeSystem.primaryColor,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          // Username input
-          TextField(
-            controller: controller.usernameController,
-            style: context.body1,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: 'Entrez votre nom d\'utilisateur',
-              hintStyle: context.body1.copyWith(
-                color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey400,
-              ),
-              filled: true,
-              fillColor: isDark
-                  ? AppThemeSystem.grey800.withValues(alpha: 0.3)
-                  : AppThemeSystem.grey100.withValues(alpha: 0.7),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: AppThemeSystem.primaryColor,
-                  width: 2,
+            // Username icon
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    AppThemeSystem.primaryColor.withValues(alpha: 0.2),
+                    AppThemeSystem.secondaryColor.withValues(alpha: 0.2),
+                  ],
                 ),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 18,
+              child: Icon(
+                Icons.person_outline,
+                size: 40,
+                color: AppThemeSystem.primaryColor,
               ),
             ),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
-            ],
-          ),
 
-          const SizedBox(height: 12),
+            const SizedBox(height: 32),
 
-          // Helper text
-          Text(
-            'Lettres, chiffres et underscores uniquement',
-            style: context.caption.copyWith(
-              color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey500,
+            // Username input
+            TextField(
+              controller: controller.usernameController,
+              style: context.body1,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: 'Entrez votre nom d\'utilisateur',
+                hintStyle: context.body1.copyWith(
+                  color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey400,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? AppThemeSystem.grey800.withValues(alpha: 0.3)
+                    : AppThemeSystem.grey100.withValues(alpha: 0.7),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: AppThemeSystem.primaryColor,
+                    width: 2,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+              ],
             ),
-          ),
 
-          const Spacer(),
-        ],
+            const SizedBox(height: 12),
+
+            // Helper text
+            Text(
+              'Lettres, chiffres et underscores uniquement',
+              style: context.caption.copyWith(
+                color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey500,
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Terms acceptance section
+            _buildTermsSection(context, isDark),
+
+            const SizedBox(height: 16),
+          ],
       ),
     ));
+  }
+
+  // Terms acceptance section
+  Widget _buildTermsSection(BuildContext context, bool isDark) {
+    return Obx(() {
+      if (controller.isLoadingLegalPages.value) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Checkbox
+          Obx(() => Checkbox(
+            value: controller.acceptedTerms.value,
+            onChanged: controller.toggleTermsAcceptance,
+            activeColor: AppThemeSystem.primaryColor,
+            checkColor: Colors.white,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          )),
+          const SizedBox(width: 8),
+          // Text with clickable link
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: RichText(
+                text: TextSpan(
+                  style: context.body2.copyWith(
+                    color: isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700,
+                    height: 1.5,
+                  ),
+                  children: [
+                    const TextSpan(text: 'J\'accepte les '),
+                    WidgetSpan(
+                      child: GestureDetector(
+                        onTap: controller.showLegalPagesBottomSheet,
+                        child: Text(
+                          'conditions d\'utilisation',
+                          style: context.body2.copyWith(
+                            color: AppThemeSystem.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            decorationColor: AppThemeSystem.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   // Step 2: Phone number
@@ -273,6 +341,7 @@ class RegisterView extends GetView<RegisterController> {
       opacity: controller.step2Opacity.value,
       duration: const Duration(milliseconds: 300),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Phone icon
           Container(
@@ -339,7 +408,7 @@ class RegisterView extends GetView<RegisterController> {
             },
           ),
 
-          const Spacer(),
+          const SizedBox(height: 24),
         ],
       ),
     ));
@@ -350,9 +419,9 @@ class RegisterView extends GetView<RegisterController> {
     return Obx(() => AnimatedOpacity(
       opacity: controller.step3Opacity.value,
       duration: const Duration(milliseconds: 300),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
             // Lock icon
             Container(
               width: 80,
@@ -549,7 +618,6 @@ class RegisterView extends GetView<RegisterController> {
               ),
             ),
           ],
-        ),
       ),
     ));
   }

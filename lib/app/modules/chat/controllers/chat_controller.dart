@@ -71,8 +71,9 @@ class ChatController extends GetxController {
   }
 
   /// Obtenir le total des messages non lus (somme de tous les unreadCount)
-  int get totalUnreadMessagesCount {
-    return _conversationStateService?.totalUnreadCount.value ?? 0;
+  /// Retourne directement la variable observable pour la réactivité avec GetX/Obx
+  RxInt get totalUnreadMessagesCount {
+    return _conversationStateService?.totalUnreadCount ?? 0.obs;
   }
 
   /// Rafraîchir les conversations (force refresh depuis API)

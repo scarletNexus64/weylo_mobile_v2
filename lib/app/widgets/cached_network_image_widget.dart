@@ -163,7 +163,7 @@ class CachedAvatarWidget extends StatelessWidget {
       backgroundColor: AppThemeSystem.primaryColor,
       child: ClipOval(
         child: Image(
-          image: cacheManager.getImage(_addTimestamp(avatarUrl!)),
+          image: cacheManager.getImage(avatarUrl!),
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
@@ -199,10 +199,5 @@ class CachedAvatarWidget extends StatelessWidget {
     } catch (e) {
       return false;
     }
-  }
-
-  String _addTimestamp(String url) {
-    final separator = url.contains('?') ? '&' : '?';
-    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
   }
 }

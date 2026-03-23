@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/core/api_service.dart';
+import 'package:weylo/app/widgets/verified_badge.dart';
 
 import '../controllers/profile_controller.dart';
 import '../../home/controllers/home_controller.dart';
@@ -82,10 +83,36 @@ class _ProfileViewState extends State<ProfileView>
                     child: user?.coverPhotoUrl != null
                         ? Image.network(
                             _buildImageUrl(user!.coverPhotoUrl!),
-                            key: ValueKey('cover_${user.id}_${user.updatedAt.millisecondsSinceEpoch}'),
                             height: 180,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                height: 180,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                                      AppThemeSystem.secondaryColor.withValues(alpha: 0.3),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 height: 180,
@@ -167,7 +194,6 @@ class _ProfileViewState extends State<ProfileView>
                         ),
                       ),
                       child: CircleAvatar(
-                        key: ValueKey('avatar_${user?.id}_${user?.updatedAt.millisecondsSinceEpoch}'),
                         radius: 50,
                         backgroundColor: AppThemeSystem.primaryColor,
                         child: user?.hasRealAvatar ?? false
@@ -187,11 +213,25 @@ class _ProfileViewState extends State<ProfileView>
                                     width: 100,
                                     height: 100,
                                     fit: BoxFit.cover,
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white.withValues(alpha: 0.8),
+                                          ),
+                                        ),
+                                      );
+                                    },
                                     errorBuilder: (context, error, stackTrace) {
                                       return Center(
                                         child: Text(
-                                          user!.firstName.isNotEmpty
-                                              ? user!.firstName[0].toUpperCase()
+                                          user.firstName.isNotEmpty
+                                              ? user.firstName[0].toUpperCase()
                                               : 'U',
                                           style: const TextStyle(
                                             fontSize: 40,
@@ -233,14 +273,22 @@ class _ProfileViewState extends State<ProfileView>
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              user?.fullName ?? 'Utilisateur',
-                              style: context.textStyle(FontSizeType.h2).copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : AppThemeSystem.blackColor,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  user?.fullName ?? 'Utilisateur',
+                                  style: context.textStyle(FontSizeType.h2).copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : AppThemeSystem.blackColor,
+                                  ),
+                                ),
+                                if (user?.shouldShowBlueBadge ?? false) ...[
+                                  const SizedBox(width: 6),
+                                  const VerifiedBadge(size: 20),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -392,11 +440,14 @@ class _ProfileViewState extends State<ProfileView>
     });
   }
 
-  /// Build image URL with cache buster
-  /// Adds timestamp with proper separator (& if URL already has ?, otherwise ?)
+  /// Build image URL with cache buster based on user's updatedAt
+  /// This prevents infinite reloading while still busting cache when profile is updated
   String _buildImageUrl(String url) {
+    final user = controller.user.value;
+    if (user == null) return url;
+
     final separator = url.contains('?') ? '&' : '?';
-    return '$url${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+    return '$url${separator}t=${user.updatedAt.millisecondsSinceEpoch}';
   }
 
   /// Retourne une paire de couleurs pour le gradient basé sur l'ID
@@ -765,47 +816,15 @@ class _ProfileViewState extends State<ProfileView>
               },
               child: Stack(
                 children: [
-                  // Display gift image if available
-                  if (gift.imageUrl != null)
-                    Center(
-                      child: Image.network(
-                        gift.imageUrl!,
-                        fit: BoxFit.contain,
-                        width: 60,
-                        height: 60,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.card_giftcard_rounded,
-                            size: 40,
-                            color: AppThemeSystem.primaryColor,
-                          );
-                        },
-                      ),
-                    )
-                  else if (gift.iconUrl != null)
-                    Center(
-                      child: Image.network(
-                        gift.iconUrl!,
-                        fit: BoxFit.contain,
-                        width: 40,
-                        height: 40,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.card_giftcard_rounded,
-                            size: 40,
-                            color: AppThemeSystem.primaryColor,
-                          );
-                        },
-                      ),
-                    )
-                  else
-                    Center(
-                      child: Icon(
-                        Icons.card_giftcard_rounded,
-                        size: 40,
-                        color: AppThemeSystem.primaryColor,
+                  // Display gift icon (emoji)
+                  Center(
+                    child: Text(
+                      gift.icon,
+                      style: const TextStyle(
+                        fontSize: 50,
                       ),
                     ),
+                  ),
 
                   // Gift count badge
                   if (count > 1)

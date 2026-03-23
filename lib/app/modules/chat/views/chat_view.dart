@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/widgets/verified_badge.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
 
 import '../controllers/chat_controller.dart';
 import '../../chat_detail/views/chat_detail_view.dart';
@@ -316,13 +318,22 @@ class ChatView extends GetView<ChatController> {
     final otherUser = conversation.otherParticipant;
     final lastMessage = conversation.lastMessage;
 
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = AuthService().getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
     // Déterminer si c'est une conversation anonyme non révélée
-    final isAnonymousUnrevealed = conversation.isAnonymous && !conversation.identityRevealed;
+    // Si l'utilisateur a Premium, il peut toujours voir la vraie identité
+    final isAnonymousUnrevealed = conversation.isAnonymous && !conversation.identityRevealed && !hasPremium;
     final displayName = isAnonymousUnrevealed ? 'Anonyme' : (otherUser?.fullName ?? 'Inconnu');
     final avatarInitial = isAnonymousUnrevealed ? '?' : (otherUser?.firstName[0].toUpperCase() ?? '?');
 
-    return Container(
+    return Card(
       margin: EdgeInsets.only(bottom: context.elementSpacing),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ListTile(
         contentPadding: EdgeInsets.all(context.elementSpacing / 2),
         leading: Stack(
@@ -377,15 +388,26 @@ class ChatView extends GetView<ChatController> {
         ),
         title: Row(
           children: [
-            Expanded(
-              child: Text(
-                displayName,
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : AppThemeSystem.blackColor,
-                ),
+            Flexible(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName,
+                      style: context.textStyle(FontSizeType.body1).copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : AppThemeSystem.blackColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!isAnonymousUnrevealed && (otherUser?.shouldShowBlueBadge ?? false)) ...[
+                    const SizedBox(width: 4),
+                    const VerifiedBadge(size: 14),
+                  ],
+                ],
               ),
             ),
           ],
@@ -493,8 +515,12 @@ class ChatView extends GetView<ChatController> {
     final hasUnseenStory = index % 4 != 0; // Simulate unseen story status
     final flameLevel = hasFlame ? ((index % 5) + 1) / 5 : 0.0; // Progress from 0.0 to 1.0
 
-    return Container(
+    return Card(
       margin: EdgeInsets.only(bottom: context.elementSpacing),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ListTile(
         contentPadding: EdgeInsets.all(context.elementSpacing / 2),
         leading: Stack(

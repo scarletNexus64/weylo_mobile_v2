@@ -88,6 +88,66 @@ class AnonymousMessageInfo {
   }
 }
 
+/// Représente une story simplifiée liée à un message de chat
+class StoryReplyInfo {
+  final int id;
+  final String type; // 'image', 'video', 'text'
+  final String? content;
+  final String? mediaUrl;
+  final String? thumbnailUrl;
+  final String? backgroundColor;
+  final DateTime createdAt;
+  final StoryUserInfo? user;
+
+  StoryReplyInfo({
+    required this.id,
+    required this.type,
+    this.content,
+    this.mediaUrl,
+    this.thumbnailUrl,
+    this.backgroundColor,
+    required this.createdAt,
+    this.user,
+  });
+
+  factory StoryReplyInfo.fromJson(Map<String, dynamic> json) {
+    return StoryReplyInfo(
+      id: json['id'],
+      type: json['type'] ?? 'text',
+      content: json['content'],
+      mediaUrl: json['media_url'],
+      thumbnailUrl: json['thumbnail_url'],
+      backgroundColor: json['background_color'],
+      createdAt: DateTime.parse(json['created_at']),
+      user: json['user'] != null ? StoryUserInfo.fromJson(json['user']) : null,
+    );
+  }
+}
+
+/// Représente l'utilisateur d'une story simplifiée
+class StoryUserInfo {
+  final int id;
+  final String username;
+  final String fullName;
+  final String avatarUrl;
+
+  StoryUserInfo({
+    required this.id,
+    required this.username,
+    required this.fullName,
+    required this.avatarUrl,
+  });
+
+  factory StoryUserInfo.fromJson(Map<String, dynamic> json) {
+    return StoryUserInfo(
+      id: json['id'],
+      username: json['username'] ?? '',
+      fullName: json['full_name'] ?? '',
+      avatarUrl: json['avatar_url'] ?? '',
+    );
+  }
+}
+
 class ChatMessageModel {
   final int id;
   final int conversationId;
@@ -104,6 +164,7 @@ class ChatMessageModel {
   final DateTime updatedAt;
   final DateTime? editedAt; // Date d'édition du message
   final AnonymousMessageInfo? anonymousMessage; // Message anonyme original si applicable
+  final StoryReplyInfo? story; // Story à laquelle ce message répond
 
   ChatMessageModel({
     required this.id,
@@ -121,6 +182,7 @@ class ChatMessageModel {
     required this.updatedAt,
     this.editedAt,
     this.anonymousMessage,
+    this.story,
   });
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
@@ -149,6 +211,9 @@ class ChatMessageModel {
       editedAt: json['edited_at'] != null ? DateTime.parse(json['edited_at']) : null,
       anonymousMessage: json['anonymous_message'] != null
           ? AnonymousMessageInfo.fromJson(json['anonymous_message'])
+          : null,
+      story: json['story'] != null
+          ? StoryReplyInfo.fromJson(json['story'])
           : null,
     );
   }
@@ -239,6 +304,16 @@ class ChatMessageModel {
           'id': anonymousMessage!.id,
           'content': anonymousMessage!.content,
           'created_at': anonymousMessage!.createdAt.toIso8601String(),
+        },
+      if (story != null)
+        'story': {
+          'id': story!.id,
+          'type': story!.type,
+          'content': story!.content,
+          'media_url': story!.mediaUrl,
+          'thumbnail_url': story!.thumbnailUrl,
+          'background_color': story!.backgroundColor,
+          'created_at': story!.createdAt.toIso8601String(),
         },
     };
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
+import 'package:weylo/app/data/core/api_config.dart';
 
 /// Service pour gérer les deeplinks et Universal Links
 class DeeplinkService {
@@ -49,9 +50,9 @@ class DeeplinkService {
     print('🔗 [DEEPLINK] Scheme: ${uri.scheme}');
 
     try {
-      // Cas 1: Universal Link - https://weylo.app/u/{username}
+      // Cas 1: Universal Link - http://IP:PORT/u/{username}
       if ((uri.scheme == 'https' || uri.scheme == 'http') &&
-          uri.host == 'weylo.app' &&
+          '${uri.host}:${uri.port}' == ApiConfig.anonymousLinkHost &&
           uri.path.startsWith('/u/')) {
 
         final username = uri.path.replaceFirst('/u/', '');

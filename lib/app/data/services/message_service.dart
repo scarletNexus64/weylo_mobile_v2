@@ -326,6 +326,27 @@ class MessageService {
       rethrow;
     }
   }
+
+  /// Start a conversation from an anonymous message
+  /// Returns the conversation ID
+  Future<int> startConversationFromMessage(int messageId) async {
+    try {
+      print('🔄 [MessageService] Starting conversation from message $messageId');
+
+      final response = await _api.post(
+        '${ApiConfig.messages}/$messageId/start-conversation',
+      );
+
+      final conversationId = response.data['conversation']['id'] as int;
+
+      print('✅ [MessageService] Conversation created/retrieved: $conversationId');
+
+      return conversationId;
+    } catch (e) {
+      print('❌ [MessageService] Error starting conversation: $e');
+      rethrow;
+    }
+  }
 }
 
 /// Response wrapper for message list with pagination

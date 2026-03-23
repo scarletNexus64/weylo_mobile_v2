@@ -3,12 +3,16 @@ class StoryUserModel {
   final String username;
   final String fullName;
   final String avatarUrl;
+  final bool isPremium;
+  final bool isVerified;
 
   StoryUserModel({
     this.id,
     required this.username,
     required this.fullName,
     required this.avatarUrl,
+    this.isPremium = false,
+    this.isVerified = false,
   });
 
   factory StoryUserModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,8 @@ class StoryUserModel {
       username: json['username'] ?? 'Anonyme',
       fullName: json['full_name'] ?? 'Utilisateur Anonyme',
       avatarUrl: avatarUrl,
+      isPremium: json['is_premium'] ?? false,
+      isVerified: json['is_verified'] ?? false,
     );
   }
 
@@ -35,8 +41,16 @@ class StoryUserModel {
       'username': username,
       'full_name': fullName,
       'avatar_url': avatarUrl,
+      'is_premium': isPremium,
+      'is_verified': isVerified,
     };
   }
 
   bool get isAnonymous => id == null;
+
+  /// Check if user should display blue verified badge
+  /// Badge shown if user is premium OR verified
+  bool get shouldShowBlueBadge {
+    return isPremium || isVerified;
+  }
 }

@@ -6,6 +6,7 @@ import 'package:weylo/app/modules/groupe/controllers/groupe_controller.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/data/services/group_service.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/data/services/notification_service.dart';
 
 class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
   // Scaffold key for drawer
@@ -22,10 +23,12 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
   // Unread counts
   final groupsUnreadCount = 0.obs;
+  final notificationsUnreadCount = 0.obs;
 
   // Services
   final _groupService = GroupService();
   final _authService = AuthService();
+  final _notificationService = NotificationService();
   RealtimeService? _realtimeService;
   int? _currentUserId;
 
@@ -479,9 +482,14 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   Future<void> _loadNotificationCounts() async {
     try {
       // Récupérer le count des groupes non lus
-      final count = await _groupService.getUnreadCount();
-      groupsUnreadCount.value = count;
-      print('📊 [HOME_CONTROLLER] Groups unread count: $count');
+      final groupsCount = await _groupService.getUnreadCount();
+      groupsUnreadCount.value = groupsCount;
+      print('📊 [HOME_CONTROLLER] Groups unread count: $groupsCount');
+
+      // Récupérer le count des notifications non lues
+      final notificationsCount = await _notificationService.getUnreadCount();
+      notificationsUnreadCount.value = notificationsCount;
+      print('📊 [HOME_CONTROLLER] Notifications unread count: $notificationsCount');
     } catch (e) {
       print('❌ [HOME_CONTROLLER] Error loading notification counts: $e');
     }
@@ -490,6 +498,12 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   /// Rafraîchir les counts de notifications (appelé quand on revient d'un groupe)
   void refreshNotificationCounts() {
     _loadNotificationCounts();
+  }
+
+  /// Naviguer vers la page des notifications
+  void openNotificationsPage() {
+    print('🔔 [HOME_CONTROLLER] Opening notifications page');
+    Get.toNamed('/notification');
   }
 
   // Open drawer

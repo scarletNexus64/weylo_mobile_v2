@@ -5,6 +5,8 @@ import '../modules/anonymepage/bindings/anonymepage_binding.dart';
 import '../modules/anonymepage/views/anonymepage_view.dart';
 import '../modules/chat/bindings/chat_binding.dart';
 import '../modules/chat/views/chat_view.dart';
+import '../modules/chat_detail/bindings/chat_detail_binding.dart';
+import '../modules/chat_detail/views/chat_detail_view.dart';
 import '../modules/entrypage/bindings/entrypage_binding.dart';
 import '../modules/entrypage/views/entrypage_view.dart';
 import '../modules/feeds/bindings/feeds_binding.dart';
@@ -47,6 +49,8 @@ import '../modules/MyWallet/views/deposit_view.dart';
 import '../modules/MyWallet/views/withdraw_view.dart';
 import '../modules/sponsoring/bindings/sponsoring_binding.dart';
 import '../modules/sponsoring/views/sponsoring_entry_view.dart';
+import '../modules/certification/bindings/certification_binding.dart';
+import '../modules/certification/views/certification_view.dart';
 
 part 'app_routes.dart';
 
@@ -92,6 +96,11 @@ class AppPages {
       name: _Paths.CHAT,
       page: () => const ChatView(),
       binding: ChatBinding(),
+    ),
+    GetPage(
+      name: _Paths.CHAT_DETAIL,
+      page: () => const ChatDetailView(),
+      binding: ChatDetailBinding(),
     ),
     GetPage(
       name: _Paths.PROFILE,
@@ -200,6 +209,11 @@ class AppPages {
       name: _Paths.SPONSORING,
       page: () => const SponsoringEntryView(),
       binding: SponsoringBinding(),
+    ),
+    GetPage(
+      name: _Paths.CERTIFICATION,
+      page: () => const CertificationView(),
+      binding: CertificationBinding(),
     ),
   ];
 }

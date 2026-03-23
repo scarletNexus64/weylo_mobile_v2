@@ -4,6 +4,7 @@ import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import '../core/api_config.dart';
 
 class WebSocketService extends GetxService {
   static WebSocketService get to => Get.find();
@@ -18,13 +19,13 @@ class WebSocketService extends GetxService {
   // Map pour stocker les channels actifs
   final Map<String, dynamic> _activeChannels = {};
 
-  // Configuration
-  static const String wsHost = '192.168.100.30';
-  static const int wsPort = 8080;
-  static const String authEndpoint =
-      'http://192.168.100.30:8001/broadcasting/auth';
-  static const String appId = 'Weylo-app';
-  static const String appKey = '1425cdd3ef7425fa6746d2895a233e52'; // Clé Reverb
+  // Configuration - Utilise les paramètres depuis ApiConfig
+  static String get wsHost => ApiConfig.wsHost;
+  static int get wsPort => ApiConfig.wsPort;
+  static String get authEndpoint => '${ApiConfig.baseUrl.replaceAll('/api/v1', '')}/broadcasting/auth';
+  static String get appId => ApiConfig.wsAppId;
+  static String get appKey => ApiConfig.wsAppKey;
+  static bool get useTLS => ApiConfig.forceTLS;
   static const String cluster = 'mt1'; // Cluster par défaut
 
   @override
@@ -60,7 +61,7 @@ class WebSocketService extends GetxService {
         onMemberAdded: _onMemberAdded,
         onMemberRemoved: _onMemberRemoved,
         // Configuration pour Reverb (Laravel)
-        useTLS: false, // Pas de TLS en local
+        useTLS: useTLS, // Active TLS en production
         activityTimeout: 120000, // 2 minutes
         pongTimeout: 30000, // 30 secondes
         // Configuration de l'authentification pour les canaux privés

@@ -113,22 +113,18 @@ class HomeView extends GetView<HomeController> {
                           SizedBox(width: context.elementSpacing * 0.5),
 
                           // Notifications button avec badge
-                          _buildIconButtonWithBadge(
+                          Obx(() => _buildIconButtonWithBadge(
                             context: context,
                             icon: CustomIcons.notifications(
                               size: deviceType == DeviceType.mobile ? 22 : 26,
                               color: isDark ? Colors.white : AppThemeSystem.blackColor,
                             ),
-                            badgeCount: '3',
+                            badgeCount: controller.notificationsUnreadCount.value > 0
+                                ? '${controller.notificationsUnreadCount.value}'
+                                : null,
                             badgeColor: null,
-                            onPressed: () {
-                              Get.snackbar(
-                                'Notifications',
-                                'Aucune nouvelle notification',
-                                snackPosition: SnackPosition.BOTTOM,
-                              );
-                            },
-                          ),
+                            onPressed: controller.openNotificationsPage,
+                          )),
                         ],
                       ),
                     ],
@@ -291,7 +287,7 @@ class HomeView extends GetView<HomeController> {
   Widget _buildIconButtonWithBadge({
     required BuildContext context,
     required Widget icon,
-    required String badgeCount,
+    String? badgeCount,
     required Gradient? badgeColor,
     required VoidCallback onPressed,
   }) {
@@ -311,48 +307,49 @@ class HomeView extends GetView<HomeController> {
             minHeight: deviceType == DeviceType.mobile ? 40 : 48,
           ),
         ),
-        // Badge
-        Positioned(
-          right: deviceType == DeviceType.mobile ? 6 : 8,
-          top: deviceType == DeviceType.mobile ? 6 : 8,
-          child: Container(
-            padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 3 : 4),
-            decoration: BoxDecoration(
-              gradient: badgeColor,
-              color: badgeColor == null ? AppThemeSystem.errorColor : null,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isDark
-                    ? AppThemeSystem.darkCardColor
-                    : Colors.white,
-                width: 1.5,
+        // Badge - only show if badgeCount is not null
+        if (badgeCount != null)
+          Positioned(
+            right: deviceType == DeviceType.mobile ? 6 : 8,
+            top: deviceType == DeviceType.mobile ? 6 : 8,
+            child: Container(
+              padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 3 : 4),
+              decoration: BoxDecoration(
+                gradient: badgeColor,
+                color: badgeColor == null ? AppThemeSystem.errorColor : null,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isDark
+                      ? AppThemeSystem.darkCardColor
+                      : Colors.white,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+              constraints: BoxConstraints(
+                minWidth: deviceType == DeviceType.mobile ? 16 : 18,
+                minHeight: deviceType == DeviceType.mobile ? 16 : 18,
+              ),
+              child: Center(
+                child: Text(
+                  badgeCount,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: deviceType == DeviceType.mobile ? 9 : 10,
+                    fontWeight: FontWeight.bold,
+                    height: 1.0,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ],
-            ),
-            constraints: BoxConstraints(
-              minWidth: deviceType == DeviceType.mobile ? 16 : 18,
-              minHeight: deviceType == DeviceType.mobile ? 16 : 18,
-            ),
-            child: Center(
-              child: Text(
-                badgeCount,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: deviceType == DeviceType.mobile ? 9 : 10,
-                  fontWeight: FontWeight.bold,
-                  height: 1.0,
-                ),
-                textAlign: TextAlign.center,
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -470,7 +467,7 @@ class _AnimatedTabIconWithBadgeState extends State<_AnimatedTabIconWithBadge> {
 
     return GetX<ChatController>(
       builder: (chatController) {
-        final unreadCount = chatController.totalUnreadMessagesCount;
+        final unreadCount = chatController.totalUnreadMessagesCount.value;
 
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,

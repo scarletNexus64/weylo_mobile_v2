@@ -14,7 +14,9 @@ import 'package:animate_do/animate_do.dart';
 import '../../../../data/models/anonymous_message_model.dart';
 import '../../../../data/models/gift_model.dart';
 import '../../../../data/services/message_service.dart';
+import '../../../../data/services/chat_service.dart';
 import '../../../../data/services/gift_service.dart';
+import '../../../../data/services/auth_service.dart';
 import '../../../../widgets/app_theme_system.dart';
 import '../../../chat/controllers/chat_controller.dart';
 
@@ -38,6 +40,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
     with SingleTickerProviderStateMixin {
   // Services
   final _messageService = MessageService();
+  final _chatService = ChatService();
   final _giftService = GiftService();
 
   // Tab Controller
@@ -198,15 +201,32 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       _recordedAudioPath.value = null;
       _recordDuration = Duration.zero;
 
-      final response = await _messageService.sendReply(
-        replyToMessageId: widget.originalMessage.id,
-        content: null,
-        mediaFile: audioFile,
-        mediaType: 'audio',
+      print('🎤 [AnonymousChatBottomSheet] Sending audio message');
+      print('🎤 Message ID: ${widget.originalMessage.id}');
+
+      // 1. Démarrer/récupérer la conversation depuis le message anonyme
+      final conversationId = await _messageService.startConversationFromMessage(
+        widget.originalMessage.id,
+      );
+
+      print('✅ [AnonymousChatBottomSheet] Conversation ID: $conversationId');
+
+      // 2. Envoyer le message audio dans la conversation
+      // Préparer les metadata pour lier au message anonyme original (format reply_to)
+      final metadata = {
+        'reply_to_message_id': widget.originalMessage.id,
+        'reply_to_content': widget.originalMessage.content,
+        'reply_to_sender': widget.originalMessage.sender?.fullName ?? 'Anonyme',
+        'reply_type': 'anonymous_message', // Pour différencier des réponses normales
+      };
+
+      await _chatService.sendMessage(
+        conversationId: conversationId,
+        content: '', // Vide pour les audios
+        type: 'audio',
+        audioFile: audioFile,
         voiceType: _selectedVoiceType.value,
-        giftId: null,
-        giftMessage: null,
-        revealIdentity: false, // Les messages vocaux sont toujours anonymes
+        metadata: metadata,
       );
 
       // Supprimer le fichier audio temporaire
@@ -223,24 +243,20 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       // Afficher un message de succès
       Get.snackbar(
         'Succès',
-        response.conversationId != null
-            ? 'Conversation créée! Consultez l\'onglet Chat'
-            : 'Message audio envoyé avec succès',
+        'Message audio envoyé dans la conversation',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green,
         colorText: Colors.white,
         duration: Duration(seconds: 2),
       );
 
-      // Rafraîchir la liste des conversations si une conversation a été créée
-      if (response.conversationId != null) {
-        try {
-          final chatController = Get.find<ChatController>();
-          await chatController.refreshConversations();
-          print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
-        } catch (e) {
-          print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
-        }
+      // Rafraîchir la liste des conversations
+      try {
+        final chatController = Get.find<ChatController>();
+        await chatController.refreshConversations();
+        print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
+      } catch (e) {
+        print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
       }
     } catch (e) {
       Get.snackbar(
@@ -312,49 +328,123 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
     try {
       _isSending.value = true;
 
-      File? mediaFile;
-      String? mediaType;
-      String? voiceType;
-      int? giftId;
-      String? giftMessage;
-      bool? revealIdentity;
+      print('📤 [AnonymousChatBottomSheet] Sending message');
+      print('📤 Message ID: ${widget.originalMessage.id}');
+      print('📤 Tab index: $_currentTabIndex');
 
-      // Préparer les données selon le tab
+      // 1. Démarrer/récupérer la conversation depuis le message anonyme
+      final conversationId = await _messageService.startConversationFromMessage(
+        widget.originalMessage.id,
+      );
+
+      print('✅ [AnonymousChatBottomSheet] Conversation ID: $conversationId');
+
+      // 2. Préparer les metadata pour lier au message anonyme original (format reply_to)
+      final metadata = {
+        'reply_to_message_id': widget.originalMessage.id,
+        'reply_to_content': widget.originalMessage.content,
+        'reply_to_sender': widget.originalMessage.sender?.fullName ?? 'Anonyme',
+        'reply_type': 'anonymous_message', // Pour différencier des réponses normales
+      };
+
+      // 3. Envoyer le message selon le type
       if (_currentTabIndex == 0) {
         // Texte
-        revealIdentity = _revealIdentityText.value;
+        print('📝 Sending text message');
+        await _chatService.sendMessage(
+          conversationId: conversationId,
+          content: _textController.text.trim(),
+          type: 'text',
+          metadata: metadata,
+        );
       } else if (_currentTabIndex == 1) {
-        // Voice - pas de révélation d'identité (voix modifiées)
+        // Voice (ne devrait pas arriver ici, géré par _sendAudioMessage)
+        print('🎤 Sending voice message');
         if (_recordedAudioPath.value != null) {
-          mediaFile = File(_recordedAudioPath.value!);
+          await _chatService.sendMessage(
+            conversationId: conversationId,
+            content: '',
+            type: 'audio',
+            audioFile: File(_recordedAudioPath.value!),
+            voiceType: _selectedVoiceType.value,
+            metadata: metadata,
+          );
         }
-        mediaType = 'audio';
-        voiceType = _selectedVoiceType.value;
       } else if (_currentTabIndex == 2) {
         // Image
-        mediaFile = _selectedImage!;
-        mediaType = 'image';
-        revealIdentity = _revealIdentityImage.value;
+        print('📷 Sending image message');
+        await _chatService.sendMessage(
+          conversationId: conversationId,
+          content: _textController.text.trim().isNotEmpty ? _textController.text.trim() : '',
+          type: 'image',
+          imageFile: _selectedImage!,
+          metadata: metadata,
+        );
       } else if (_currentTabIndex == 3) {
-        // Gift
-        giftId = _selectedGift!.id;
-        giftMessage = _giftMessageController.text.trim().isNotEmpty
-            ? _giftMessageController.text.trim()
-            : null;
-        revealIdentity = _revealIdentityWithGift.value;
+        // Gift - Utilise l'endpoint spécial POST /chat/conversations/{id}/gift
+        print('🎁 Sending gift');
+        await _sendGift(conversationId);
+        return; // On sort ici car _sendGift gère le succès/erreur
       }
 
-      final response = await _messageService.sendReply(
-        replyToMessageId: widget.originalMessage.id,
-        content: _textController.text.trim().isNotEmpty
-            ? _textController.text.trim()
+      // Succès
+      Get.back();
+
+      // Callback
+      widget.onMessageSent?.call();
+
+      // Afficher un message de succès
+      Get.snackbar(
+        'Succès',
+        'Message envoyé dans la conversation',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+
+      // Rafraîchir la liste des conversations
+      try {
+        final chatController = Get.find<ChatController>();
+        await chatController.refreshConversations();
+        print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
+      } catch (e) {
+        print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
+      }
+    } catch (e) {
+      print('❌ [AnonymousChatBottomSheet] Error sending message: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible d\'envoyer le message: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      _isSending.value = false;
+    }
+  }
+
+  // ====================
+  // SEND GIFT
+  // ====================
+  Future<void> _sendGift(int conversationId) async {
+    if (_selectedGift == null) return;
+
+    try {
+      _isSending.value = true;
+
+      print('🎁 [AnonymousChatBottomSheet] Sending gift');
+      print('🎁 Gift ID: ${_selectedGift!.id}');
+      print('🎁 Conversation ID: $conversationId');
+
+      await _chatService.sendGift(
+        conversationId: conversationId,
+        giftId: _selectedGift!.id,
+        message: _giftMessageController.text.trim().isNotEmpty
+            ? _giftMessageController.text.trim()
             : null,
-        mediaFile: mediaFile,
-        mediaType: mediaType,
-        voiceType: voiceType,
-        giftId: giftId,
-        giftMessage: giftMessage,
-        revealIdentity: revealIdentity,
+        isAnonymous: !_revealIdentityWithGift.value, // Inverse: si on ne révèle pas, c'est anonyme
       );
 
       // Succès
@@ -366,30 +456,33 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       // Afficher un message de succès
       Get.snackbar(
         'Succès',
-        response.conversationId != null
-            ? 'Conversation créée! Consultez l\'onglet Chat'
-            : 'Message envoyé avec succès',
+        '🎁 ${_selectedGift!.name} envoyé avec succès !',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.green,
         colorText: Colors.white,
         duration: Duration(seconds: 2),
       );
 
-      // Rafraîchir la liste des conversations si une conversation a été créée
-      if (response.conversationId != null) {
-        try {
-          // Accéder au ChatController pour rafraîchir la liste
-          final chatController = Get.find<ChatController>();
-          await chatController.refreshConversations();
-          print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
-        } catch (e) {
-          print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
-        }
+      // Rafraîchir la liste des conversations
+      try {
+        final chatController = Get.find<ChatController>();
+        await chatController.refreshConversations();
+        print('✅ [AnonymousChatBottomSheet] Chat list refreshed');
+      } catch (e) {
+        print('⚠️ [AnonymousChatBottomSheet] ChatController not found: $e');
       }
     } catch (e) {
+      print('❌ [AnonymousChatBottomSheet] Error sending gift: $e');
+
+      // Gérer l'erreur de solde insuffisant
+      String errorMessage = 'Impossible d\'envoyer le cadeau';
+      if (e.toString().contains('402') || e.toString().contains('Solde insuffisant')) {
+        errorMessage = 'Solde insuffisant pour envoyer ce cadeau 💸';
+      }
+
       Get.snackbar(
         'Erreur',
-        'Impossible d\'envoyer le message: $e',
+        errorMessage,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -424,6 +517,9 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
       await _audioRecorder!.startRecorder(
         toFile: _recordedAudioPath.value,
         codec: Codec.aacADTS,
+        sampleRate: 44100,
+        numChannels: 1,
+        bitRate: 128000,
       );
 
       _isRecording.value = true;
@@ -662,6 +758,15 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
   // BUILD: HEADER
   // ====================
   Widget _buildHeader(bool isDark) {
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = AuthService().getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
+    // Déterminer le nom de l'expéditeur du message anonyme
+    final senderName = (hasPremium && widget.originalMessage.sender != null)
+        ? widget.originalMessage.sender!.fullName
+        : 'Anonyme';
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -689,7 +794,7 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Répondre au message',
+                  'Répondre à Message de $senderName',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -787,42 +892,6 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                     icon: Icon(Icons.emoji_emotions_outlined),
                     label: Text('Ajouter un emoji'),
                   ),
-                ),
-
-                SizedBox(height: 16),
-
-                // Reveal identity toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey[850] : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                      width: 1,
-                    ),
-                  ),
-                  child: Obx(() => CheckboxListTile(
-                    value: _revealIdentityText.value,
-                    onChanged: (value) {
-                      _revealIdentityText.value = value ?? false;
-                    },
-                    title: Text(
-                      'Révéler mon identité',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _revealIdentityText.value
-                          ? '✓ Le destinataire saura qui vous êtes'
-                          : 'Message envoyé de manière anonyme',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  )),
                 ),
               ],
             ),
@@ -1352,42 +1421,6 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                   padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
-
-              SizedBox(height: 16),
-
-              // Reveal identity toggle
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[850] : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                    width: 1,
-                  ),
-                ),
-                child: Obx(() => CheckboxListTile(
-                  value: _revealIdentityImage.value,
-                  onChanged: (value) {
-                    _revealIdentityImage.value = value ?? false;
-                  },
-                  title: Text(
-                    'Révéler mon identité',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    _revealIdentityImage.value
-                        ? '✓ Le destinataire saura qui vous êtes'
-                        : 'Image envoyée de manière anonyme',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  dense: true,
-                  controlAffinity: ListTileControlAffinity.leading,
-                )),
-              ),
             ],
           ),
         ),
@@ -1867,23 +1900,6 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
               isDense: true,
             ),
           ),
-
-          SizedBox(height: 12),
-
-          // Reveal identity toggle
-          Obx(() => CheckboxListTile(
-                value: _revealIdentityWithGift.value,
-                onChanged: (value) {
-                  _revealIdentityWithGift.value = value ?? false;
-                },
-                title: Text('Révéler mon identité avec ce cadeau'),
-                subtitle: Text(
-                  'Le destinataire saura qui vous êtes',
-                  style: TextStyle(fontSize: 12),
-                ),
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              )),
         ],
       ),
     );

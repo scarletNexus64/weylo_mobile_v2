@@ -108,11 +108,7 @@ class AppDrawer extends StatelessWidget {
                           subtitle: 'Faire certifier mon compte',
                           onTap: () {
                             Get.back();
-                            Get.snackbar(
-                              'Sponsoring',
-                              'Fonctionnalité à venir',
-                              snackPosition: SnackPosition.BOTTOM,
-                            );
+                            Get.toNamed(Routes.CERTIFICATION);
                           },
                           gradient: LinearGradient(
                             colors: [const Color.fromARGB(255, 115, 110, 220), const Color.fromARGB(255, 76, 94, 198)],

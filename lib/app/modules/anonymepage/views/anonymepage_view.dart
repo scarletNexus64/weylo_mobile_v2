@@ -7,6 +7,7 @@ import 'package:weylo/app/widgets/message_shimmer_loading.dart';
 import 'package:weylo/app/widgets/empty_message_state.dart';
 import 'package:weylo/app/widgets/animated_share_button.dart';
 import 'package:flutter/services.dart';
+import 'package:weylo/app/data/services/auth_service.dart';
 
 import '../controllers/anonymepage_controller.dart';
 import 'widgets/anonymous_chat_bottomsheet.dart';
@@ -350,6 +351,15 @@ class AnonymepageView extends GetView<AnonymepageController> {
   Widget _buildAnonymousMessageCard(BuildContext context, message) {
     final isNew = !message.isRead;
 
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = AuthService().getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
+    // Déterminer le nom à afficher
+    final displayName = (hasPremium || message.isIdentityRevealed)
+        ? (message.sender?.fullName ?? 'Message anonyme')
+        : 'Message anonyme';
+
     return Container(
       margin: EdgeInsets.only(bottom: context.elementSpacing),
       padding: EdgeInsets.all(context.elementSpacing),
@@ -405,9 +415,7 @@ class AnonymepageView extends GetView<AnonymepageController> {
                     Row(
                       children: [
                         Text(
-                          message.isIdentityRevealed
-                              ? message.sender?.fullName ?? 'Message anonyme'
-                              : 'Message anonyme',
+                          displayName,
                           style: context.textStyle(FontSizeType.body1).copyWith(
                             fontWeight: FontWeight.w600,
                             color: Theme.of(context).brightness == Brightness.dark

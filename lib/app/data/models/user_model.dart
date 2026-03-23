@@ -130,7 +130,7 @@ class UserModel {
       role: json['role'],
       walletBalance: _parseDouble(json['wallet_balance']),
       formattedBalance: json['formatted_balance'],
-      settings: json['settings'] != null
+      settings: json['settings'] != null && json['settings'] is Map
           ? Map<String, dynamic>.from(json['settings'])
           : null,
       isPremium: json['is_premium'] ?? false,
@@ -168,6 +168,12 @@ class UserModel {
   /// Check if user has uploaded a real cover photo
   bool get hasRealCoverPhoto {
     return coverPhotoUrl != null && coverPhotoUrl!.isNotEmpty;
+  }
+
+  /// Check if user should display blue verified badge
+  /// Badge shown if user is premium OR verified
+  bool get shouldShowBlueBadge {
+    return isPremium || isVerified;
   }
 
   Map<String, dynamic> toJson() {

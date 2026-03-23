@@ -2,12 +2,136 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/widgets/verified_badge.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import '../controllers/chat_detail_controller.dart';
 import 'widgets/chat_image_picker_bottom_sheet.dart';
+import '../../feeds/controllers/story_controller.dart';
+import '../../feeds/views/story_viewer.dart';
 
 class ChatDetailView extends GetView<ChatDetailController> {
   const ChatDetailView({super.key});
+
+  /// Construit l'aperçu de la story selon son type
+  Widget _buildStoryPreview(StoryReplyInfo story) {
+    const double previewSize = 36;
+
+    switch (story.type) {
+      case 'image':
+        // Afficher l'image de la story
+        if (story.mediaUrl != null && story.mediaUrl!.isNotEmpty) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.network(
+              story.mediaUrl!,
+              width: previewSize,
+              height: previewSize,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: previewSize,
+                  height: previewSize,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF667eea).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Icon(Icons.image, size: 16, color: Color(0xFF667eea)),
+                );
+              },
+            ),
+          );
+        }
+        break;
+
+      case 'video':
+        // Afficher le thumbnail de la vidéo
+        if (story.thumbnailUrl != null && story.thumbnailUrl!.isNotEmpty) {
+          return Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  story.thumbnailUrl!,
+                  width: previewSize,
+                  height: previewSize,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: previewSize,
+                      height: previewSize,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF667eea).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(Icons.videocam, size: 16, color: Color(0xFF667eea)),
+                    );
+                  },
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.black.withValues(alpha: 0.3),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.play_arrow, size: 16, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        break;
+
+      case 'text':
+        // Afficher un aperçu coloré pour les stories texte
+        return Container(
+          width: previewSize,
+          height: previewSize,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _getGradientColors(story.backgroundColor ?? '#6366f1'),
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Center(
+            child: Icon(Icons.text_fields, size: 16, color: Colors.white),
+          ),
+        );
+    }
+
+    // Fallback : icône story par défaut
+    return Container(
+      width: previewSize,
+      height: previewSize,
+      decoration: BoxDecoration(
+        color: const Color(0xFF667eea).withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Icon(Icons.auto_stories, size: 16, color: Color(0xFF667eea)),
+    );
+  }
+
+  /// Parse une couleur hexadécimale et crée un gradient
+  List<Color> _getGradientColors(String hexColor) {
+    final color = _parseHexColor(hexColor);
+    return [
+      color,
+      color.withValues(alpha: 0.7),
+    ];
+  }
+
+  /// Parse une couleur hexadécimale
+  Color _parseHexColor(String hexColor) {
+    hexColor = hexColor.replaceAll('#', '');
+    if (hexColor.length == 6) {
+      hexColor = 'FF$hexColor';
+    }
+    return Color(int.parse(hexColor, radix: 16));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +162,22 @@ class ChatDetailView extends GetView<ChatDetailController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    controller.displayName,
-                    style: context.textStyle(FontSizeType.body1).copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          controller.displayName,
+                          style: context.textStyle(FontSizeType.body1).copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (controller.shouldShowBadge) ...[
+                        const SizedBox(width: 4),
+                        const VerifiedBadge(size: 14),
+                      ],
+                    ],
                   ),
                   Text(
                     'En ligne',
@@ -487,6 +622,128 @@ class ChatDetailView extends GetView<ChatDetailController> {
         ),
       );
     }
+    // Sinon, si c'est une réponse à une story
+    else if (message.story != null) {
+      final story = message.story!;
+
+      replyWidget = GestureDetector(
+        onTap: () async {
+          // Ouvrir la story si l'utilisateur existe
+          if (story.user != null) {
+            try {
+              // Obtenir le StoryController
+              final storyController = Get.find<StoryController>();
+
+              // Charger les stories de l'utilisateur
+              await storyController.loadUserStoriesById(story.user!.id);
+
+              // Naviguer vers le StoryViewer si des stories existent
+              if (storyController.currentUserStories.isNotEmpty) {
+                Get.to(
+                  () => const StoryViewer(),
+                  fullscreenDialog: true,
+                  transition: Transition.fadeIn,
+                );
+              } else {
+                Get.snackbar(
+                  'Story expirée',
+                  'Cette story n\'est plus disponible',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              }
+            } catch (e) {
+              print('❌ Erreur lors de l\'ouverture de la story: $e');
+              Get.snackbar(
+                'Erreur',
+                'Impossible d\'ouvrir la story',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            }
+          }
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.elementSpacing * 0.6,
+            vertical: context.elementSpacing * 0.4,
+          ),
+          decoration: BoxDecoration(
+            color: isSentByMe
+                ? Colors.white.withValues(alpha: 0.2)
+                : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                    .withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(6),
+            border: Border(
+              left: BorderSide(
+                color: isSentByMe ? Colors.white : const Color(0xFF667eea),
+                width: 3,
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Afficher l'aperçu de la story selon son type
+              _buildStoryPreview(story),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.auto_stories_rounded,
+                          size: 12,
+                          color: isSentByMe
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : const Color(0xFF667eea),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Story',
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: isSentByMe ? Colors.white : const Color(0xFF667eea),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (story.user != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        story.user!.username,
+                        style: context.textStyle(FontSizeType.caption).copyWith(
+                          color: isSentByMe
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : AppThemeSystem.grey600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    if (story.content != null && story.content!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        story.content!,
+                        style: context.textStyle(FontSizeType.caption).copyWith(
+                          color: isSentByMe
+                              ? Colors.white.withValues(alpha: 0.8)
+                              : AppThemeSystem.grey600,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     switch (message.type) {
       case ChatMessageType.text:
@@ -717,20 +974,27 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
           // Category tabs
           Obx(() {
+            if (controller.isLoadingGifts.value) {
+              return const SizedBox(
+                height: 40,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
             return SizedBox(
               height: 40,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.symmetric(horizontal: context.elementSpacing),
-                children: controller.giftCategories.keys.map((category) {
-                  final isSelected = controller.selectedGiftCategory.value == category;
-                  return GestureDetector(
-                    onTap: () => controller.selectGiftCategory(category),
+                children: [
+                  // "Tous" button
+                  GestureDetector(
+                    onTap: () => controller.selectGiftCategory(null),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        gradient: isSelected
+                        gradient: controller.selectedGiftCategoryId.value == null
                             ? const LinearGradient(
                                 colors: [
                                   AppThemeSystem.primaryColor,
@@ -738,7 +1002,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                                 ],
                               )
                             : null,
-                        color: isSelected
+                        color: controller.selectedGiftCategoryId.value == null
                             ? null
                             : (isDark
                                 ? AppThemeSystem.grey800.withValues(alpha: 0.4)
@@ -746,17 +1010,53 @@ class ChatDetailView extends GetView<ChatDetailController> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        category,
+                        'Tous',
                         style: context.textStyle(FontSizeType.body2).copyWith(
-                          color: isSelected
+                          color: controller.selectedGiftCategoryId.value == null
                               ? Colors.white
                               : (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: controller.selectedGiftCategoryId.value == null ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                  // Categories from API
+                  ...controller.giftCategories.map((category) {
+                    final isSelected = controller.selectedGiftCategoryId.value == category.id;
+                    return GestureDetector(
+                      onTap: () => controller.selectGiftCategory(category.id),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [
+                                    AppThemeSystem.primaryColor,
+                                    AppThemeSystem.secondaryColor,
+                                  ],
+                                )
+                              : null,
+                          color: isSelected
+                              ? null
+                              : (isDark
+                                  ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                                  : AppThemeSystem.grey100),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          category.name,
+                          style: context.textStyle(FontSizeType.body2).copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700),
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
             );
           }),
@@ -766,8 +1066,25 @@ class ChatDetailView extends GetView<ChatDetailController> {
           // Gift grid
           Expanded(
             child: Obx(() {
-              final category = controller.selectedGiftCategory.value;
-              final gifts = controller.giftCategories[category] ?? [];
+              if (controller.isLoadingGifts.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              // Filtrer les cadeaux par catégorie si nécessaire
+              final filteredGifts = controller.selectedGiftCategoryId.value != null
+                  ? controller.gifts.where((g) => g.categoryId == controller.selectedGiftCategoryId.value).toList()
+                  : controller.gifts;
+
+              if (filteredGifts.isEmpty) {
+                return Center(
+                  child: Text(
+                    'Aucun cadeau disponible',
+                    style: context.textStyle(FontSizeType.body2).copyWith(
+                      color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                    ),
+                  ),
+                );
+              }
 
               return GridView.builder(
                 padding: EdgeInsets.symmetric(horizontal: context.elementSpacing),
@@ -777,10 +1094,9 @@ class ChatDetailView extends GetView<ChatDetailController> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.75,
                 ),
-                itemCount: gifts.length,
+                itemCount: filteredGifts.length,
                 itemBuilder: (context, index) {
-                  final gift = gifts[index];
-                  final price = gift['price'] as int;
+                  final gift = filteredGifts[index];
 
                   return GestureDetector(
                     onTap: () {
@@ -803,12 +1119,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            gift['icon'].toString(),
+                            gift.icon,
                             style: const TextStyle(fontSize: 32),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            gift['name'].toString(),
+                            gift.name,
                             style: context.textStyle(FontSizeType.caption).copyWith(
                               fontSize: 9,
                               fontWeight: FontWeight.w500,
@@ -830,7 +1146,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '${_formatPrice(price)} XAF',
+                              gift.formattedPrice,
                               style: context.textStyle(FontSizeType.caption).copyWith(
                                 fontSize: 8,
                                 color: Colors.white,
@@ -989,24 +1305,30 @@ class ChatDetailView extends GetView<ChatDetailController> {
   }
 
   Widget _buildInputArea(BuildContext context, bool isDark) {
-    return Container(
-      padding: EdgeInsets.all(context.elementSpacing),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppThemeSystem.darkCardColor
-            : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    // Show recording interface when recording
+    return Obx(() {
+      if (controller.isRecording.value) {
+        return _buildRecordingInterface(context, isDark);
+      }
+
+      return Container(
+        padding: EdgeInsets.all(context.elementSpacing),
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppThemeSystem.darkCardColor
+              : Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Reply preview (if replying to a message)
             Obx(() {
               final replyMsg = controller.replyToMessage.value;
@@ -1165,8 +1487,99 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 ),
               );
             }),
-            ],
+          ],
+        ),
+        ],
           ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildRecordingInterface(BuildContext context, bool isDark) {
+    return Container(
+      padding: EdgeInsets.all(context.elementSpacing),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppThemeSystem.darkCardColor
+            : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Cancel button
+            IconButton(
+              onPressed: () => controller.cancelRecording(),
+              icon: Icon(Icons.delete, color: AppThemeSystem.errorColor),
+              padding: const EdgeInsets.all(12),
+            ),
+            const SizedBox(width: 8),
+
+            // Recording duration
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppThemeSystem.errorColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    // Animated microphone icon (pulsing)
+                    Obx(() {
+                      return TweenAnimationBuilder<double>(
+                        key: ValueKey(controller.recordDuration.value.inSeconds),
+                        tween: Tween(begin: 0.3, end: 1.0),
+                        duration: const Duration(milliseconds: 800),
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: Icon(
+                              Icons.mic,
+                              color: AppThemeSystem.errorColor,
+                              size: 20,
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                    const SizedBox(width: 12),
+                    Obx(() {
+                      return Text(
+                        _formatAudioDuration(controller.recordDuration.value),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppThemeSystem.errorColor,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Stop/Send button
+            Container(
+              decoration: const BoxDecoration(
+                color: AppThemeSystem.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: () => controller.stopRecording(),
+                icon: Icon(Icons.stop_rounded, color: Colors.white, size: 22),
+                padding: const EdgeInsets.all(12),
+                constraints: const BoxConstraints(),
+              ),
+            ),
           ],
         ),
       ),

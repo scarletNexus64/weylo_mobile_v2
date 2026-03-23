@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/data/models/anonymous_message_model.dart';
 import 'package:weylo/app/data/services/message_service.dart';
 import 'package:weylo/app/data/services/storage_service.dart';
+import 'package:weylo/app/data/core/api_config.dart';
 
 class AnonymepageController extends GetxController {
   final _messageService = MessageService();
@@ -143,14 +144,15 @@ class AnonymepageController extends GetxController {
       // Fallback: créer le lien avec les données locales
       final user = _storage.getUser();
       if (user != null) {
+        final anonymousLink = '${ApiConfig.anonymousLinkUrl}/${user.username}';
         userShareLink.value = UserShareLink(
-          link: 'weylo.app/u/${user.username}',
+          link: anonymousLink,
           username: user.username,
           shareText: 'Écris-moi un message anonyme 👇',
           shareOptions: ShareOptions(
-            whatsapp: 'https://wa.me/?text=${Uri.encodeComponent("Écris-moi un message anonyme 👇 weylo.app/u/${user.username}")}',
-            facebook: 'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent("weylo.app/u/${user.username}")}',
-            twitter: 'https://twitter.com/intent/tweet?text=${Uri.encodeComponent("Écris-moi un message anonyme 👇 weylo.app/u/${user.username}")}',
+            whatsapp: 'https://wa.me/?text=${Uri.encodeComponent("Écris-moi un message anonyme 👇 $anonymousLink")}',
+            facebook: 'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(anonymousLink)}',
+            twitter: 'https://twitter.com/intent/tweet?text=${Uri.encodeComponent("Écris-moi un message anonyme 👇 $anonymousLink")}',
           ),
         );
       } else {

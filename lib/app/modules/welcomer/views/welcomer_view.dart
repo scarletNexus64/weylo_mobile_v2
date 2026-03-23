@@ -346,53 +346,53 @@ class WelcomerView extends GetView<WelcomerController> {
                 ),
               ),
 
-              SizedBox(height: context.sectionSpacing),
+              // SizedBox(height: context.sectionSpacing),
 
-              // Séparateur - Animation 10
-              _AnimatedFadeScale(
-                delay: 1200,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: context.borderColor,
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.elementSpacing,
-                      ),
-                      child: Text(
-                        'Ou continuer avec',
-                        style: context.caption.copyWith(
-                          color: context.secondaryTextColor,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: context.borderColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // // Séparateur - Animation 10
+              // _AnimatedFadeScale(
+              //   delay: 1200,
+              //   child: Row(
+              //     children: [
+              //       Expanded(
+              //         child: Container(
+              //           height: 1,
+              //           color: context.borderColor,
+              //         ),
+              //       ),
+              //       Padding(
+              //         padding: EdgeInsets.symmetric(
+              //           horizontal: context.elementSpacing,
+              //         ),
+              //         child: Text(
+              //           'Ou continuer avec',
+              //           style: context.caption.copyWith(
+              //             color: context.secondaryTextColor,
+              //           ),
+              //         ),
+              //       ),
+              //       Expanded(
+              //         child: Container(
+              //           height: 1,
+              //           color: context.borderColor,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
 
-              SizedBox(height: context.sectionSpacing * 0.8),
+              // SizedBox(height: context.sectionSpacing * 0.8),
 
-              // Boutons sociaux - Animation 11
-              _AnimatedSlideIn(
-                delay: 1300,
-                child: _buildSocialButton(
-                  context: context,
-                  isDark: isDark,
-                  logoPath: 'assets/images/google.png',
-                  label: 'Google',
-                  onPressed: controller.signInWithGoogle,
-                ),
-              ),
+              // // Boutons sociaux - Animation 11
+              // _AnimatedSlideIn(
+              //   delay: 1300,
+              //   child: _buildSocialButton(
+              //     context: context,
+              //     isDark: isDark,
+              //     logoPath: 'assets/images/google.png',
+              //     label: 'Google',
+              //     onPressed: controller.signInWithGoogle,
+              //   ),
+              // ),
 
               SizedBox(height: context.sectionSpacing),
             ],
@@ -402,59 +402,59 @@ class WelcomerView extends GetView<WelcomerController> {
     );
   }
 
-  Widget _buildSocialButton({
-    required BuildContext context,
-    required bool isDark,
-    required String logoPath,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return Obx(() => Container(
-          width: double.infinity,
-          height: context.buttonHeight * 0.9,
-          decoration: BoxDecoration(
-            color: context.surfaceColor,
-            border: Border.all(
-              color: context.borderColor,
-              width: 1.5,
-            ),
-            borderRadius: context.borderRadius(BorderRadiusType.medium),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : AppThemeSystem.grey400.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: controller.isLoading.value ? null : onPressed,
-              borderRadius: context.borderRadius(BorderRadiusType.medium),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    logoPath,
-                    height: 24,
-                    width: 24,
-                  ),
-                  SizedBox(width: context.elementSpacing * 0.5),
-                  Text(
-                    label,
-                    style: context.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ));
-  }
+  // Widget _buildSocialButton({
+  //   required BuildContext context,
+  //   required bool isDark,
+  //   required String logoPath,
+  //   required String label,
+  //   required VoidCallback onPressed,
+  // }) {
+  //   return Obx(() => Container(
+  //         width: double.infinity,
+  //         height: context.buttonHeight * 0.9,
+  //         decoration: BoxDecoration(
+  //           color: context.surfaceColor,
+  //           border: Border.all(
+  //             color: context.borderColor,
+  //             width: 1.5,
+  //           ),
+  //           borderRadius: context.borderRadius(BorderRadiusType.medium),
+  //           boxShadow: [
+  //             BoxShadow(
+  //               color: isDark
+  //                   ? Colors.black.withValues(alpha: 0.2)
+  //                   : AppThemeSystem.grey400.withValues(alpha: 0.15),
+  //               blurRadius: 8,
+  //               offset: const Offset(0, 2),
+  //             ),
+  //           ],
+  //         ),
+  //         child: Material(
+  //           color: Colors.transparent,
+  //           child: InkWell(
+  //             onTap: controller.isLoading.value ? null : onPressed,
+  //             borderRadius: context.borderRadius(BorderRadiusType.medium),
+  //             child: Row(
+  //               mainAxisAlignment: MainAxisAlignment.center,
+  //               children: [
+  //                 Image.asset(
+  //                   logoPath,
+  //                   height: 24,
+  //                   width: 24,
+  //                 ),
+  //                 SizedBox(width: context.elementSpacing * 0.5),
+  //                 Text(
+  //                   label,
+  //                   style: context.body2.copyWith(
+  //                     fontWeight: FontWeight.w600,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
+  //       ));
+  // }
 }
 
 /// Widget d'animation Slide In depuis le bas avec fade

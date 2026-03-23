@@ -30,17 +30,62 @@ class GroupMessageModel {
   });
 
   factory GroupMessageModel.fromJson(Map<String, dynamic> json) {
+    // Parse metadata en tolérant les Lists
+    Map<String, dynamic>? parsedMetadata;
+    if (json['metadata'] != null) {
+      if (json['metadata'] is Map) {
+        parsedMetadata = Map<String, dynamic>.from(json['metadata']);
+      } else if (json['metadata'] is String) {
+        // Si c'est une chaîne JSON, la parser
+        try {
+          final decoded = json['metadata'];
+          if (decoded is Map) {
+            parsedMetadata = Map<String, dynamic>.from(decoded);
+          }
+        } catch (e) {
+          print('⚠️ [GroupMessageModel] Error parsing metadata: $e');
+        }
+      }
+      // Ignorer si c'est une List ou autre type non supporté
+    }
+
+    // Parse sender - soit depuis l'objet sender, soit depuis les champs plats
+    UserModel? sender;
+    if (json['sender'] != null && json['sender'] is Map) {
+      // Cas 1: sender est un objet imbriqué
+      sender = UserModel.fromJson(json['sender'] as Map<String, dynamic>);
+    } else if (json['sender_first_name'] != null || json['sender_username'] != null) {
+      // Cas 2: les infos du sender sont dans des champs plats (depuis l'API groups)
+      final firstName = json['sender_first_name'] ?? '';
+      final lastName = json['sender_last_name'] ?? '';
+      final fullName = lastName.isNotEmpty ? '$firstName $lastName'.trim() : firstName;
+
+      sender = UserModel(
+        id: json['sender_id'] ?? 0,
+        firstName: firstName,
+        lastName: lastName,
+        fullName: fullName,
+        username: json['sender_username'] ?? 'unknown',
+        email: '', // Non fourni dans ce contexte
+        phone: '', // Non fourni dans ce contexte
+        avatar: json['sender_avatar_url'],
+        avatarUrl: json['sender_avatar_url'],
+        isPremium: json['sender_is_premium'] ?? false,
+        isVerified: json['sender_is_verified'] ?? false,
+        createdAt: DateTime.now(), // Non fourni dans ce contexte
+        updatedAt: DateTime.now(), // Non fourni dans ce contexte
+      );
+    }
+
     return GroupMessageModel(
       id: json['id'],
       groupId: json['group_id'],
       senderId: json['sender_id'],
-      sender: json['sender'] != null ? UserModel.fromJson(json['sender']) : null,
+      sender: sender,
       content: json['content'],
       type: _parseMessageType(json['type']),
       mediaUrl: json['media_url'],
-      metadata: json['metadata'] != null
-          ? Map<String, dynamic>.from(json['metadata'])
-          : null,
+      metadata: parsedMetadata,
       isSystemMessage: json['is_system_message'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),

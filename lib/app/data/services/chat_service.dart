@@ -312,6 +312,33 @@ class ChatService {
       return 0; // Return 0 on error instead of throwing
     }
   }
+
+  /// Send a gift in a conversation
+  Future<Map<String, dynamic>> sendGift({
+    required int conversationId,
+    required int giftId,
+    String? message,
+    bool isAnonymous = false,
+  }) async {
+    try {
+      print('🎁 [ChatService] Sending gift $giftId in conversation $conversationId');
+
+      final response = await _api.post(
+        '${ApiConfig.conversations}/$conversationId/gift',
+        data: {
+          'gift_id': giftId,
+          if (message != null && message.isNotEmpty) 'message': message,
+          'is_anonymous': isAnonymous,
+        },
+      );
+
+      print('✅ [ChatService] Gift sent successfully');
+      return response.data;
+    } catch (e) {
+      print('❌ [ChatService] Error sending gift: $e');
+      rethrow;
+    }
+  }
 }
 
 /// Response wrapper for conversation list with pagination

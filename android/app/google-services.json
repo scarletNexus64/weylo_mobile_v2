@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "239363144581",
+    "project_id": "weylo-94087",
+    "storage_bucket": "weylo-94087.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239363144581:android:df91f354830191dbf3e2ec",
+        "android_client_info": {
+          "package_name": "com.weylo.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBia2fu0i14-t9ey2ZXbEbycvFTm4MdF6c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

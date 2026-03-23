@@ -198,7 +198,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
   Widget _buildMessageBubble(BuildContext context, GroupMessageModel message, bool isDark) {
     final isSentByMe = controller.isSentByMe(message);
-    final senderName = message.sender?.fullName;
+    final senderName = message.sender?.fullName ?? 'Anonyme';
 
     // Skip system messages from swipe and actions
     if (message.type == GroupMessageType.system) {
@@ -267,7 +267,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                   : CrossAxisAlignment.start,
               children: [
                 // Sender name for group messages (only for received messages)
-                if (!isSentByMe && senderName != null)
+                if (!isSentByMe)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
                     child: Text(
@@ -341,8 +341,17 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
     // Widget pour afficher le message quoté (si c'est une réponse)
     Widget? replyWidget;
     if (message.metadata != null && message.metadata!['reply_to_message_id'] != null) {
-      final replyContent = message.metadata!['reply_to_content'] as String? ?? '(Media)';
-      final replySender = message.metadata!['reply_to_sender'] as String? ?? 'Anonyme';
+      // Chercher le message original dans la liste pour obtenir le vrai nom du sender
+      final replyToId = message.metadata!['reply_to_message_id'] as int?;
+      final originalMessage = controller.messages.firstWhereOrNull(
+        (msg) => msg.id == replyToId,
+      );
+
+      final replyContent = originalMessage?.content ??
+                          (message.metadata!['reply_to_content'] as String? ?? '(Media)');
+      // Utiliser le sender du message original si disponible, sinon fallback sur metadata
+      final replySender = originalMessage?.sender?.fullName ??
+                         (message.metadata!['reply_to_sender'] as String? ?? 'Anonyme');
 
       replyWidget = Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -547,20 +556,27 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
           // Category tabs
           Obx(() {
+            if (controller.isLoadingGifts.value) {
+              return const SizedBox(
+                height: 40,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
             return SizedBox(
               height: 40,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.symmetric(horizontal: context.elementSpacing),
-                children: controller.giftCategories.keys.map((category) {
-                  final isSelected = controller.selectedGiftCategory.value == category;
-                  return GestureDetector(
-                    onTap: () => controller.selectGiftCategory(category),
+                children: [
+                  // "Tous" button
+                  GestureDetector(
+                    onTap: () => controller.selectGiftCategory(null),
                     child: Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        gradient: isSelected
+                        gradient: controller.selectedGiftCategoryId.value == null
                             ? const LinearGradient(
                                 colors: [
                                   AppThemeSystem.primaryColor,
@@ -568,7 +584,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                                 ],
                               )
                             : null,
-                        color: isSelected
+                        color: controller.selectedGiftCategoryId.value == null
                             ? null
                             : (isDark
                                 ? AppThemeSystem.grey800.withValues(alpha: 0.4)
@@ -576,17 +592,53 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        category,
+                        'Tous',
                         style: context.textStyle(FontSizeType.body2).copyWith(
-                          color: isSelected
+                          color: controller.selectedGiftCategoryId.value == null
                               ? Colors.white
                               : (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: controller.selectedGiftCategoryId.value == null ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                  // Categories from API
+                  ...controller.giftCategories.map((category) {
+                    final isSelected = controller.selectedGiftCategoryId.value == category.id;
+                    return GestureDetector(
+                      onTap: () => controller.selectGiftCategory(category.id),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [
+                                    AppThemeSystem.primaryColor,
+                                    AppThemeSystem.secondaryColor,
+                                  ],
+                                )
+                              : null,
+                          color: isSelected
+                              ? null
+                              : (isDark
+                                  ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                                  : AppThemeSystem.grey100),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          category.name,
+                          style: context.textStyle(FontSizeType.body2).copyWith(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700),
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
             );
           }),
@@ -596,8 +648,25 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
           // Gift grid
           Expanded(
             child: Obx(() {
-              final category = controller.selectedGiftCategory.value;
-              final gifts = controller.giftCategories[category] ?? [];
+              if (controller.isLoadingGifts.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              // Filtrer les cadeaux par catégorie si nécessaire
+              final filteredGifts = controller.selectedGiftCategoryId.value != null
+                  ? controller.gifts.where((g) => g.categoryId == controller.selectedGiftCategoryId.value).toList()
+                  : controller.gifts;
+
+              if (filteredGifts.isEmpty) {
+                return Center(
+                  child: Text(
+                    'Aucun cadeau disponible',
+                    style: context.textStyle(FontSizeType.body2).copyWith(
+                      color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                    ),
+                  ),
+                );
+              }
 
               return GridView.builder(
                 padding: EdgeInsets.symmetric(horizontal: context.elementSpacing),
@@ -607,10 +676,9 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.75,
                 ),
-                itemCount: gifts.length,
+                itemCount: filteredGifts.length,
                 itemBuilder: (context, index) {
-                  final gift = gifts[index];
-                  final price = gift['price'] as int;
+                  final gift = filteredGifts[index];
 
                   return GestureDetector(
                     onTap: () => controller.sendGift(gift),
@@ -630,12 +698,12 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            gift['icon'].toString(),
+                            gift.icon,
                             style: const TextStyle(fontSize: 32),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            gift['name'].toString(),
+                            gift.name,
                             style: context.textStyle(FontSizeType.caption).copyWith(
                               fontSize: 9,
                               fontWeight: FontWeight.w500,
@@ -657,7 +725,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '${_formatPrice(price)} XAF',
+                              gift.formattedPrice,
                               style: context.textStyle(FontSizeType.caption).copyWith(
                                 fontSize: 8,
                                 color: Colors.white,

@@ -1,8 +1,11 @@
+import 'package:get/get.dart';
 import '../core/api_config.dart';
 import '../core/api_service.dart';
 import '../models/auth_response_model.dart';
 import '../models/user_model.dart';
 import 'storage_service.dart';
+import 'fcm_service.dart';
+import 'conversation_state_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -48,8 +51,31 @@ class AuthService {
           user: authResponse.user,
         );
         print('✅ [AUTH_SERVICE] Données sauvegardées avec succès');
+
+        // Send FCM token to backend after successful registration
+        print('📱 [AUTH_SERVICE] Envoi du FCM token au backend...');
+        await _sendFcmTokenToBackend();
+
+        // Initialize ConversationStateService after successful registration
+        print('💬 [AUTH_SERVICE] Initialisation du ConversationStateService...');
+        try {
+          // Check if service already exists
+          if (!Get.isRegistered<ConversationStateService>()) {
+            await Get.putAsync(() async {
+              final service = ConversationStateService();
+              await service.onInit();
+              return service;
+            }, permanent: true);
+            print('✅ [AUTH_SERVICE] ConversationStateService initialisé avec succès');
+          } else {
+            print('ℹ️ [AUTH_SERVICE] ConversationStateService déjà initialisé');
+          }
+        } catch (e) {
+          print('⚠️ [AUTH_SERVICE] Erreur lors de l\'initialisation du ConversationStateService: $e');
+        }
       } else {
         print('⏭️ [AUTH_SERVICE] Pas de sauvegarde (redirection vers login)');
+        print('⏭️ [AUTH_SERVICE] FCM token sera envoyé au prochain login');
       }
 
       return authResponse;
@@ -87,6 +113,28 @@ class AuthService {
         user: authResponse.user,
       );
       print('✅ [AUTH_SERVICE] Données sauvegardées avec succès');
+
+      // Send FCM token to backend after successful login
+      print('📱 [AUTH_SERVICE] Envoi du FCM token au backend...');
+      await _sendFcmTokenToBackend();
+
+      // Initialize ConversationStateService after successful login
+      print('💬 [AUTH_SERVICE] Initialisation du ConversationStateService...');
+      try {
+        // Check if service already exists
+        if (!Get.isRegistered<ConversationStateService>()) {
+          await Get.putAsync(() async {
+            final service = ConversationStateService();
+            await service.onInit();
+            return service;
+          }, permanent: true);
+          print('✅ [AUTH_SERVICE] ConversationStateService initialisé avec succès');
+        } else {
+          print('ℹ️ [AUTH_SERVICE] ConversationStateService déjà initialisé');
+        }
+      } catch (e) {
+        print('⚠️ [AUTH_SERVICE] Erreur lors de l\'initialisation du ConversationStateService: $e');
+      }
 
       return authResponse;
     } catch (e) {
@@ -248,6 +296,60 @@ class AuthService {
       return user;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Send FCM token to backend (internal method)
+  Future<void> _sendFcmTokenToBackend() async {
+    try {
+      // Check if FCMService is initialized
+      if (!Get.isRegistered<FCMService>()) {
+        print('⚠️ [AUTH_SERVICE] FCMService non initialisé, skip envoi FCM token');
+        return;
+      }
+
+      final fcmService = Get.find<FCMService>();
+      final fcmToken = await fcmService.getToken();
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print('⚠️ [AUTH_SERVICE] Pas de FCM token disponible');
+        return;
+      }
+
+      print('📱 [AUTH_SERVICE] FCM token récupéré: ${fcmToken.substring(0, 50)}...');
+      await updateFcmToken(fcmToken);
+
+      // Subscribe to all topics
+      print('📢 [AUTH_SERVICE] Souscription aux topics FCM...');
+      await fcmService.subscribeToAllTopics();
+      print('✅ [AUTH_SERVICE] Souscription aux topics terminée');
+    } catch (e) {
+      print('❌ [AUTH_SERVICE] Erreur envoi FCM token: $e');
+      // Ne pas rethrow pour ne pas bloquer le login/register
+    }
+  }
+
+  /// Update FCM token and subscribe to topics
+  Future<void> updateFcmToken(String fcmToken) async {
+    print('📱 [AUTH_SERVICE] ========================================');
+    print('📱 [AUTH_SERVICE] Mise à jour du FCM token...');
+    print('📱 [AUTH_SERVICE] Token: ${fcmToken.substring(0, 50)}...');
+    print('📱 [AUTH_SERVICE] ========================================');
+
+    try {
+      final response = await _api.post(
+        ApiConfig.updateFcmToken,
+        data: {
+          'fcm_token': fcmToken,
+        },
+      );
+
+      print('✅ [AUTH_SERVICE] Réponse du serveur: ${response.data}');
+      print('✅ [AUTH_SERVICE] FCM token mis à jour avec succès');
+      print('✅ [AUTH_SERVICE] L\'utilisateur a été souscrit aux topics FCM côté backend');
+    } catch (e) {
+      print('❌ [AUTH_SERVICE] Erreur lors de la mise à jour du FCM token: $e');
+      // Ne pas rethrow pour ne pas bloquer le login/register si FCM échoue
     }
   }
 }

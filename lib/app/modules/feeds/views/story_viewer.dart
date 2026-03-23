@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'dart:async';
 import 'package:video_player/video_player.dart';
 import '../../../data/models/story_model.dart';
+import '../../../widgets/verified_badge.dart';
 import '../controllers/story_controller.dart';
 import 'widgets/story_viewers_bottom_sheet.dart';
 
@@ -19,16 +20,37 @@ class _StoryViewerState extends State<StoryViewer> {
   Timer? _progressTimer;
   final _currentProgress = 0.0.obs;
   final _isPaused = false.obs;
+  final _replyController = TextEditingController();
+  final _isSendingReply = false.obs;
+  final _replyFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _startStoryTimer();
+
+    // Pause story when reply field is focused
+    _replyFocusNode.addListener(() {
+      if (_replyFocusNode.hasFocus) {
+        _pauseStory();
+      } else {
+        _resumeStory();
+      }
+    });
+
+    // Pause story when user starts typing
+    _replyController.addListener(() {
+      if (_replyController.text.isNotEmpty && !_isPaused.value) {
+        _pauseStory();
+      }
+    });
   }
 
   @override
   void dispose() {
     _progressTimer?.cancel();
+    _replyController.dispose();
+    _replyFocusNode.dispose();
     super.dispose();
   }
 
@@ -99,6 +121,28 @@ class _StoryViewerState extends State<StoryViewer> {
     });
   }
 
+  Future<void> _sendReply(StoryModel story) async {
+    final message = _replyController.text.trim();
+    if (message.isEmpty || _isSendingReply.value) return;
+
+    // Remove focus to hide keyboard and resume story if needed
+    _replyFocusNode.unfocus();
+
+    _isSendingReply.value = true;
+
+    try {
+      await controller.replyToStory(story.id, message);
+
+      // Clear the text field
+      _replyController.clear();
+
+      // Resume story after sending
+      _resumeStory();
+    } finally {
+      _isSendingReply.value = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,7 +158,10 @@ class _StoryViewerState extends State<StoryViewer> {
             _pauseStory();
           },
           onTapUp: (details) {
-            _resumeStory();
+            // Ne pas reprendre la story si le champ de réponse a le focus
+            if (!_replyFocusNode.hasFocus) {
+              _resumeStory();
+            }
 
             // Detect tap position for navigation
             final screenWidth = MediaQuery.of(context).size.width;
@@ -129,7 +176,10 @@ class _StoryViewerState extends State<StoryViewer> {
             }
           },
           onTapCancel: () {
-            _resumeStory();
+            // Ne pas reprendre la story si le champ de réponse a le focus
+            if (!_replyFocusNode.hasFocus) {
+              _resumeStory();
+            }
           },
           child: Stack(
             children: [
@@ -154,6 +204,15 @@ class _StoryViewerState extends State<StoryViewer> {
                   left: 0,
                   right: 0,
                   child: _buildActionButtons(story),
+                ),
+
+              // Reply input (only for others' stories)
+              if (!story.isOwner)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: _buildReplyInput(story),
                 ),
             ],
           ),
@@ -347,13 +406,21 @@ class _StoryViewerState extends State<StoryViewer> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  story.user.username,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      story.user.username,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (story.user.shouldShowBlueBadge) ...[
+                      const SizedBox(width: 4),
+                      const VerifiedBadge(size: 14, showBackground: false),
+                    ],
+                  ],
                 ),
                 Text(
                   _getTimeAgo(story.createdAt),
@@ -447,6 +514,92 @@ class _StoryViewerState extends State<StoryViewer> {
             child: const Icon(Icons.delete, color: Colors.white),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReplyInput(StoryModel story) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        top: 16,
+        left: 16,
+        right: 16,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.6),
+          ],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _replyController,
+                focusNode: _replyFocusNode,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Répondre à ${story.user.username}...',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.2),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                maxLines: null,
+                textInputAction: TextInputAction.send,
+                onTap: () {
+                  // S'assurer que la story est en pause quand on clique sur le champ
+                  _pauseStory();
+                },
+                onSubmitted: (_) => _sendReply(story),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Obx(() => GestureDetector(
+                  onTap: _isSendingReply.value ? null : () => _sendReply(story),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _isSendingReply.value
+                          ? Colors.grey.withValues(alpha: 0.5)
+                          : const Color(0xFF667eea),
+                      shape: BoxShape.circle,
+                    ),
+                    child: _isSendingReply.value
+                        ? const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                  ),
+                )),
+          ],
+        ),
       ),
     );
   }

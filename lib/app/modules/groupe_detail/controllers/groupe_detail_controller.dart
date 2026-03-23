@@ -2,8 +2,10 @@ import 'dart:io';
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:weylo/app/data/services/group_service.dart';
+import 'package:weylo/app/data/services/gift_service.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 import 'package:weylo/app/data/models/group_model.dart';
+import 'package:weylo/app/data/models/gift_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/modules/home/controllers/home_controller.dart';
@@ -27,6 +29,7 @@ class GroupeDetailController extends GetxController {
 
   final GroupService _groupService = GroupService();
   final AuthService _authService = AuthService();
+  final GiftService _giftService = GiftService();
   RealtimeService? _realtimeService;
 
   // Controllers
@@ -53,9 +56,14 @@ class GroupeDetailController extends GetxController {
   final messageText = ''.obs;
   final isRecording = false.obs;
   final showGiftPicker = false.obs;
-  final selectedGiftCategory = 'Romance'.obs;
+  final selectedGiftCategoryId = Rx<int?>(null);
   final isAnimatingGift = false.obs;
   final animatedGift = Rx<Map<String, dynamic>?>(null);
+
+  // Gifts data from API
+  final gifts = <GiftModel>[].obs;
+  final giftCategories = <GiftCategory>[].obs;
+  final isLoadingGifts = false.obs;
 
   // Reply state
   final Rx<GroupMessageModel?> replyToMessage = Rx<GroupMessageModel?>(null);
@@ -76,45 +84,13 @@ class GroupeDetailController extends GetxController {
   final audioPositions = <int, Duration>{}.obs;
   final audioPlayerUpdate = 0.obs; // Pour forcer les rebuilds
 
-  final giftCategories = {
-    'Romance': [
-      {'name': 'Rose', 'icon': '🌹', 'description': 'Rose rouge', 'price': 500},
-      {'name': 'Coeur', 'icon': '❤️', 'description': 'Coeur d\'amour', 'price': 1000},
-      {'name': 'Bouquet', 'icon': '💐', 'description': 'Bouquet de fleurs', 'price': 2500},
-      {'name': 'Bague', 'icon': '💍', 'description': 'Bague de fiançailles', 'price': 50000},
-    ],
-    'Nourriture': [
-      {'name': 'Chocolat', 'icon': '🍫', 'description': 'Barre de chocolat', 'price': 300},
-      {'name': 'Gâteau', 'icon': '🍰', 'description': 'Gâteau délicieux', 'price': 1500},
-      {'name': 'Pizza', 'icon': '🍕', 'description': 'Pizza chaude', 'price': 3000},
-      {'name': 'Champagne', 'icon': '🍾', 'description': 'Bouteille de champagne', 'price': 8000},
-    ],
-    'Boissons': [
-      {'name': 'Café', 'icon': '☕', 'description': 'Café chaud', 'price': 500},
-      {'name': 'Jus', 'icon': '🧃', 'description': 'Jus de fruits', 'price': 800},
-      {'name': 'Vin Rouge', 'icon': '🍷', 'description': 'Bouteille de vin', 'price': 5000},
-      {'name': 'Cocktail', 'icon': '🍹', 'description': 'Cocktail tropical', 'price': 2500},
-    ],
-    'Luxe': [
-      {'name': 'Diamant', 'icon': '💎', 'description': 'Diamant précieux', 'price': 100000},
-      {'name': 'Couronne', 'icon': '👑', 'description': 'Couronne royale', 'price': 75000},
-      {'name': 'Montre', 'icon': '⌚', 'description': 'Montre de luxe', 'price': 150000},
-      {'name': 'Voiture', 'icon': '🚗', 'description': 'Voiture de luxe', 'price': 5000000},
-    ],
-    'Fun': [
-      {'name': 'Cadeau', 'icon': '🎁', 'description': 'Cadeau surprise', 'price': 1000},
-      {'name': 'Ballon', 'icon': '🎈', 'description': 'Ballon festif', 'price': 200},
-      {'name': 'Feu d\'artifice', 'icon': '🎆', 'description': 'Feu d\'artifice', 'price': 10000},
-      {'name': 'Trophée', 'icon': '🏆', 'description': 'Trophée gagnant', 'price': 5000},
-    ],
-  };
-
   @override
   void onInit() {
     super.onInit();
     _initializeController();
     scrollController.addListener(_onScroll);
     _initAudioRecorder();
+    _loadGifts();
   }
 
   @override
@@ -252,8 +228,37 @@ class GroupeDetailController extends GetxController {
     return message.senderId == currentUserId;
   }
 
-  void selectGiftCategory(String category) {
-    selectedGiftCategory.value = category;
+  void selectGiftCategory(int? categoryId) {
+    selectedGiftCategoryId.value = categoryId;
+  }
+
+  /// Charger les cadeaux et catégories depuis l'API
+  Future<void> _loadGifts() async {
+    try {
+      isLoadingGifts.value = true;
+
+      // Charger les catégories et les cadeaux en parallèle
+      final results = await Future.wait([
+        _giftService.getCategories(),
+        _giftService.getGifts(),
+      ]);
+
+      giftCategories.value = results[0] as List<GiftCategory>;
+      gifts.value = results[1] as List<GiftModel>;
+
+      print('✅ [GroupeDetailController] Loaded ${gifts.length} gifts and ${giftCategories.length} categories');
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error loading gifts: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible de charger les cadeaux',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoadingGifts.value = false;
+    }
   }
 
   void toggleVoiceTypePicker() {
@@ -289,6 +294,9 @@ class GroupeDetailController extends GetxController {
       await _audioRecorder!.startRecorder(
         toFile: recordedAudioPath.value,
         codec: Codec.aacADTS,
+        sampleRate: 44100,
+        numChannels: 1,
+        bitRate: 128000,
       );
 
       isRecording.value = true;
@@ -609,7 +617,7 @@ class GroupeDetailController extends GetxController {
   }
 
   /// Envoyer un cadeau dans le groupe
-  Future<void> sendGift(Map<String, dynamic> gift) async {
+  Future<void> sendGift(GiftModel gift) async {
     try {
       final groupIdInt = int.tryParse(groupId);
       if (groupIdInt == null) return;
@@ -633,9 +641,9 @@ class GroupeDetailController extends GetxController {
       // Préparer les metadata avec le cadeau ET le reply
       final metadata = {
         'gift': true,
-        'icon': gift['icon'],
-        'name': gift['name'],
-        'price': gift['price'],
+        'icon': gift.icon,
+        'name': gift.name,
+        'price': gift.price,
         'reply_to_message_id': replyToMessage.value!.id,
         'reply_to_content': replyToMessage.value!.content ?? '(Media)',
         'reply_to_sender': recipientName,
@@ -650,7 +658,7 @@ class GroupeDetailController extends GetxController {
         id: -DateTime.now().millisecondsSinceEpoch,
         groupId: groupIdInt,
         senderId: currentUserId ?? 0,
-        content: '🎁 ${gift['name']} envoyé à $recipientName',
+        content: '🎁 ${gift.name} envoyé à $recipientName',
         type: GroupMessageType.gift,
         metadata: metadata,
         createdAt: DateTime.now(),
@@ -664,7 +672,11 @@ class GroupeDetailController extends GetxController {
       _scrollToBottom();
 
       // Animation du cadeau (en arrière-plan)
-      animatedGift.value = gift;
+      animatedGift.value = {
+        'icon': gift.icon,
+        'name': gift.name,
+        'price': gift.price,
+      };
       isAnimatingGift.value = true;
 
       // Arrêter l'animation après 1.5 secondes
@@ -675,7 +687,7 @@ class GroupeDetailController extends GetxController {
       // Envoyer au backend avec type 'gift'
       final sentMessage = await _groupService.sendMessage(
         groupId: groupIdInt,
-        content: '🎁 ${gift['name']} envoyé à $recipientName',
+        content: '🎁 ${gift.name} envoyé à $recipientName',
         type: 'gift',
         metadata: metadata,
         replyToMessageId: replyMessageId,
@@ -901,18 +913,9 @@ class GroupeDetailController extends GetxController {
         return;
       }
 
-      // Créer un message à partir des données reçues
-      final newMessage = GroupMessageModel(
-        id: eventData['id'] as int,
-        groupId: eventData['group_id'] as int,
-        senderId: eventData['sender_id'] as int,
-        content: eventData['content'] as String?,
-        type: _mapStringToMessageType(eventData['type'] as String?),
-        mediaUrl: eventData['media_url'] as String?,
-        metadata: eventData['metadata'] as Map<String, dynamic>?,
-        createdAt: DateTime.parse(eventData['created_at'] as String),
-        updatedAt: DateTime.now(),
-      );
+      // Créer un message à partir des données reçues en utilisant fromJson
+      // pour bénéficier du parsing des champs sender_*
+      final newMessage = GroupMessageModel.fromJson(eventData);
 
       // Ajouter à la liste
       messages.add(newMessage);

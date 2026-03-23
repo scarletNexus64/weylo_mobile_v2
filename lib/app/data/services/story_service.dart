@@ -342,6 +342,26 @@ class StoryService {
     }
   }
 
+  /// Reply to a story
+  Future<Map<String, dynamic>> replyToStory(int storyId, String message) async {
+    try {
+      final response = await _apiService.post(
+        '${ApiConfig.stories}/$storyId/reply',
+        data: {
+          'message': message,
+        },
+      );
+
+      return {
+        'conversation_id': response.data['conversation_id'],
+        'message_id': response.data['message_id'],
+      };
+    } catch (e) {
+      print('❌ Error replying to story: $e');
+      rethrow;
+    }
+  }
+
   /// Get stories stats
   Future<Map<String, dynamic>> getStoriesStats() async {
     try {

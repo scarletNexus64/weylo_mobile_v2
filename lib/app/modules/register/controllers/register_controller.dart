@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
+import 'package:weylo/app/data/services/legal_service.dart';
 import 'package:weylo/app/data/core/api_service.dart';
+import 'package:weylo/app/data/models/legal_page_model.dart';
+import 'package:weylo/app/widgets/app_theme_system.dart';
+import '../views/legal_page_detail_view.dart';
 
 class RegisterController extends GetxController {
   final _authService = AuthService();
+  final _legalService = LegalService();
+
   // Current step
   final currentStep = 0.obs;
 
@@ -21,6 +27,11 @@ class RegisterController extends GetxController {
   final countryCode = 'CM'.obs;
   final countryDialCode = '+237'.obs;
 
+  // Legal pages
+  final legalPages = <LegalPageModel>[].obs;
+  final isLoadingLegalPages = true.obs;
+  final acceptedTerms = false.obs;
+
   // Animation variables for each step
   final step1Opacity = 0.0.obs;
   final step2Opacity = 0.0.obs;
@@ -30,7 +41,30 @@ class RegisterController extends GetxController {
   void onInit() {
     super.onInit();
     print('📝 [REGISTER] Initialisation du RegisterController');
+    _loadLegalPages();
     _animateCurrentStep();
+  }
+
+  // Load legal pages
+  Future<void> _loadLegalPages() async {
+    print('📄 [REGISTER] Chargement des pages légales...');
+    try {
+      isLoadingLegalPages.value = true;
+      final pages = await _legalService.getLegalPages();
+      legalPages.value = pages;
+      print('✅ [REGISTER] ${pages.length} pages légales chargées');
+    } catch (e) {
+      print('💥 [REGISTER] Erreur lors du chargement des pages légales: $e');
+      Get.snackbar(
+        'Attention',
+        'Impossible de charger les conditions d\'utilisation. Veuillez réessayer.',
+        backgroundColor: Colors.orange.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoadingLegalPages.value = false;
+    }
   }
 
   @override
@@ -161,7 +195,185 @@ class RegisterController extends GetxController {
       return false;
     }
 
+    // Vérifier l'acceptation des CGU
+    if (!acceptedTerms.value) {
+      Get.snackbar(
+        'Erreur',
+        'Veuillez accepter les conditions d\'utilisation pour continuer',
+        backgroundColor: Colors.orange.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return false;
+    }
+
     return true;
+  }
+
+  // Toggle terms acceptance
+  void toggleTermsAcceptance(bool? value) {
+    acceptedTerms.value = value ?? false;
+    print('📄 [REGISTER] CGU acceptées: ${acceptedTerms.value}');
+  }
+
+  // Show legal pages bottom sheet
+  void showLegalPagesBottomSheet() {
+    print('📄 [REGISTER] Ouverture du bottom sheet des pages légales');
+
+    Get.bottomSheet(
+      Container(
+        height: Get.height * 0.75,
+        decoration: BoxDecoration(
+          color: Get.isDarkMode ? AppThemeSystem.grey900 : Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Get.isDarkMode
+                    ? AppThemeSystem.grey700
+                    : AppThemeSystem.grey300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.article_outlined,
+                    color: AppThemeSystem.primaryColor,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Documents légaux',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Get.isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Get.back(),
+                    icon: Icon(
+                      Icons.close,
+                      color: Get.isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // List of legal pages
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: legalPages.length,
+                separatorBuilder: (context, index) => const Divider(
+                  height: 1,
+                  indent: 72,
+                ),
+                itemBuilder: (context, index) {
+                  final page = legalPages[index];
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.description_outlined,
+                        color: AppThemeSystem.primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    title: Text(
+                      page.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Get.isDarkMode ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Get.isDarkMode
+                          ? AppThemeSystem.grey500
+                          : AppThemeSystem.grey600,
+                    ),
+                    onTap: () => _openLegalPageDetail(page),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+    );
+  }
+
+  // Open legal page detail
+  Future<void> _openLegalPageDetail(LegalPageModel page) async {
+    print('📄 [REGISTER] Ouverture de la page: ${page.title}');
+
+    // Show loading dialog
+    Get.dialog(
+      const Center(
+        child: CircularProgressIndicator(),
+      ),
+      barrierDismissible: false,
+    );
+
+    try {
+      // Load full page content
+      final fullPage = await _legalService.getLegalPage(page.slug);
+
+      // Close loading dialog
+      Get.back();
+
+      // Show content page
+      Get.to(
+        () => LegalPageDetailView(page: fullPage),
+        transition: Transition.rightToLeft,
+      );
+    } catch (e) {
+      // Close loading dialog
+      Get.back();
+
+      // Show error
+      Get.snackbar(
+        'Erreur',
+        'Impossible de charger la page. Veuillez réessayer.',
+        backgroundColor: Colors.red.withValues(alpha: 0.8),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      print('💥 [REGISTER] Erreur lors du chargement de la page: $e');
+    }
   }
 
   // Validate phone

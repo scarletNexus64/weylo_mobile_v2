@@ -9,6 +9,7 @@ abstract class Routes {
   static const WELCOMER = _Paths.WELCOMER;
   static const ONBOARDING = _Paths.ONBOARDING;
   static const CHAT = _Paths.CHAT;
+  static const CHAT_DETAIL = _Paths.CHAT_DETAIL;
   static const PROFILE = _Paths.PROFILE;
   static const EDITPROFILE = _Paths.EDITPROFILE;
   static const SEETING = _Paths.SEETING;
@@ -29,6 +30,8 @@ abstract class Routes {
   static const WALLET_DEPOSIT = _Paths.WALLET_DEPOSIT;
   static const WALLET_WITHDRAW = _Paths.WALLET_WITHDRAW;
   static const SPONSORING = _Paths.SPONSORING;
+  static const PREFERENCES = _Paths.PREFERENCES;
+  static const CERTIFICATION = _Paths.CERTIFICATION;
 }
 
 abstract class _Paths {
@@ -39,6 +42,7 @@ abstract class _Paths {
   static const WELCOMER = '/welcomer';
   static const ONBOARDING = '/onboarding';
   static const CHAT = '/chat';
+  static const CHAT_DETAIL = '/chat-detail';
   static const PROFILE = '/profile';
   static const EDITPROFILE = '/edit-profile';
   static const SEETING = '/seeting';
@@ -59,4 +63,6 @@ abstract class _Paths {
   static const WALLET_DEPOSIT = '/my-wallet/deposit';
   static const WALLET_WITHDRAW = '/my-wallet/withdraw';
   static const SPONSORING = '/sponsoring';
+  static const PREFERENCES = '/preferences';
+  static const CERTIFICATION = '/certification';
 }

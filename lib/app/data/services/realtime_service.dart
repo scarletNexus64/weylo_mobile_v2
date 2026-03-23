@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'auth_service.dart';
+import '../core/api_config.dart';
 
 /// Service pour gérer la connexion WebSocket en temps réel avec Laravel Reverb
 class RealtimeService extends GetxService {
@@ -26,11 +27,13 @@ class RealtimeService extends GetxService {
   // Map pour stocker les callbacks des canaux
   final Map<String, Function(Map<String, dynamic>)> _channelCallbacks = {};
 
-  // Configuration Reverb
-  static const String wsHost = '192.168.100.30';
-  static const int wsPort = 8080;
-  static const String appKey = '1425cdd3ef7425fa6746d2895a233e52';
-  static const String appId = 'Weylo-app';
+  // Configuration Reverb - Utilise les paramètres depuis ApiConfig
+  static String get wsHost => ApiConfig.wsHost;
+  static int get wsPort => ApiConfig.wsPort;
+  static String get appKey => ApiConfig.wsAppKey;
+  static String get appId => ApiConfig.wsAppId;
+  static bool get useTLS => ApiConfig.forceTLS;
+  static String get wsProtocol => useTLS ? 'wss' : 'ws';
 
   @override
   Future<void> onInit() async {
@@ -64,9 +67,10 @@ class RealtimeService extends GetxService {
 
       // Créer la connexion WebSocket avec Reverb
       final wsUrl = Uri.parse(
-        'ws://$wsHost:$wsPort/app/$appKey?protocol=7&client=js&version=8.4.0-rc2&flash=false',
+        '$wsProtocol://$wsHost:$wsPort/app/$appKey?protocol=7&client=js&version=8.4.0-rc2&flash=false',
       );
       print('🌐 WebSocket URL: $wsUrl');
+      print('🔒 TLS activé: $useTLS');
       print('⏳ Tentative de connexion...');
 
       _channel = WebSocketChannel.connect(wsUrl);
@@ -259,7 +263,7 @@ class RealtimeService extends GetxService {
         print('🔐 Authentication - Socket ID: $socketId');
 
         final authUrl = Uri.parse(
-          'http://$wsHost:8001/api/v1/broadcasting/auth',
+          '${ApiConfig.baseUrl.replaceAll('/api/v1', '')}/api/v1/broadcasting/auth',
         );
         print('🔐 Auth URL: $authUrl');
 

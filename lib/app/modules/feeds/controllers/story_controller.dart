@@ -409,6 +409,32 @@ class StoryController extends GetxController {
     }
   }
 
+  /// Reply to a story
+  Future<int?> replyToStory(int storyId, String message) async {
+    try {
+      final result = await _storyService.replyToStory(storyId, message);
+
+      Get.snackbar(
+        'Succès',
+        'Réponse envoyée',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      // Retourner l'ID de la conversation pour redirection
+      return result['conversation_id'] as int?;
+    } catch (e) {
+      print('❌ Error replying to story: $e');
+
+      Get.snackbar(
+        'Erreur',
+        _getErrorMessage(e),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+
+      return null;
+    }
+  }
+
   /// Go to next story in current user stories
   void nextStory() {
     if (currentStoryIndex.value < currentUserStories.length - 1) {

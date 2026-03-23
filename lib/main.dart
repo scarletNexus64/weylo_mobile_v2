@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'firebase_options.dart';
 import 'app/routes/app_pages.dart';
 import 'app/widgets/app_theme_system.dart';
 import 'app/data/services/storage_service.dart';
@@ -9,6 +11,7 @@ import 'app/data/core/api_service.dart';
 import 'app/data/services/deeplink_service.dart';
 import 'app/data/services/conversation_state_service.dart';
 import 'app/data/services/auth_service.dart';
+import 'app/data/services/fcm_service.dart';
 
 void main() async {
   print('🚀 [MAIN] Démarrage de l\'application Weylo');
@@ -18,6 +21,29 @@ void main() async {
   print('💾 [MAIN] Initialisation du StorageService...');
   await StorageService.init();
   print('✅ [MAIN] StorageService initialisé');
+
+  // Initialize Firebase
+  print('🔥 [MAIN] ========================================');
+  print('🔥 [MAIN] Initialisation de Firebase...');
+  print('🔥 [MAIN] Projet: weylo-94087');
+  print('🔥 [MAIN] ========================================');
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ [MAIN] Firebase initialisé avec succès');
+    print('✅ [MAIN] Platform: ${DefaultFirebaseOptions.currentPlatform.projectId}');
+
+    // Initialize FCM Service
+    print('📱 [MAIN] Initialisation du FCMService...');
+    await Get.putAsync(() => FCMService().init(), permanent: true);
+    print('✅ [MAIN] FCMService initialisé avec succès');
+  } catch (e, stackTrace) {
+    print('❌ [MAIN] Erreur lors de l\'initialisation Firebase/FCM: $e');
+    print('❌ [MAIN] StackTrace: $stackTrace');
+    print('⚠️ [MAIN] L\'application continuera sans les notifications push');
+  }
+  print('🔥 [MAIN] ========================================');
 
   // Initialize API service
   print('🌐 [MAIN] Initialisation de l\'ApiService...');

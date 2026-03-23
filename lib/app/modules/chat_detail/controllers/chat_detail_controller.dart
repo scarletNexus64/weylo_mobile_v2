@@ -9,9 +9,11 @@ import 'package:weylo/app/data/services/chat_service.dart';
 import 'package:weylo/app/data/services/message_cache_service.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/data/services/conversation_state_service.dart';
+import 'package:weylo/app/data/services/gift_service.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import 'package:weylo/app/data/models/conversation_model.dart';
 import 'package:weylo/app/data/models/user_model.dart';
+import 'package:weylo/app/data/models/gift_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
@@ -26,6 +28,7 @@ class ChatDetailController extends GetxController {
   final ChatService _chatService = ChatService();
   final MessageCacheService _cacheService = MessageCacheService();
   final AuthService _authService = AuthService();
+  final GiftService _giftService = GiftService();
   RealtimeService? _realtimeService;
   ConversationStateService? _conversationStateService;
 
@@ -52,9 +55,14 @@ class ChatDetailController extends GetxController {
   final ScrollController scrollController = ScrollController();
   final isRecording = false.obs;
   final showGiftPicker = false.obs;
-  final selectedGiftCategory = 'Romance'.obs;
+  final selectedGiftCategoryId = Rx<int?>(null);
   final isAnimatingGift = false.obs;
   final animatedGift = Rx<Map<String, dynamic>?>(null);
+
+  // Gifts data from API
+  final gifts = <GiftModel>[].obs;
+  final giftCategories = <GiftCategory>[].obs;
+  final isLoadingGifts = false.obs;
 
   // Reply state
   final Rx<ChatMessageModel?> replyToMessage = Rx<ChatMessageModel?>(null);
@@ -84,44 +92,12 @@ class ChatDetailController extends GetxController {
   static const Duration _typingThrottle = Duration(seconds: 3);
   static const Duration _typingDisplayDuration = Duration(seconds: 3);
 
-  final giftCategories = {
-    'Romance': [
-      {'name': 'Rose', 'icon': '🌹', 'description': 'Rose rouge', 'price': 500},
-      {'name': 'Coeur', 'icon': '❤️', 'description': 'Coeur d\'amour', 'price': 1000},
-      {'name': 'Bouquet', 'icon': '💐', 'description': 'Bouquet de fleurs', 'price': 2500},
-      {'name': 'Bague', 'icon': '💍', 'description': 'Bague de fiançailles', 'price': 50000},
-    ],
-    'Nourriture': [
-      {'name': 'Chocolat', 'icon': '🍫', 'description': 'Barre de chocolat', 'price': 300},
-      {'name': 'Gâteau', 'icon': '🍰', 'description': 'Gâteau délicieux', 'price': 1500},
-      {'name': 'Pizza', 'icon': '🍕', 'description': 'Pizza chaude', 'price': 3000},
-      {'name': 'Champagne', 'icon': '🍾', 'description': 'Bouteille de champagne', 'price': 8000},
-    ],
-    'Boissons': [
-      {'name': 'Café', 'icon': '☕', 'description': 'Café chaud', 'price': 500},
-      {'name': 'Jus', 'icon': '🧃', 'description': 'Jus de fruits', 'price': 800},
-      {'name': 'Vin Rouge', 'icon': '🍷', 'description': 'Bouteille de vin', 'price': 5000},
-      {'name': 'Cocktail', 'icon': '🍹', 'description': 'Cocktail tropical', 'price': 2500},
-    ],
-    'Luxe': [
-      {'name': 'Diamant', 'icon': '💎', 'description': 'Diamant précieux', 'price': 100000},
-      {'name': 'Couronne', 'icon': '👑', 'description': 'Couronne royale', 'price': 75000},
-      {'name': 'Montre', 'icon': '⌚', 'description': 'Montre de luxe', 'price': 150000},
-      {'name': 'Voiture', 'icon': '🚗', 'description': 'Voiture de luxe', 'price': 5000000},
-    ],
-    'Fun': [
-      {'name': 'Cadeau', 'icon': '🎁', 'description': 'Cadeau surprise', 'price': 1000},
-      {'name': 'Ballon', 'icon': '🎈', 'description': 'Ballon festif', 'price': 200},
-      {'name': 'Feu d\'artifice', 'icon': '🎆', 'description': 'Feu d\'artifice', 'price': 10000},
-      {'name': 'Trophée', 'icon': '🏆', 'description': 'Trophée gagnant', 'price': 5000},
-    ],
-  };
-
   @override
   void onInit() {
     super.onInit();
     _setupScrollListener();
     _initializeController();
+    _loadGifts();
   }
 
   @override
@@ -518,8 +494,37 @@ class ChatDetailController extends GetxController {
     }
   }
 
-  void selectGiftCategory(String category) {
-    selectedGiftCategory.value = category;
+  void selectGiftCategory(int? categoryId) {
+    selectedGiftCategoryId.value = categoryId;
+  }
+
+  /// Charger les cadeaux et catégories depuis l'API
+  Future<void> _loadGifts() async {
+    try {
+      isLoadingGifts.value = true;
+
+      // Charger les catégories et les cadeaux en parallèle
+      final results = await Future.wait([
+        _giftService.getCategories(),
+        _giftService.getGifts(),
+      ]);
+
+      giftCategories.value = results[0] as List<GiftCategory>;
+      gifts.value = results[1] as List<GiftModel>;
+
+      print('✅ [ChatDetailController] Loaded ${gifts.length} gifts and ${giftCategories.length} categories');
+    } catch (e) {
+      print('❌ [ChatDetailController] Error loading gifts: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible de charger les cadeaux',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoadingGifts.value = false;
+    }
   }
 
   // ==================== AUDIO RECORDING ====================
@@ -865,7 +870,12 @@ class ChatDetailController extends GetxController {
   /// Obtenir le nom à afficher (Anonyme si conversation anonyme non révélée)
   String get displayName {
     final conv = conversation.value;
-    if (conv != null && conv.isAnonymous && !conv.identityRevealed) {
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = _authService.getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
+    // Si Premium, toujours montrer la vraie identité
+    if (conv != null && conv.isAnonymous && !conv.identityRevealed && !hasPremium) {
       return 'Anonyme';
     }
     return contactName;
@@ -874,10 +884,29 @@ class ChatDetailController extends GetxController {
   /// Obtenir l'initial à afficher dans l'avatar
   String get displayInitial {
     final conv = conversation.value;
-    if (conv != null && conv.isAnonymous && !conv.identityRevealed) {
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = _authService.getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
+    // Si Premium, toujours montrer la vraie initial
+    if (conv != null && conv.isAnonymous && !conv.identityRevealed && !hasPremium) {
       return '?';
     }
     return contactName[0].toUpperCase();
+  }
+
+  /// Vérifier si on doit afficher le badge vérifié
+  bool get shouldShowBadge {
+    final conv = conversation.value;
+    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
+    final currentUser = _authService.getCurrentUser();
+    final hasPremium = currentUser?.hasActivePremium ?? false;
+
+    // Si Premium, montrer le badge même si anonyme
+    if (conv != null && conv.isAnonymous && !conv.identityRevealed && !hasPremium) {
+      return false; // Pas de badge si anonyme non révélé ET pas Premium
+    }
+    return conv?.otherParticipant?.shouldShowBlueBadge ?? false;
   }
 
   /// Initialiser un audio player pour un message
@@ -944,7 +973,10 @@ class ChatDetailController extends GetxController {
 
   /// Jouer ou mettre en pause un message vocal
   Future<void> toggleAudioPlayback(int messageId, String audioUrl) async {
-    print('🎵 [ChatDetailController] Toggle audio playback');
+    print('');
+    print('═══════════════════════════════════════════════════════════');
+    print('🎵 [ChatDetailController] TOGGLE AUDIO PLAYBACK');
+    print('═══════════════════════════════════════════════════════════');
     print('🎵 Message ID: $messageId');
     print('🎵 Audio URL: $audioUrl');
 
@@ -957,12 +989,17 @@ class ChatDetailController extends GetxController {
 
     if (isLoading) {
       print('⚠️ Already loading, aborting');
+      print('═══════════════════════════════════════════════════════════');
+      print('');
       return;
     }
 
     if (isPlaying) {
       print('⏸️ Pausing audio...');
       await player.pause();
+      print('✅ Audio paused');
+      print('═══════════════════════════════════════════════════════════');
+      print('');
     } else {
       // Stopper tous les autres
       print('🛑 Stopping other players...');
@@ -983,24 +1020,43 @@ class ChatDetailController extends GetxController {
 
       try {
         if (position.inSeconds > 0 && position.inSeconds < duration.inSeconds) {
-          print('▶️ Resuming audio...');
-          player.resume(); // Ne pas attendre, les listeners mettront à jour l'état
+          print('▶️ Resuming audio from position ${position.inSeconds}s...');
+          await player.resume();
         } else {
           print('▶️ Playing audio from URL...');
-          player.play(ap.UrlSource(audioUrl)); // Ne pas attendre, les listeners mettront à jour l'état
+          print('🌐 Full URL: $audioUrl');
+          await player.play(ap.UrlSource(audioUrl));
         }
-        print('✅ Audio play command sent');
+        print('✅ Audio play command sent successfully');
+
+        // Safety timeout: si après 5 secondes le loading est toujours actif, le désactiver
+        Future.delayed(const Duration(seconds: 5), () {
+          if (audioLoadingStates[messageId] == true && audioPlayingStates[messageId] == false) {
+            print('⚠️ Audio loading timeout - forcing loading state to false');
+            audioLoadingStates[messageId] = false;
+            audioPlayerUpdate.value++;
+          }
+        });
+
+        print('═══════════════════════════════════════════════════════════');
+        print('');
       } catch (e) {
         print('❌ Error playing audio: $e');
+        print('❌ Error type: ${e.runtimeType}');
+        print('❌ Stack trace: ${StackTrace.current}');
         audioLoadingStates[messageId] = false;
         audioPlayerUpdate.value++; // Trigger rebuild
 
         Get.snackbar(
           'Erreur',
-          'Impossible de lire l\'audio',
+          'Impossible de lire l\'audio: $e',
           snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
           duration: const Duration(seconds: 3),
         );
+        print('═══════════════════════════════════════════════════════════');
+        print('');
       }
     }
   }
