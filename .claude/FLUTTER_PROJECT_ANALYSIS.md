@@ -82,7 +82,7 @@
 - **ResetPassword:** `/lib/app/modules/resetpassword/`
 
 ### 1.3 API Endpoints (Auth)
-**Base URL:** `http://10.74.254.28:8001/api/v1`
+**Base URL:** `http://10.138.95.28:8001/api/v1`
 
 ```
 POST   /auth/register         - Register new user
@@ -333,7 +333,7 @@ POST   /messages/{id}/start-conversation - Start conversation from message
 
 **Configuration:**
 ```dart
-static const String wsHost = '10.74.254.28';
+static const String wsHost = '10.138.95.28';
 static const int wsPort = 8080;
 static const String appKey = '1425cdd3ef7425fa6746d2895a233e52';
 static const String appId = 'Weylo-app';
@@ -341,7 +341,7 @@ static const String appId = 'Weylo-app';
 
 **WebSocket URL Format:**
 ```
-ws://10.74.254.28:8080/app/1425cdd3ef7425fa6746d2895a233e52?protocol=7&client=js&version=8.4.0-rc2&flash=false
+ws://10.138.95.28:8080/app/1425cdd3ef7425fa6746d2895a233e52?protocol=7&client=js&version=8.4.0-rc2&flash=false
 ```
 
 **Key Methods:**
@@ -430,7 +430,7 @@ sendTimeout: 120 seconds (for large file uploads)
 
 **Base URL:**
 ```
-http://10.74.254.28:8001/api/v1
+http://10.138.95.28:8001/api/v1
 ```
 
 **Broadcasting/WebSocket Auth:**

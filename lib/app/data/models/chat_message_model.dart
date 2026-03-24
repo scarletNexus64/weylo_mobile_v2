@@ -165,6 +165,7 @@ class ChatMessageModel {
   final DateTime? editedAt; // Date d'édition du message
   final AnonymousMessageInfo? anonymousMessage; // Message anonyme original si applicable
   final StoryReplyInfo? story; // Story à laquelle ce message répond
+  final bool isMine; // Indique si le message a été envoyé par l'utilisateur actuel
 
   ChatMessageModel({
     required this.id,
@@ -183,6 +184,7 @@ class ChatMessageModel {
     this.editedAt,
     this.anonymousMessage,
     this.story,
+    this.isMine = false,
   });
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
@@ -215,6 +217,7 @@ class ChatMessageModel {
       story: json['story'] != null
           ? StoryReplyInfo.fromJson(json['story'])
           : null,
+      isMine: json['is_mine'] ?? false, // Utiliser le flag fourni par le backend
     );
   }
 
@@ -299,6 +302,7 @@ class ChatMessageModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'edited_at': editedAt?.toIso8601String(),
+      'is_mine': isMine,
       if (anonymousMessage != null)
         'anonymous_message': {
           'id': anonymousMessage!.id,

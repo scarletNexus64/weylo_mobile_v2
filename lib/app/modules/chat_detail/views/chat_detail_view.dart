@@ -227,7 +227,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                         ),
                         SizedBox(width: 8),
                         Text(
-                          '${controller.typingUserName.value} est en train d\'écrire...',
+                          'en train d\'écrire...',
                           style: context.textStyle(FontSizeType.caption).copyWith(
                             color: AppThemeSystem.primaryColor,
                             fontStyle: FontStyle.italic,

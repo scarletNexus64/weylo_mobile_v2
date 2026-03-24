@@ -403,8 +403,9 @@ class ChatDetailController extends GetxController {
   }
 
   /// Vérifier si un message a été envoyé par moi
+  /// Utilise le flag 'isMine' fourni par le backend pour une détection fiable
   bool isSentByMe(ChatMessageModel message) {
-    return message.senderId == currentUserId;
+    return message.isMine;
   }
 
   /// Envoyer un message dans la conversation
