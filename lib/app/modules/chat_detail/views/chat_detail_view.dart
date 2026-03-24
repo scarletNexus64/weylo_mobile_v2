@@ -1634,7 +1634,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
           final progress = value / 0.3;
           scale = 0.3 + (progress * 1.5);
           rotation = progress * 0.5;
-          opacity = progress;
+          opacity = progress.clamp(0.0, 1.0);
         } else if (value < 0.7) {
           // Bounce & Pulse
           final progress = (value - 0.3) / 0.4;
@@ -1647,69 +1647,70 @@ class ChatDetailView extends GetView<ChatDetailController> {
           final progress = (value - 0.7) / 0.3;
           scale = 1.3 - (progress * 0.5);
           rotation = 0.7 + (progress * 0.3);
-          opacity = 1.0 - progress;
+          opacity = (1.0 - progress).clamp(0.0, 1.0);
         }
-
-        // Clamp opacity to valid range to prevent assertion errors
-        opacity = opacity.clamp(0.0, 1.0);
 
         return Positioned.fill(
           child: IgnorePointer(
-            child: Stack(
-              children: [
-                // Confetti particles
-                ..._buildConfettiParticles(screenSize, value, opacity),
+            child: Container(
+              // Semi-transparent dimming overlay (like group view)
+              color: Colors.black.withValues(alpha: 0.4 * opacity),
+              child: Stack(
+                children: [
+                  // Confetti particles
+                  ..._buildConfettiParticles(screenSize, value, opacity),
 
-                // Glow rings
-                ..._buildGlowRings(screenSize, value, opacity),
+                  // Glow rings
+                  ..._buildGlowRings(screenSize, value, opacity),
 
-                // Main gift
-                Center(
-                  child: Transform.rotate(
-                    angle: rotation,
-                    child: Transform.scale(
-                      scale: scale,
-                      child: Opacity(
-                        opacity: opacity,
-                        child: Container(
-                          width: 200,
-                          height: 200,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppThemeSystem.primaryColor,
-                                AppThemeSystem.secondaryColor,
-                                AppThemeSystem.tertiaryColor,
+                  // Main gift
+                  Center(
+                    child: Transform.rotate(
+                      angle: rotation,
+                      child: Transform.scale(
+                        scale: scale,
+                        child: Opacity(
+                          opacity: opacity,
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppThemeSystem.primaryColor,
+                                  AppThemeSystem.secondaryColor,
+                                  AppThemeSystem.tertiaryColor,
+                                ],
+                              ),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppThemeSystem.primaryColor.withValues(alpha: 0.6),
+                                  blurRadius: 40,
+                                  spreadRadius: 20,
+                                ),
+                                BoxShadow(
+                                  color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4),
+                                  blurRadius: 80,
+                                  spreadRadius: 40,
+                                ),
                               ],
                             ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppThemeSystem.primaryColor.withValues(alpha: 0.6 * opacity),
-                                blurRadius: 40,
-                                spreadRadius: 20,
-                              ),
-                              BoxShadow(
-                                color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4 * opacity),
-                                blurRadius: 80,
-                                spreadRadius: 40,
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              gift['icon'].toString(),
-                              style: TextStyle(
-                                fontSize: 100,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withValues(alpha: 0.3 * opacity),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
+                            child: Center(
+                              child: Text(
+                                gift['icon'].toString(),
+                                style: TextStyle(
+                                  fontSize: 100,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -1717,11 +1718,11 @@ class ChatDetailView extends GetView<ChatDetailController> {
                       ),
                     ),
                   ),
-                ),
 
-                // Sparkles
-                ..._buildSparkles(screenSize, value, opacity),
-              ],
+                  // Sparkles
+                  ..._buildSparkles(screenSize, value, opacity),
+                ],
+              ),
             ),
           ),
         );

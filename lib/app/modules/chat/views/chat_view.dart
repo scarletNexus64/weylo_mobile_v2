@@ -339,51 +339,55 @@ class ChatView extends GetView<ChatController> {
       ),
       child: ListTile(
         contentPadding: EdgeInsets.all(context.elementSpacing / 2),
-        leading: Obx(() => StoryStatusBorder(
-          hasStories: controller.hasStories(otherUser?.id),
-          hasUnviewedStories: controller.hasUnviewedStories(otherUser?.id),
-          onTap: () => _openStoryViewer(context, otherUser?.id),
-          child: Stack(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: AppThemeSystem.primaryColor,
-                backgroundImage: otherUser?.avatarUrl != null && !isAnonymousUnrevealed
-                    ? NetworkImage(otherUser!.avatarUrl!)
-                    : null,
-                child: otherUser?.avatarUrl == null || isAnonymousUnrevealed
-                    ? Text(
-                        avatarInitial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+        leading: SizedBox(
+          width: 56,
+          height: 56,
+          child: Obx(() => StoryStatusBorder(
+            hasStories: controller.hasStories(otherUser?.id),
+            hasUnviewedStories: controller.hasUnviewedStories(otherUser?.id),
+            onTap: () => _openStoryViewer(context, otherUser?.id),
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: AppThemeSystem.primaryColor,
+                  backgroundImage: otherUser?.avatarUrl != null && !isAnonymousUnrevealed
+                      ? NetworkImage(otherUser!.avatarUrl!)
+                      : null,
+                  child: otherUser?.avatarUrl == null || isAnonymousUnrevealed
+                      ? Text(
+                          avatarInitial,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                ),
+                if (otherUser?.isOnline == true)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: AppThemeSystem.successColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? AppThemeSystem.darkBackgroundColor
+                              : Colors.white,
+                          width: 2,
                         ),
-                      )
-                    : null,
-              ),
-              if (otherUser?.isOnline == true)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: AppThemeSystem.successColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppThemeSystem.darkBackgroundColor
-                            : Colors.white,
-                        width: 2,
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-        )),
+              ],
+            ),
+          )),
+        ),
         title: Row(
           children: [
             Flexible(
