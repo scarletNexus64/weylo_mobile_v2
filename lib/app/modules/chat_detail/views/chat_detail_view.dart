@@ -901,6 +901,19 @@ class ChatDetailView extends GetView<ChatDetailController> {
                       ),
               ),
             ),
+            // Caption text below image (if present)
+            if (message.content != null && message.content!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  message.content!,
+                  style: context.textStyle(FontSizeType.body2).copyWith(
+                    color: isSentByMe
+                        ? Colors.white
+                        : (isDark ? Colors.white : AppThemeSystem.blackColor),
+                  ),
+                ),
+              ),
           ],
         );
 

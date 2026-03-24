@@ -202,13 +202,21 @@ class ConversationStateService extends GetxService {
       }
       // Message de conversation (message.sent pour les conversations existantes)
       else if (event == 'message.sent') {
+        // Vérifier si c'est un message de groupe (ils ont group_id au lieu de conversation_id)
+        final groupId = eventData['group_id'] as int?;
+        if (groupId != null) {
+          print('👥 Message de groupe (ID: $groupId) - ignoré par ConversationStateService');
+          // Les messages de groupe sont gérés par GroupeDetailController, pas ici
+          return;
+        }
+
         // Extraire l'ID de la conversation depuis les données
         final conversationId = eventData['conversation_id'] as int?;
         if (conversationId != null) {
           print('💬 Message pour la conversation: $conversationId');
           _handleNewMessage(conversationId, eventData);
         } else {
-          print('⚠️ conversation_id manquant dans les données');
+          print('⚠️ conversation_id manquant dans les données (et ce n\'est pas un message de groupe)');
         }
       } else if (event == 'user.typing') {
         print('⌨️ [ConversationStateService] User typing event (not implemented yet)');

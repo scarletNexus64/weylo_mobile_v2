@@ -445,40 +445,58 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         break;
 
       case GroupMessageType.image:
-        mainContent = GestureDetector(
-          onTap: message.mediaUrl != null
-              ? () => _showFullscreenImage(context, message.mediaUrl!)
-              : null,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: message.mediaUrl != null
-                ? Image.network(
-                    message.mediaUrl!,
-                    width: 200,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 200,
-                      height: 200,
-                      color: AppThemeSystem.grey300,
-                      child: const Icon(
-                        Icons.image_rounded,
-                        size: 64,
-                        color: AppThemeSystem.grey600,
+        mainContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: message.mediaUrl != null
+                  ? () => _showFullscreenImage(context, message.mediaUrl!)
+                  : null,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: message.mediaUrl != null
+                    ? Image.network(
+                        message.mediaUrl!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 200,
+                          height: 200,
+                          color: AppThemeSystem.grey300,
+                          child: const Icon(
+                            Icons.image_rounded,
+                            size: 64,
+                            color: AppThemeSystem.grey600,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 200,
+                        height: 200,
+                        color: AppThemeSystem.grey300,
+                        child: const Icon(
+                          Icons.image_rounded,
+                          size: 64,
+                          color: AppThemeSystem.grey600,
+                        ),
                       ),
-                    ),
-                  )
-                : Container(
-                    width: 200,
-                    height: 200,
-                    color: AppThemeSystem.grey300,
-                    child: const Icon(
-                      Icons.image_rounded,
-                      size: 64,
-                      color: AppThemeSystem.grey600,
-                    ),
+              ),
+            ),
+            // Caption text below image (if present)
+            if (message.content != null && message.content!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  message.content!,
+                  style: context.textStyle(FontSizeType.body2).copyWith(
+                    color: isSentByMe
+                        ? Colors.white
+                        : (isDark ? Colors.white : AppThemeSystem.blackColor),
                   ),
-          ),
+                ),
+              ),
+          ],
         );
         break;
 

@@ -77,6 +77,12 @@ class GroupMessageModel {
       );
     }
 
+    // Parse dates - use created_at as fallback for updated_at if missing (WebSocket events)
+    final createdAt = DateTime.parse(json['created_at']);
+    final updatedAt = json['updated_at'] != null
+        ? DateTime.parse(json['updated_at'])
+        : createdAt;
+
     return GroupMessageModel(
       id: json['id'],
       groupId: json['group_id'],
@@ -87,8 +93,8 @@ class GroupMessageModel {
       mediaUrl: json['media_url'],
       metadata: parsedMetadata,
       isSystemMessage: json['is_system_message'] ?? false,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 

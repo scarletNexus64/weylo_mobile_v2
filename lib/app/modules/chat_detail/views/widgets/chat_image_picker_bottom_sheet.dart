@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import '../../controllers/chat_detail_controller.dart';
 import '../../../../widgets/app_theme_system.dart';
+import '../../../../widgets/image_caption_dialog.dart';
 
 /// Bottomsheet pour sélectionner une image/vidéo dans le chat
 class ChatImagePickerBottomSheet extends StatefulWidget {
@@ -226,10 +227,19 @@ class _CameraCard extends StatelessWidget {
       if (image != null) {
         Get.back(); // Fermer le bottomsheet
 
-        // Envoyer l'image
-        await controller.sendMessage(
-          type: 'image',
-          imageFile: File(image.path),
+        // Afficher le dialog pour ajouter une légende
+        await Get.dialog(
+          ImageCaptionDialog(
+            imageFile: File(image.path),
+            onSend: (caption) async {
+              // Envoyer l'image avec la légende
+              await controller.sendMessage(
+                content: caption.isEmpty ? null : caption,
+                type: 'image',
+                imageFile: File(image.path),
+              );
+            },
+          ),
         );
       }
     } catch (e) {
@@ -298,10 +308,19 @@ class _GalleryMediaCard extends StatelessWidget {
       if (file != null) {
         Get.back(); // Fermer le bottomsheet
 
-        // Envoyer l'image
-        await controller.sendMessage(
-          type: 'image',
-          imageFile: file,
+        // Afficher le dialog pour ajouter une légende
+        await Get.dialog(
+          ImageCaptionDialog(
+            imageFile: file,
+            onSend: (caption) async {
+              // Envoyer l'image avec la légende
+              await controller.sendMessage(
+                content: caption.isEmpty ? null : caption,
+                type: 'image',
+                imageFile: file,
+              );
+            },
+          ),
         );
       }
     } catch (e) {

@@ -9,6 +9,7 @@ import 'package:weylo/app/data/models/gift_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/modules/home/controllers/home_controller.dart';
+import 'package:weylo/app/widgets/image_caption_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -183,14 +184,27 @@ class GroupeDetailController extends GetxController {
         perPage: 50,
       );
 
+      print('📥 [GroupeDetailController] Loaded ${response.messages.length} messages');
+
+      // Debug: Log image messages with captions
+      for (var msg in response.messages) {
+        if (msg.type == GroupMessageType.image) {
+          print('🖼️ Image message: id=${msg.id}, content="${msg.content}", mediaUrl=${msg.mediaUrl}');
+        }
+      }
+
       if (refresh || initialLoad) {
-        messages.value = response.messages.reversed.toList();
+        // Backend déjà envoie les messages dans l'ordre chronologique (ancien→récent)
+        // Pas besoin de reverser!
+        messages.value = response.messages;
         // Scroll vers le bas après un délai pour laisser le temps au widget de se construire
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _scrollToBottom();
-        });
+        // Utiliser plusieurs tentatives pour s'assurer que le scroll fonctionne
+        Future.delayed(const Duration(milliseconds: 100), () => _scrollToBottom());
+        Future.delayed(const Duration(milliseconds: 300), () => _scrollToBottom());
+        Future.delayed(const Duration(milliseconds: 600), () => _scrollToBottom());
       } else {
-        messages.insertAll(0, response.messages.reversed.toList());
+        // Pour la pagination, insérer au début (messages plus anciens)
+        messages.insertAll(0, response.messages);
       }
 
       currentPage = response.meta.currentPage;
@@ -459,20 +473,11 @@ class GroupeDetailController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
         try {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-          print('📜 [GroupeDetailController] Scrolled to bottom');
+          // Utiliser jumpTo au lieu de animateTo pour un scroll instantané et fiable
+          scrollController.jumpTo(scrollController.position.maxScrollExtent);
+          print('📜 [GroupeDetailController] Scrolled to bottom (max: ${scrollController.position.maxScrollExtent})');
         } catch (e) {
-          // Fallback: essayer un jumpTo immédiat
-          try {
-            scrollController.jumpTo(scrollController.position.maxScrollExtent);
-            print('📜 [GroupeDetailController] Jumped to bottom (fallback)');
-          } catch (e2) {
-            print('❌ [GroupeDetailController] Failed to scroll: $e2');
-          }
+          print('❌ [GroupeDetailController] Failed to scroll: $e');
         }
       } else {
         print('⚠️ [GroupeDetailController] ScrollController has no clients yet');
@@ -493,10 +498,32 @@ class GroupeDetailController extends GetxController {
 
       if (pickedFile == null) return;
 
+      final imageFile = File(pickedFile.path);
+
+      // Afficher le dialog pour ajouter une légende
+      await Get.dialog(
+        ImageCaptionDialog(
+          imageFile: imageFile,
+          onSend: (caption) async {
+            await _sendImageWithCaption(imageFile, caption);
+          },
+        ),
+      );
+    } catch (e) {
+      print('❌ Error picking image: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible de sélectionner l\'image',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  /// Envoyer l'image avec sa légende
+  Future<void> _sendImageWithCaption(File imageFile, String caption) async {
+    try {
       final groupIdInt = int.tryParse(groupId);
       if (groupIdInt == null) return;
-
-      final imageFile = File(pickedFile.path);
 
       // Préparer les metadata pour le reply si présent
       Map<String, dynamic>? metadata;
@@ -513,7 +540,7 @@ class GroupeDetailController extends GetxController {
         id: -DateTime.now().millisecondsSinceEpoch,
         groupId: groupIdInt,
         senderId: currentUserId ?? 0,
-        content: 'Envoi de l\'image...',
+        content: caption.isEmpty ? 'Envoi de l\'image...' : caption,
         type: GroupMessageType.image,
         metadata: metadata,
         createdAt: DateTime.now(),
@@ -525,7 +552,7 @@ class GroupeDetailController extends GetxController {
       // Envoyer au backend
       final sentMessage = await _groupService.sendMessage(
         groupId: groupIdInt,
-        content: '',
+        content: caption.isEmpty ? '' : caption,
         type: 'image',
         imageFile: imageFile,
         metadata: metadata,
