@@ -1113,8 +1113,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
                   return GestureDetector(
                     onTap: () {
-                      // TODO: Implement sendGift when POST is ready
-                      // controller.sendGift(gift);
+                      controller.sendGift(gift);
                     },
                     child: Container(
                       decoration: BoxDecoration(
@@ -1651,6 +1650,9 @@ class ChatDetailView extends GetView<ChatDetailController> {
           opacity = 1.0 - progress;
         }
 
+        // Clamp opacity to valid range to prevent assertion errors
+        opacity = opacity.clamp(0.0, 1.0);
+
         return Positioned.fill(
           child: IgnorePointer(
             child: Stack(
@@ -1685,12 +1687,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: AppThemeSystem.primaryColor.withValues(alpha: 0.6),
+                                color: AppThemeSystem.primaryColor.withValues(alpha: 0.6 * opacity),
                                 blurRadius: 40,
                                 spreadRadius: 20,
                               ),
                               BoxShadow(
-                                color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4),
+                                color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4 * opacity),
                                 blurRadius: 80,
                                 spreadRadius: 40,
                               ),
@@ -1703,7 +1705,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                                 fontSize: 100,
                                 shadows: [
                                   Shadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
+                                    color: Colors.black.withValues(alpha: 0.3 * opacity),
                                     blurRadius: 10,
                                     offset: const Offset(0, 5),
                                   ),

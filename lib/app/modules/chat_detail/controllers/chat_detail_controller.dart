@@ -499,6 +499,112 @@ class ChatDetailController extends GetxController {
     selectedGiftCategoryId.value = categoryId;
   }
 
+  /// Envoyer un cadeau dans la conversation 1-on-1
+  Future<void> sendGift(GiftModel gift) async {
+    try {
+      if (conversationId == null) {
+        print('❌ Error: conversationId is null');
+        return;
+      }
+
+      print('🎁 [ChatDetailController] Starting gift send process for ${gift.name}');
+
+      // Fermer le gift picker explicitement AVANT l'animation
+      showGiftPicker.value = false;
+      print('✅ [ChatDetailController] Gift picker closed');
+
+      // Animation du cadeau (en arrière-plan)
+      animatedGift.value = {
+        'icon': gift.icon,
+        'name': gift.name,
+        'price': gift.price,
+      };
+      isAnimatingGift.value = true;
+      print('🎬 [ChatDetailController] Gift animation started');
+
+      // Lancer l'envoi au backend en parallèle de l'animation
+      final giftSendFuture = _giftService.sendGiftInConversation(
+        conversationId: conversationId!,
+        giftId: gift.id,
+        message: null, // Optionnel: ajouter un message avec le cadeau
+      );
+
+      // Attendre que l'animation se termine (1.5 secondes)
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // Arrêter l'animation
+      isAnimatingGift.value = false;
+      animatedGift.value = null;
+      print('✅ [ChatDetailController] Gift animation stopped');
+
+      // Attendre que le backend réponde
+      print('⏳ [ChatDetailController] Waiting for backend response...');
+      final transaction = await giftSendFuture;
+      print('✅ [ChatDetailController] Gift sent successfully! Transaction ID: ${transaction.id}');
+
+      // Recharger les messages pour afficher le cadeau
+      await refreshMessages();
+
+      // Invalider le cache après envoi
+      await _cacheService.invalidateConversationCache(conversationId!);
+      await _cacheService.invalidateAllConversationsCache();
+      print('🗑️ [ChatDetailController] Cache invalidé après envoi de cadeau');
+
+      // Rafraîchir la liste des conversations pour mettre à jour le preview
+      try {
+        final chatController = Get.find<ChatController>();
+        await chatController.refreshConversations();
+        print('✅ [ChatDetailController] Liste des conversations rafraîchie');
+      } catch (e) {
+        print('⚠️ [ChatDetailController] ChatController not found, skipping refresh: $e');
+      }
+
+      // Auto-scroll vers le bas après le refresh
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        scrollToBottom(animated: true);
+      });
+
+      // Notification de succès
+      Get.snackbar(
+        'Succès',
+        'Cadeau envoyé ! 💝',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [ChatDetailController] Error sending gift: $e');
+
+      // Arrêter l'animation en cas d'erreur
+      isAnimatingGift.value = false;
+      animatedGift.value = null;
+
+      // Gérer l'erreur de solde insuffisant
+      String errorMessage = 'Impossible d\'envoyer le cadeau';
+      if (e.toString().contains('422') || e.toString().contains('Solde insuffisant')) {
+        errorMessage = 'Solde insuffisant pour envoyer ce cadeau 💸';
+      }
+
+      Get.snackbar(
+        'Erreur',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      // S'assurer que l'animation et le gift picker sont toujours arrêtés
+      isAnimatingGift.value = false;
+      animatedGift.value = null;
+      if (showGiftPicker.value) {
+        showGiftPicker.value = false;
+      }
+      print('🧹 [ChatDetailController] Gift send process cleanup completed');
+    }
+  }
+
   /// Charger les cadeaux et catégories depuis l'API
   Future<void> _loadGifts() async {
     try {

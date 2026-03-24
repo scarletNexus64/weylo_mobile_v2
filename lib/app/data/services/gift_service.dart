@@ -116,4 +116,28 @@ class GiftService {
       rethrow;
     }
   }
+
+  /// Send a gift in an existing conversation
+  Future<GiftTransactionModel> sendGiftInConversation({
+    required int conversationId,
+    required int giftId,
+    String? message,
+  }) async {
+    try {
+      final response = await _api.post(
+        '/chat/conversations/$conversationId/gift',
+        data: {
+          'gift_id': giftId,
+          if (message != null) 'message': message,
+        },
+      );
+
+      return GiftTransactionModel.fromJson(
+        response.data['transaction'] as Map<String, dynamic>,
+      );
+    } catch (e) {
+      print('❌ [GIFT_SERVICE] Erreur lors de l\'envoi du cadeau dans la conversation: $e');
+      rethrow;
+    }
+  }
 }
