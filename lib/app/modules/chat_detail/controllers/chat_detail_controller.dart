@@ -512,6 +512,10 @@ class ChatDetailController extends GetxController {
       // Fermer le gift picker explicitement AVANT l'animation
       showGiftPicker.value = false;
       print('✅ [ChatDetailController] Gift picker closed');
+      print('📊 [ChatDetailController] UI State BEFORE animation:');
+      print('   - showGiftPicker: ${showGiftPicker.value}');
+      print('   - isAnimatingGift: ${isAnimatingGift.value}');
+      print('   - animatedGift: ${animatedGift.value}');
 
       // Animation du cadeau (en arrière-plan)
       animatedGift.value = {
@@ -520,7 +524,11 @@ class ChatDetailController extends GetxController {
         'price': gift.price,
       };
       isAnimatingGift.value = true;
-      print('🎬 [ChatDetailController] Gift animation started');
+      print('🎬 [ChatDetailController] Gift animation STARTED');
+      print('📊 [ChatDetailController] UI State AFTER animation start:');
+      print('   - showGiftPicker: ${showGiftPicker.value}');
+      print('   - isAnimatingGift: ${isAnimatingGift.value}');
+      print('   - animatedGift: ${animatedGift.value}');
 
       // Lancer l'envoi au backend en parallèle de l'animation
       final giftSendFuture = _giftService.sendGiftInConversation(
@@ -529,13 +537,21 @@ class ChatDetailController extends GetxController {
         message: null, // Optionnel: ajouter un message avec le cadeau
       );
 
-      // Attendre que l'animation se termine (1.5 secondes)
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // Attendre que l'animation se termine (1.4 secondes pour arrêter avant la fin)
+      // Cela évite que le widget reste visible avec opacity=0
+      print('⏳ [ChatDetailController] Waiting 1400ms for animation to complete...');
+      await Future.delayed(const Duration(milliseconds: 1400));
 
-      // Arrêter l'animation
+      // Arrêter l'animation (le TweenAnimationBuilder continue jusqu'à 1500ms mais sera retiré du tree)
+      print('🛑 [ChatDetailController] Stopping gift animation NOW');
       isAnimatingGift.value = false;
       animatedGift.value = null;
-      print('✅ [ChatDetailController] Gift animation stopped');
+      print('✅ [ChatDetailController] Gift animation STOPPED');
+      print('📊 [ChatDetailController] UI State AFTER animation stop:');
+      print('   - showGiftPicker: ${showGiftPicker.value}');
+      print('   - isAnimatingGift: ${isAnimatingGift.value}');
+      print('   - animatedGift: ${animatedGift.value}');
+      print('🌈 [ChatDetailController] Background and icons should be FULLY VISIBLE now');
 
       // Attendre que le backend réponde
       print('⏳ [ChatDetailController] Waiting for backend response...');
@@ -596,12 +612,24 @@ class ChatDetailController extends GetxController {
       );
     } finally {
       // S'assurer que l'animation et le gift picker sont toujours arrêtés
+      print('🧹 [ChatDetailController] FINALLY block - Cleanup starting');
+      print('📊 [ChatDetailController] UI State BEFORE cleanup:');
+      print('   - showGiftPicker: ${showGiftPicker.value}');
+      print('   - isAnimatingGift: ${isAnimatingGift.value}');
+      print('   - animatedGift: ${animatedGift.value}');
+
       isAnimatingGift.value = false;
       animatedGift.value = null;
       if (showGiftPicker.value) {
         showGiftPicker.value = false;
       }
-      print('🧹 [ChatDetailController] Gift send process cleanup completed');
+
+      print('📊 [ChatDetailController] UI State AFTER cleanup:');
+      print('   - showGiftPicker: ${showGiftPicker.value}');
+      print('   - isAnimatingGift: ${isAnimatingGift.value}');
+      print('   - animatedGift: ${animatedGift.value}');
+      print('✅ [ChatDetailController] Gift send process cleanup completed');
+      print('🌈 [ChatDetailController] UI should be back to normal state');
     }
   }
 

@@ -293,6 +293,8 @@ class GroupeController extends GetxController {
       final index = discoverGroups.indexWhere((g) => g.id == groupId);
       if (index != -1) {
         discoverGroups[index] = joinedGroup;
+        // Forcer le rafraîchissement de l'UI
+        discoverGroups.refresh();
       }
 
       Get.snackbar(
@@ -341,6 +343,8 @@ class GroupeController extends GetxController {
       final index = discoverGroups.indexWhere((g) => g.id == joinedGroup.id);
       if (index != -1) {
         discoverGroups[index] = joinedGroup;
+        // Forcer le rafraîchissement de l'UI
+        discoverGroups.refresh();
       }
 
       Get.snackbar(

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import '../../../data/models/group_category_model.dart';
 import '../../../data/services/group_service.dart';
@@ -18,12 +20,14 @@ class _CreateGroupViewState extends State<CreateGroupView> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _maxMembersController = TextEditingController(text: '50');
+  final _imagePicker = ImagePicker();
 
   bool _isLoading = false;
   bool _isPublic = false;
   bool _isDiscoverable = true;
   GroupCategoryModel? _selectedCategory;
   List<GroupCategoryModel> _categories = [];
+  File? _avatarImage;
 
   @override
   void initState() {
@@ -50,6 +54,280 @@ class _CreateGroupViewState extends State<CreateGroupView> {
     }
   }
 
+  Future<void> _pickImage() async {
+    _showImageSourceBottomSheet();
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _avatarImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Impossible de sélectionner l\'image',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _pickImageFromCamera() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _avatarImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Impossible de prendre la photo',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _showImageSourceBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final deviceType = context.deviceType;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: EdgeInsets.fromLTRB(
+          context.horizontalPadding * 2,
+          context.elementSpacing * 2,
+          context.horizontalPadding * 2,
+          MediaQuery.of(context).viewPadding.bottom + context.elementSpacing * 2,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(
+              context.borderRadius(BorderRadiusType.large).topLeft.x,
+            ),
+            topRight: Radius.circular(
+              context.borderRadius(BorderRadiusType.large).topRight.x,
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Barre de défilement
+            Container(
+              width: deviceType == DeviceType.mobile ? 40 : 60,
+              height: deviceType == DeviceType.mobile ? 4 : 5,
+              margin: EdgeInsets.only(bottom: context.elementSpacing),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppThemeSystem.grey700
+                    : AppThemeSystem.grey300,
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+
+            // Titre
+            Text(
+              'Choisir une photo',
+              style: context.textStyle(FontSizeType.h5).copyWith(
+                fontWeight: FontWeight.bold,
+                color: context.primaryTextColor,
+              ),
+            ),
+
+            SizedBox(height: context.elementSpacing * 1.5),
+
+            // Option Galerie
+            _buildImageSourceOption(
+              context: context,
+              icon: Icons.photo_library_rounded,
+              title: 'Galerie',
+              subtitle: 'Choisir une photo existante',
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromGallery();
+              },
+              isDark: isDark,
+            ),
+
+            SizedBox(height: context.elementSpacing),
+
+            // Option Caméra
+            _buildImageSourceOption(
+              context: context,
+              icon: Icons.camera_alt_rounded,
+              title: 'Caméra',
+              subtitle: 'Prendre une nouvelle photo',
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromCamera();
+              },
+              isDark: isDark,
+            ),
+
+            SizedBox(height: context.elementSpacing),
+
+            // Bouton Annuler
+            Container(
+              width: double.infinity,
+              height: context.buttonHeight,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppThemeSystem.grey800.withValues(alpha: 0.5)
+                    : AppThemeSystem.grey100,
+                borderRadius: context.borderRadius(BorderRadiusType.medium),
+                border: Border.all(
+                  color: isDark
+                      ? AppThemeSystem.grey700
+                      : AppThemeSystem.grey300,
+                  width: 1,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: context.borderRadius(BorderRadiusType.medium),
+                  child: Center(
+                    child: Text(
+                      'Annuler',
+                      style: context.textStyle(FontSizeType.button).copyWith(
+                        color: context.primaryTextColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSourceOption({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            isDark
+                ? AppThemeSystem.grey800.withValues(alpha: 0.6)
+                : Colors.white,
+            isDark
+                ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                : AppThemeSystem.grey50,
+          ],
+        ),
+        borderRadius: context.borderRadius(BorderRadiusType.medium),
+        border: Border.all(
+          color: isDark
+              ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+              : AppThemeSystem.grey300,
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: context.borderRadius(BorderRadiusType.medium),
+          child: Padding(
+            padding: EdgeInsets.all(context.elementSpacing * 1.5),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(context.elementSpacing),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        AppThemeSystem.tertiaryColor,
+                        AppThemeSystem.secondaryColor,
+                      ],
+                    ),
+                    borderRadius: context.borderRadius(BorderRadiusType.medium),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: context.deviceType == DeviceType.mobile ? 24 : 28,
+                  ),
+                ),
+                SizedBox(width: context.elementSpacing * 1.5),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: context.textStyle(FontSizeType.subtitle1).copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: context.primaryTextColor,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: context.textStyle(FontSizeType.body2).copyWith(
+                          color: context.secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: context.secondaryTextColor,
+                  size: context.deviceType == DeviceType.mobile ? 24 : 28,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _createGroup() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -69,6 +347,7 @@ class _CreateGroupViewState extends State<CreateGroupView> {
         isPublic: _isPublic,
         isDiscoverable: _isDiscoverable,
         maxMembers: maxMembers,
+        avatarFile: _avatarImage,
       );
 
       // Ajouter le groupe créé à la liste "Mes groupes"
@@ -135,6 +414,54 @@ class _CreateGroupViewState extends State<CreateGroupView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Photo du groupe (optionnelle)
+              Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _avatarImage == null
+                          ? AppThemeSystem.tertiaryColor.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: AppThemeSystem.tertiaryColor,
+                        width: 3,
+                      ),
+                    ),
+                    child: _avatarImage != null
+                        ? ClipOval(
+                            child: Image.file(
+                              _avatarImage!,
+                              fit: BoxFit.cover,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate_rounded,
+                                size: 40,
+                                color: AppThemeSystem.tertiaryColor,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Ajouter photo',
+                                style: context.textStyle(FontSizeType.caption).copyWith(
+                                  color: AppThemeSystem.tertiaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
               // Nom du groupe
               Text(
                 'Nom du groupe *',

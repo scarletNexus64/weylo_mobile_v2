@@ -204,7 +204,6 @@ class ChatDetailView extends GetView<ChatDetailController> {
             children: [
               // Background simple et fiable
               _buildSimpleBackground(context),
-
               // Main content
               Column(
                 children: [
@@ -271,12 +270,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
               // Gift Animation Overlay
               Obx(() {
-                print('🎁 [GiftAnimation] isAnimating=${controller.isAnimatingGift.value}, gift=${controller.animatedGift.value != null}');
+                print('🎁 [GiftAnimation] CHECK - isAnimating=${controller.isAnimatingGift.value}, gift=${controller.animatedGift.value != null}');
                 if (controller.isAnimatingGift.value && controller.animatedGift.value != null) {
-                  print('🎬 [GiftAnimation] SHOWING animation overlay');
+                  print('🎬 [GiftAnimation] SHOWING animation overlay - Background should be dimmed');
                   return _buildGiftAnimation(context);
                 }
-                print('✅ [GiftAnimation] NOT showing (normal background visible)');
+                print('✅ [GiftAnimation] NOT showing - Background and icons should be fully visible');
                 return const SizedBox.shrink();
               }),
             ],
@@ -292,6 +291,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
     print('🎨 [SimpleBackground] Building with ${screenSize.width}x${screenSize.height}');
 
+    // Structure simple comme groupe_detail - PAS de RepaintBoundary
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
@@ -776,10 +776,26 @@ class ChatDetailView extends GetView<ChatDetailController> {
         );
 
       case ChatMessageType.gift:
+        // Support both new (giftData) and old (metadata) formats
         final gift = message.giftData;
-        final giftIcon = (gift?.icon.trim().isNotEmpty ?? false) ? gift!.icon.trim() : '🎁';
-        final giftName = (gift?.name.trim().isNotEmpty ?? false) ? gift!.name.trim() : 'Cadeau';
-        final giftPrice = gift?.formattedPrice ?? (gift?.price != null ? '${gift!.price} FCFA' : null);
+        final metadata = message.metadata;
+
+        // Try giftData first (new format), fallback to metadata (old format)
+        final giftIcon = (gift?.icon.trim().isNotEmpty ?? false)
+            ? gift!.icon.trim()
+            : (metadata?['icon']?.toString().trim().isNotEmpty ?? false)
+                ? metadata!['icon'].toString().trim()
+                : '🎁';
+
+        final giftName = (gift?.name.trim().isNotEmpty ?? false)
+            ? gift!.name.trim()
+            : (metadata?['name']?.toString().trim().isNotEmpty ?? false)
+                ? metadata!['name'].toString().trim()
+                : 'Cadeau';
+
+        final giftPrice = gift?.formattedPrice
+            ?? (gift?.price != null ? '${gift!.price} FCFA' : null)
+            ?? (metadata?['price'] != null ? '${metadata!['price']} FCFA' : null);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -829,7 +845,9 @@ class ChatDetailView extends GetView<ChatDetailController> {
                             ),
                           ),
                         ],
-                        if ((message.content ?? '').trim().isNotEmpty) ...[
+                        // Only show content if it's not empty AND not encrypted data
+                        if ((message.content ?? '').trim().isNotEmpty &&
+                            !_looksLikeEncryptedData(message.content)) ...[
                           const SizedBox(height: 6),
                           Text(
                             message.content!.trim(),
@@ -1316,6 +1334,25 @@ class ChatDetailView extends GetView<ChatDetailController> {
     return price.toString();
   }
 
+  /// Helper to check if content looks like encrypted base64 data
+  /// This prevents displaying encrypted content in gift messages
+  bool _looksLikeEncryptedData(String? content) {
+    if (content == null || content.isEmpty) return false;
+
+    final trimmed = content.trim();
+
+    // Check if it looks like base64 encrypted JSON
+    // - Starts with "eyJ" (base64 encoding of "{")
+    // - Contains no spaces (encrypted data is continuous)
+    // - Is quite long (> 100 characters)
+    if (trimmed.startsWith('eyJ') && !trimmed.contains(' ') && trimmed.length > 100) {
+      print('🔒 [ChatDetailView] Detected encrypted content, skipping display');
+      return true;
+    }
+
+    return false;
+  }
+
   Widget _buildInputArea(BuildContext context, bool isDark) {
     // Show recording interface when recording
     return Obx(() {
@@ -1615,9 +1652,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
     final gift = controller.animatedGift.value!;
     final screenSize = MediaQuery.of(context).size;
 
-    print('🎬 [GiftAnimation] Building animation for gift: ${gift['name']}');
+    print('🎬 [GiftAnimation] Building animation widget for gift: ${gift['name']}');
 
     return TweenAnimationBuilder<double>(
+      key: ValueKey(gift['name']), // Clé unique pour forcer le rebuild
       duration: const Duration(milliseconds: 1500),
       tween: Tween(begin: 0.0, end: 1.0),
       builder: (context, value, child) {
@@ -1628,15 +1666,18 @@ class ChatDetailView extends GetView<ChatDetailController> {
         double scale;
         double rotation;
         double opacity;
+        String phase;
 
         if (value < 0.3) {
           // Entrance: explosive scale + rotation
+          phase = 'ENTRANCE';
           final progress = value / 0.3;
           scale = 0.3 + (progress * 1.5);
           rotation = progress * 0.5;
           opacity = progress.clamp(0.0, 1.0);
         } else if (value < 0.7) {
           // Bounce & Pulse
+          phase = 'BOUNCE';
           final progress = (value - 0.3) / 0.4;
           final bounce = (1.0 - progress).abs();
           scale = 1.3 + (bounce * 0.3);
@@ -1644,12 +1685,25 @@ class ChatDetailView extends GetView<ChatDetailController> {
           opacity = 1.0;
         } else {
           // Exit
+          phase = 'EXIT';
           final progress = (value - 0.7) / 0.3;
           scale = 1.3 - (progress * 0.5);
           rotation = 0.7 + (progress * 0.3);
           opacity = (1.0 - progress).clamp(0.0, 1.0);
         }
 
+        // Log seulement aux moments clés pour éviter le spam
+        if (value == 0.0 || (value > 0.29 && value < 0.31) || (value > 0.69 && value < 0.71) || opacity < 0.1) {
+          print('🎨 [GiftAnimation] Phase: $phase | Value: ${value.toStringAsFixed(2)} | Opacity: ${opacity.toStringAsFixed(2)}');
+        }
+
+        // Si l'opacity est trop faible, ne rien afficher pour éviter les problèmes de rendu
+        if (opacity < 0.05) {
+          print('⚡ [GiftAnimation] Opacity too low ($opacity), returning SizedBox.shrink() - Background should now be visible');
+          return const SizedBox.shrink();
+        }
+
+        // Structure simple comme groupe_detail - PAS de RepaintBoundary
         return Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -1687,12 +1741,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppThemeSystem.primaryColor.withValues(alpha: 0.6),
+                                  color: AppThemeSystem.primaryColor.withValues(alpha: 0.6 * opacity),
                                   blurRadius: 40,
                                   spreadRadius: 20,
                                 ),
                                 BoxShadow(
-                                  color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4),
+                                  color: AppThemeSystem.secondaryColor.withValues(alpha: 0.4 * opacity),
                                   blurRadius: 80,
                                   spreadRadius: 40,
                                 ),
@@ -1705,7 +1759,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                                   fontSize: 100,
                                   shadows: [
                                     Shadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
+                                      color: Colors.black.withValues(alpha: 0.3 * opacity),
                                       blurRadius: 10,
                                       offset: const Offset(0, 5),
                                     ),

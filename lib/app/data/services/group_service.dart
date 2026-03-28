@@ -6,6 +6,7 @@ import '../core/api_config.dart';
 import '../models/group_model.dart';
 import '../models/group_message_model.dart';
 import '../models/group_category_model.dart';
+import '../models/group_member_model.dart';
 
 class GroupService {
   final _api = ApiService();
@@ -203,32 +204,240 @@ class GroupService {
     bool isPublic = false,
     bool isDiscoverable = true,
     int? maxMembers,
+    File? avatarFile,
+  }) async {
+    try {
+      // Si on a une image d'avatar, utiliser multipart/form-data
+      if (avatarFile != null) {
+        final formData = FormData();
+
+        formData.fields.add(MapEntry('name', name));
+        // Laravel attend "1" ou "0" pour les booléens dans multipart/form-data
+        formData.fields.add(MapEntry('is_public', isPublic ? '1' : '0'));
+        formData.fields.add(MapEntry('is_discoverable', isDiscoverable ? '1' : '0'));
+
+        if (description != null && description.isNotEmpty) {
+          formData.fields.add(MapEntry('description', description));
+        }
+
+        if (categoryId != null) {
+          formData.fields.add(MapEntry('category_id', categoryId.toString()));
+        }
+
+        if (maxMembers != null) {
+          formData.fields.add(MapEntry('max_members', maxMembers.toString()));
+        }
+
+        // Ajouter le fichier d'avatar
+        formData.files.add(MapEntry(
+          'avatar',
+          await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split('/').last,
+          ),
+        ));
+
+        final response = await _api.post(
+          ApiConfig.groups,
+          data: formData,
+        );
+
+        return GroupModel.fromJson(response.data['group']);
+      } else {
+        // Sinon, utiliser JSON classique
+        final data = {
+          'name': name,
+          'is_public': isPublic,
+          'is_discoverable': isDiscoverable,
+        };
+
+        if (description != null && description.isNotEmpty) {
+          data['description'] = description;
+        }
+
+        if (categoryId != null) {
+          data['category_id'] = categoryId;
+        }
+
+        if (maxMembers != null) {
+          data['max_members'] = maxMembers;
+        }
+
+        final response = await _api.post(
+          ApiConfig.groups,
+          data: data,
+        );
+
+        return GroupModel.fromJson(response.data['group']);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update a group (name, description, etc.)
+  Future<GroupModel> updateGroup({
+    required int groupId,
+    String? name,
+    String? description,
+    int? categoryId,
+    bool? isPublic,
+    bool? isDiscoverable,
+    int? maxMembers,
+    File? avatarFile,
+  }) async {
+    try {
+      // Si on a une image d'avatar, utiliser multipart/form-data avec POST (Laravel _method workaround pour PUT)
+      if (avatarFile != null) {
+        final formData = FormData();
+
+        // Laravel _method workaround pour envoyer un PUT via POST
+        formData.fields.add(const MapEntry('_method', 'PUT'));
+
+        if (name != null) {
+          formData.fields.add(MapEntry('name', name));
+        }
+
+        if (description != null) {
+          formData.fields.add(MapEntry('description', description));
+        }
+
+        if (categoryId != null) {
+          formData.fields.add(MapEntry('category_id', categoryId.toString()));
+        }
+
+        if (isPublic != null) {
+          formData.fields.add(MapEntry('is_public', isPublic ? '1' : '0'));
+        }
+
+        if (isDiscoverable != null) {
+          formData.fields.add(MapEntry('is_discoverable', isDiscoverable ? '1' : '0'));
+        }
+
+        if (maxMembers != null) {
+          formData.fields.add(MapEntry('max_members', maxMembers.toString()));
+        }
+
+        // Ajouter le fichier d'avatar
+        formData.files.add(MapEntry(
+          'avatar',
+          await MultipartFile.fromFile(
+            avatarFile.path,
+            filename: avatarFile.path.split('/').last,
+          ),
+        ));
+
+        final response = await _api.post(
+          '${ApiConfig.groups}/$groupId',
+          data: formData,
+        );
+
+        return GroupModel.fromJson(response.data['group']);
+      } else {
+        // Sans avatar, utiliser PUT standard avec JSON
+        final data = <String, dynamic>{};
+
+        if (name != null) {
+          data['name'] = name;
+        }
+
+        if (description != null) {
+          data['description'] = description;
+        }
+
+        if (categoryId != null) {
+          data['category_id'] = categoryId;
+        }
+
+        if (isPublic != null) {
+          data['is_public'] = isPublic;
+        }
+
+        if (isDiscoverable != null) {
+          data['is_discoverable'] = isDiscoverable;
+        }
+
+        if (maxMembers != null) {
+          data['max_members'] = maxMembers;
+        }
+
+        final response = await _api.put(
+          '${ApiConfig.groups}/$groupId',
+          data: data,
+        );
+
+        return GroupModel.fromJson(response.data['group']);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Delete a group (creator only)
+  Future<void> deleteGroup(int groupId) async {
+    try {
+      await _api.delete('${ApiConfig.groups}/$groupId');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get group members
+  Future<List<GroupMemberModel>> getGroupMembers(int groupId) async {
+    try {
+      final response = await _api.get('${ApiConfig.groups}/$groupId/members');
+      final data = response.data;
+
+      final members = (data['members'] as List)
+          .map((json) => GroupMemberModel.fromJson(json))
+          .toList();
+
+      return members;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Remove a member from group (creator only)
+  Future<void> removeMember({
+    required int groupId,
+    required int memberId,
+  }) async {
+    try {
+      await _api.delete('${ApiConfig.groups}/$groupId/members/$memberId');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Report a group (members only, not creator)
+  Future<void> reportGroup({
+    required int groupId,
+    required String reason,
+    String? description,
   }) async {
     try {
       final data = {
-        'name': name,
-        'is_public': isPublic,
-        'is_discoverable': isDiscoverable,
+        'reason': reason,
       };
 
       if (description != null && description.isNotEmpty) {
         data['description'] = description;
       }
 
-      if (categoryId != null) {
-        data['category_id'] = categoryId;
-      }
-
-      if (maxMembers != null) {
-        data['max_members'] = maxMembers;
-      }
-
-      final response = await _api.post(
-        ApiConfig.groups,
+      await _api.post(
+        '${ApiConfig.groups}/$groupId/report',
         data: data,
       );
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-      return GroupModel.fromJson(response.data['group']);
+  /// Leave a group (members only, not creator)
+  Future<void> leaveGroup(int groupId) async {
+    try {
+      await _api.post('${ApiConfig.groups}/$groupId/leave');
     } catch (e) {
       rethrow;
     }

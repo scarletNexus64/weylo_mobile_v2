@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/group_details_modal.dart';
+import 'package:weylo/app/widgets/group_avatar.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 
 import '../controllers/groupe_controller.dart';
@@ -577,14 +578,9 @@ class GroupeView extends GetView<GroupeController> {
       margin: EdgeInsets.only(bottom: context.elementSpacing),
       child: ListTile(
         contentPadding: EdgeInsets.all(context.elementSpacing / 2),
-        leading: CircleAvatar(
+        leading: GroupAvatar(
+          group: group,
           radius: 28,
-          backgroundColor: AppThemeSystem.tertiaryColor,
-          child: const Icon(
-            Icons.group_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -671,7 +667,7 @@ class GroupeView extends GetView<GroupeController> {
         ),
         onTap: () async {
           // Naviguer vers le chat du groupe
-          await Get.to(
+          final result = await Get.to(
             () => const GroupeDetailView(),
             binding: GroupeDetailBinding(),
             arguments: {
@@ -680,8 +676,10 @@ class GroupeView extends GetView<GroupeController> {
               'memberCount': group.membersCount,
             },
           );
-          // Rafraîchir la liste après le retour
-          controller.loadMyGroups(refresh: true);
+          // Rafraîchir la liste après le retour si nécessaire
+          if (result == 'deleted' || result == 'left' || result == 'updated') {
+            controller.loadMyGroups(refresh: true);
+          }
         },
       ),
     );
@@ -710,14 +708,9 @@ class GroupeView extends GetView<GroupeController> {
         ),
         child: Row(
         children: [
-          CircleAvatar(
+          GroupAvatar(
+            group: group,
             radius: 30,
-            backgroundColor: AppThemeSystem.tertiaryColor,
-            child: Icon(
-              Icons.group_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1517,7 +1510,7 @@ class GroupeView extends GetView<GroupeController> {
           final groupName = 'Groupe ${index + 1}';
           final groupId = index.toString();
 
-          await Get.to(
+          final result = await Get.to(
             () => const GroupeDetailView(),
             binding: GroupeDetailBinding(),
             arguments: {
@@ -1528,8 +1521,10 @@ class GroupeView extends GetView<GroupeController> {
             transition: Transition.rightToLeft,
             duration: const Duration(milliseconds: 300),
           );
-          // Rafraîchir la liste après le retour
-          controller.loadMyGroups(refresh: true);
+          // Rafraîchir la liste après le retour si nécessaire
+          if (result == 'deleted' || result == 'left' || result == 'updated') {
+            controller.loadMyGroups(refresh: true);
+          }
         },
       ),
     );

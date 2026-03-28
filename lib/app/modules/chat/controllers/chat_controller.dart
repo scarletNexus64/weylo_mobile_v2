@@ -123,12 +123,22 @@ class ChatController extends GetxController {
 
   /// Check if a conversation participant has stories
   bool hasStories(int? userId) {
-    return _storyService?.hasStories(userId) ?? false;
+    if (_storyService == null) {
+      // Access a dummy observable to make this reactive even if service is null
+      conversations.length; // This makes the Obx reactive
+      return false;
+    }
+    return _storyService!.hasStories(userId);
   }
 
   /// Check if a conversation participant has unviewed stories
   bool hasUnviewedStories(int? userId) {
-    return _storyService?.hasUnviewedStories(userId) ?? false;
+    if (_storyService == null) {
+      // Access a dummy observable to make this reactive even if service is null
+      conversations.length; // This makes the Obx reactive
+      return false;
+    }
+    return _storyService!.hasUnviewedStories(userId);
   }
 
   /// Get story status for a conversation participant

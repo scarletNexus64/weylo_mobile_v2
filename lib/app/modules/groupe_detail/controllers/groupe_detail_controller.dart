@@ -5,11 +5,14 @@ import 'package:weylo/app/data/services/group_service.dart';
 import 'package:weylo/app/data/services/gift_service.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 import 'package:weylo/app/data/models/group_model.dart';
+import 'package:weylo/app/data/models/group_member_model.dart';
 import 'package:weylo/app/data/models/gift_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/modules/home/controllers/home_controller.dart';
+import 'package:weylo/app/modules/groupe/controllers/groupe_controller.dart';
 import 'package:weylo/app/widgets/image_caption_dialog.dart';
+import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -135,6 +138,9 @@ class GroupeDetailController extends GetxController {
       // Convertir groupId en int et charger les messages
       final groupIdInt = int.tryParse(groupId);
       if (groupIdInt != null) {
+        // Charger les informations complètes du groupe
+        await _loadGroupInfo(groupIdInt);
+
         await loadMessages(groupIdInt, initialLoad: true);
         // Marquer les messages comme lus
         await _markGroupAsRead(groupIdInt);
@@ -145,6 +151,19 @@ class GroupeDetailController extends GetxController {
       print('Error initializing group detail: $e');
       hasError.value = true;
       errorMessage.value = 'Impossible de charger le groupe';
+    }
+  }
+
+  /// Charger les informations complètes du groupe
+  Future<void> _loadGroupInfo(int groupId) async {
+    try {
+      print('📋 [GroupeDetailController] Loading group info...');
+      final groupData = await _groupService.getGroup(groupId);
+      group.value = groupData;
+      print('✅ [GroupeDetailController] Group info loaded: ${groupData.name}');
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error loading group info: $e');
+      // Ne pas bloquer si ça échoue
     }
   }
 
@@ -1054,6 +1073,513 @@ class GroupeDetailController extends GetxController {
         'Impossible de supprimer le message',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  // ==================== GROUP MANAGEMENT ====================
+
+  /// Rename group (creator only)
+  Future<void> renameGroup(String newName) async {
+    if (newName.trim().isEmpty) return;
+
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('✏️ [GroupeDetailController] Renaming group to: $newName');
+
+      final updatedGroup = await _groupService.updateGroup(
+        groupId: groupIdInt,
+        name: newName,
+      );
+
+      // Mettre à jour le groupe local
+      group.value = updatedGroup;
+
+      Get.snackbar(
+        'Succès',
+        'Le groupe a été renommé',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error renaming group: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de renommer le groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Update group info (name, description, avatar, max_members) - creator only
+  Future<void> updateGroupInfo({
+    String? name,
+    String? description,
+    int? maxMembers,
+    File? avatarFile,
+  }) async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('🔄 [GroupeDetailController] Updating group info...');
+
+      final updatedGroup = await _groupService.updateGroup(
+        groupId: groupIdInt,
+        name: name,
+        description: description,
+        maxMembers: maxMembers,
+        avatarFile: avatarFile, // Maintenant supporté par le backend !
+      );
+
+      // Debug: Afficher les données reçues du backend
+      print('📊 [GroupeDetailController] Updated group data:');
+      print('   - ID: ${updatedGroup.id}');
+      print('   - Name: ${updatedGroup.name}');
+      print('   - Members count: ${updatedGroup.membersCount}');
+      print('   - Avatar URL: ${updatedGroup.avatarUrl}');
+      print('   - Is creator: ${updatedGroup.isCreator}');
+      print('   - Is admin: ${updatedGroup.isAdmin}');
+
+      // Mettre à jour le groupe local
+      group.value = updatedGroup;
+
+      // Mettre à jour les listes du GroupeController en temps réel
+      try {
+        final groupeController = Get.find<GroupeController>();
+
+        // Trouver et mettre à jour le groupe dans "Mes groupes"
+        final myGroupIndex = groupeController.myGroups.indexWhere((g) => g.id == groupIdInt);
+        if (myGroupIndex != -1) {
+          print('📝 [GroupeDetailController] Updating myGroups at index $myGroupIndex');
+          print('   - Old members count: ${groupeController.myGroups[myGroupIndex].membersCount}');
+          print('   - New members count: ${updatedGroup.membersCount}');
+          print('   - Old avatar: ${groupeController.myGroups[myGroupIndex].avatarUrl}');
+          print('   - New avatar: ${updatedGroup.avatarUrl}');
+
+          groupeController.myGroups[myGroupIndex] = updatedGroup;
+          groupeController.myGroups.refresh();
+        }
+
+        // Mettre à jour aussi dans "Découvrir" si présent
+        final discoverIndex = groupeController.discoverGroups.indexWhere((g) => g.id == groupIdInt);
+        if (discoverIndex != -1) {
+          print('📝 [GroupeDetailController] Updating discoverGroups at index $discoverIndex');
+          groupeController.discoverGroups[discoverIndex] = updatedGroup;
+          groupeController.discoverGroups.refresh();
+        }
+
+        print('✅ [GroupeDetailController] Updated GroupeController lists after edit');
+      } catch (e) {
+        print('⚠️ [GroupeDetailController] Could not update GroupeController: $e');
+      }
+
+      // Recharger les informations complètes du groupe pour s'assurer que tout est à jour
+      await _loadGroupInfo(groupIdInt);
+
+      Get.snackbar(
+        'Succès',
+        'Les informations du groupe ont été mises à jour',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+
+      // Retourner avec un résultat pour indiquer qu'il faut rafraîchir
+      Get.back(result: 'updated');
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error updating group info: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de mettre à jour les informations',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Delete group (creator only)
+  Future<void> deleteGroup() async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('🗑️ [GroupeDetailController] Deleting group...');
+
+      await _groupService.deleteGroup(groupIdInt);
+
+      // Mettre à jour les listes du GroupeController en temps réel
+      try {
+        final groupeController = Get.find<GroupeController>();
+
+        // Retirer le groupe de "Mes groupes"
+        groupeController.myGroups.removeWhere((g) => g.id == groupIdInt);
+
+        // Retirer aussi le groupe de "Découvrir" s'il y est
+        groupeController.discoverGroups.removeWhere((g) => g.id == groupIdInt);
+
+        print('✅ [GroupeDetailController] Updated GroupeController lists after deletion');
+      } catch (e) {
+        print('⚠️ [GroupeDetailController] Could not update GroupeController: $e');
+      }
+
+      // Attendre un peu avant de naviguer pour voir le changement dans l'UI
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Fermer les overlays/snackbars pour permettre la navigation
+      print('📍 [GroupeDetailController] DELETE - Current route before navigation: ${Get.currentRoute}');
+      Get.closeAllSnackbars();
+
+      // Navigation simple : fermer GroupInfoView si présente, puis GroupDetailView
+      // On fait 2 backs pour couvrir les deux cas (GroupInfoView + GroupDetailView OU juste GroupDetailView)
+      print('📍 [GroupeDetailController] DELETE - Attempting first back...');
+      if (Get.key.currentState?.canPop() ?? false) {
+        Get.back();
+        await Future.delayed(const Duration(milliseconds: 100));
+        print('📍 [GroupeDetailController] DELETE - After first back, route: ${Get.currentRoute}');
+      }
+
+      print('📍 [GroupeDetailController] DELETE - Attempting second back...');
+      if (Get.key.currentState?.canPop() ?? false) {
+        Get.back();
+        await Future.delayed(const Duration(milliseconds: 100));
+        print('📍 [GroupeDetailController] DELETE - After second back, route: ${Get.currentRoute}');
+      }
+
+      // Afficher le snackbar après la navigation
+      Get.snackbar(
+        'Succès',
+        'Le groupe a été supprimé',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error deleting group: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de supprimer le groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Report group (members only, not creator)
+  Future<void> reportGroup(String reason, String? description) async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('🚩 [GroupeDetailController] Reporting group for: $reason');
+
+      await _groupService.reportGroup(
+        groupId: groupIdInt,
+        reason: reason,
+        description: description,
+      );
+
+      Get.snackbar(
+        'Succès',
+        'Signalement envoyé. Notre équipe va examiner votre demande.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error reporting group: $e');
+
+      String errorMessage = 'Impossible d\'envoyer le signalement';
+      if (e.toString().contains('déjà signalé')) {
+        errorMessage = 'Vous avez déjà signalé ce groupe récemment';
+      } else if (e.toString().contains('créateur')) {
+        errorMessage = 'Vous ne pouvez pas signaler votre propre groupe';
+      }
+
+      Get.snackbar(
+        'Erreur',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Leave group (all members except creator)
+  Future<void> leaveGroup() async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('👋 [GroupeDetailController] Leaving group...');
+
+      await _groupService.leaveGroup(groupIdInt);
+
+      // Mettre à jour les listes du GroupeController en temps réel
+      try {
+        final groupeController = Get.find<GroupeController>();
+
+        // Retirer le groupe de "Mes groupes"
+        groupeController.myGroups.removeWhere((g) => g.id == groupIdInt);
+
+        // Rafraîchir la liste "Découvrir" pour montrer à nouveau le groupe
+        await groupeController.loadDiscoverGroups(refresh: true);
+
+        print('✅ [GroupeDetailController] Updated GroupeController lists');
+      } catch (e) {
+        print('⚠️ [GroupeDetailController] Could not update GroupeController: $e');
+      }
+
+      // Attendre un peu avant de naviguer pour voir le changement dans l'UI
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Fermer les overlays/snackbars pour permettre la navigation
+      print('📍 [GroupeDetailController] LEAVE - Current route before navigation: ${Get.currentRoute}');
+      Get.closeAllSnackbars();
+
+      // Navigation simple : fermer GroupInfoView si présente, puis GroupDetailView
+      // On fait 2 backs pour couvrir les deux cas (GroupInfoView + GroupDetailView OU juste GroupDetailView)
+      print('📍 [GroupeDetailController] LEAVE - Attempting first back...');
+      if (Get.key.currentState?.canPop() ?? false) {
+        Get.back();
+        await Future.delayed(const Duration(milliseconds: 100));
+        print('📍 [GroupeDetailController] LEAVE - After first back, route: ${Get.currentRoute}');
+      }
+
+      print('📍 [GroupeDetailController] LEAVE - Attempting second back...');
+      if (Get.key.currentState?.canPop() ?? false) {
+        Get.back();
+        await Future.delayed(const Duration(milliseconds: 100));
+        print('📍 [GroupeDetailController] LEAVE - After second back, route: ${Get.currentRoute}');
+      }
+
+      // Afficher le snackbar après la navigation
+      Get.snackbar(
+        'Succès',
+        'Vous avez quitté le groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error leaving group: $e');
+
+      String errorMessage = 'Impossible de quitter le groupe';
+      if (e.toString().contains('créateur') || e.toString().contains('creator')) {
+        errorMessage = 'Le créateur ne peut pas quitter son propre groupe';
+      } else if (e.toString().contains('membre') || e.toString().contains('member')) {
+        errorMessage = 'Vous n\'êtes pas membre de ce groupe';
+      }
+
+      Get.snackbar(
+        'Erreur',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Show members list (for managing members)
+  Future<void> showMembersList() async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('👥 [GroupeDetailController] Loading members list...');
+
+      final members = await _groupService.getGroupMembers(groupIdInt);
+
+      // Afficher un bottom sheet avec la liste des membres
+      Get.bottomSheet(
+        Container(
+          decoration: BoxDecoration(
+            color: Get.isDarkMode ? AppThemeSystem.darkCardColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Title
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people, color: AppThemeSystem.tertiaryColor),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Membres du groupe (${members.length})',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(),
+
+              // Members list
+              Expanded(
+                child: ListView.builder(
+                  itemCount: members.length,
+                  shrinkWrap: true,
+                  itemBuilder: (context, index) {
+                    final member = members[index];
+                    final isCurrentUser = member.userId == currentUserId;
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppThemeSystem.tertiaryColor,
+                        backgroundImage: member.avatarUrl != null
+                            ? NetworkImage(member.avatarUrl!)
+                            : null,
+                        child: member.avatarUrl == null
+                            ? Text(
+                                member.effectiveInitial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        member.effectiveDisplayName,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      subtitle: Text(
+                        member.role == 'creator'
+                            ? 'Créateur'
+                            : member.role == 'admin'
+                                ? 'Administrateur'
+                                : 'Membre',
+                        style: TextStyle(
+                          color: member.role == 'creator'
+                              ? AppThemeSystem.primaryColor
+                              : AppThemeSystem.grey600,
+                        ),
+                      ),
+                      trailing: !isCurrentUser && group.value?.isCreator == true
+                          ? IconButton(
+                              icon: const Icon(Icons.remove_circle, color: Colors.red),
+                              onPressed: () {
+                                _confirmRemoveMember(member);
+                              },
+                            )
+                          : null,
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+        isScrollControlled: true,
+        enableDrag: true,
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error loading members: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de charger la liste des membres',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Confirm removing a member
+  void _confirmRemoveMember(GroupMemberModel member) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Retirer le membre ?'),
+        content: Text('Voulez-vous retirer ${member.effectiveDisplayName} du groupe ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              _removeMember(member);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Remove a member from the group
+  Future<void> _removeMember(GroupMemberModel member) async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('👤❌ [GroupeDetailController] Removing member ${member.id}...');
+
+      await _groupService.removeMember(
+        groupId: groupIdInt,
+        memberId: member.id,
+      );
+
+      Get.snackbar(
+        'Succès',
+        '${member.effectiveDisplayName} a été retiré du groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+
+      // Refresh members list
+      Get.back();
+      showMembersList();
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error removing member: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de retirer le membre',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
         colorText: Colors.white,
       );
     }

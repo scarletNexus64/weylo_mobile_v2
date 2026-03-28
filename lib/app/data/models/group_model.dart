@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'user_model.dart';
 import 'group_message_model.dart';
 import 'group_category_model.dart';
@@ -6,6 +7,7 @@ class GroupModel {
   final int id;
   final String name;
   final String? description;
+  final String? avatarUrl;
   final int? categoryId;
   final GroupCategoryModel? category;
   final int creatorId;
@@ -13,6 +15,7 @@ class GroupModel {
   final bool isPublic;
   final int maxMembers;
   final int membersCount;
+  final int messagesCount;
   final GroupMessageModel? lastMessage;
   final int unreadCount;
   final bool isCreator;
@@ -27,6 +30,7 @@ class GroupModel {
     required this.id,
     required this.name,
     this.description,
+    this.avatarUrl,
     this.categoryId,
     this.category,
     required this.creatorId,
@@ -34,6 +38,7 @@ class GroupModel {
     this.isPublic = false,
     this.maxMembers = 50,
     this.membersCount = 0,
+    this.messagesCount = 0,
     this.lastMessage,
     this.unreadCount = 0,
     this.isCreator = false,
@@ -50,6 +55,7 @@ class GroupModel {
       id: json['id'],
       name: json['name'],
       description: json['description'],
+      avatarUrl: json['avatar_url'],
       categoryId: json['category_id'],
       category: json['category'] != null
           ? GroupCategoryModel.fromJson(json['category'])
@@ -59,6 +65,7 @@ class GroupModel {
       isPublic: json['is_public'] ?? false,
       maxMembers: json['max_members'] ?? 50,
       membersCount: json['members_count'] ?? 0,
+      messagesCount: json['messages_count'] ?? 0,
       lastMessage: json['last_message'] != null
           ? GroupMessageModel.fromJson(json['last_message'])
           : null,
@@ -80,6 +87,7 @@ class GroupModel {
       'id': id,
       'name': name,
       'description': description,
+      'avatar_url': avatarUrl,
       'category_id': categoryId,
       'category': category?.toJson(),
       'creator_id': creatorId,
@@ -87,6 +95,7 @@ class GroupModel {
       'is_public': isPublic,
       'max_members': maxMembers,
       'members_count': membersCount,
+      'messages_count': messagesCount,
       'last_message': lastMessage?.toJson(),
       'unread_count': unreadCount,
       'is_creator': isCreator,
@@ -97,6 +106,16 @@ class GroupModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  /// Get initials from group name
+  String get initials {
+    final words = name.trim().split(RegExp(r'\s+'));
+    if (words.isEmpty) return 'G';
+    if (words.length == 1) {
+      return words[0].substring(0, min(2, words[0].length)).toUpperCase();
+    }
+    return (words[0][0] + words[1][0]).toUpperCase();
   }
 
   /// Helpers

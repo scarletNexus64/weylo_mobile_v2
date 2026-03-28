@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 import '../controllers/groupe_detail_controller.dart';
+import 'group_info_view.dart';
 
 class GroupeDetailView extends GetView<GroupeDetailController> {
   const GroupeDetailView({super.key});
@@ -24,15 +25,26 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
       appBar: AppBar(
         title: Row(
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: AppThemeSystem.tertiaryColor,
-              child: const Icon(
-                Icons.group_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
+            Obx(() {
+              final group = controller.group.value;
+              return CircleAvatar(
+                radius: 20,
+                backgroundColor: AppThemeSystem.tertiaryColor,
+                backgroundImage: group?.avatarUrl != null
+                    ? NetworkImage(group!.avatarUrl!)
+                    : null,
+                child: group?.avatarUrl == null
+                    ? Text(
+                        group?.initials ?? 'G',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      )
+                    : null,
+              );
+            }),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -58,7 +70,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () {},
+            onPressed: () => _showGroupOptions(context),
           ),
         ],
       ),
@@ -1631,59 +1643,80 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
   /// Bottom sheet avec actions pour les messages envoyés (long-press)
   void _showMessageActions(BuildContext context, GroupMessageModel message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppThemeSystem.darkCardColor
-          : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey,
-                  borderRadius: BorderRadius.circular(2),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewPadding.bottom,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: EdgeInsets.symmetric(vertical: context.elementSpacing),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
 
-              // Supprimer
-              ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Supprimer', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteConfirmation(context, message);
-                },
-              ),
+                // Supprimer
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.delete,
+                  title: 'Supprimer',
+                  color: Colors.red,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showDeleteConfirmation(context, message);
+                  },
+                  isDark: isDark,
+                ),
 
-              // Répondre
-              ListTile(
-                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
-                title: Text('Répondre'),
-                onTap: () {
-                  Navigator.pop(context);
-                  controller.setReplyToMessage(message);
-                },
-              ),
+                Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
 
-              // Annuler
-              ListTile(
-                leading: Icon(Icons.close, color: Colors.grey),
-                title: Text('Annuler'),
-                onTap: () => Navigator.pop(context),
-              ),
+                // Répondre
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.reply,
+                  title: 'Répondre',
+                  color: AppThemeSystem.primaryColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    controller.setReplyToMessage(message);
+                  },
+                  isDark: isDark,
+                ),
 
-              SizedBox(height: 8),
-            ],
+                Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
+
+                // Annuler
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.close,
+                  title: 'Annuler',
+                  color: Colors.grey,
+                  onTap: () => Navigator.pop(context),
+                  isDark: isDark,
+                ),
+
+                SizedBox(height: context.elementSpacing),
+              ],
+            ),
           ),
         );
       },
@@ -1692,49 +1725,65 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
   /// Bottom sheet avec actions pour les messages reçus (long-press)
   void _showReceivedMessageActions(BuildContext context, GroupMessageModel message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? AppThemeSystem.darkCardColor
-          : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                width: 40,
-                height: 4,
-                margin: EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey,
-                  borderRadius: BorderRadius.circular(2),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewPadding.bottom,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: EdgeInsets.symmetric(vertical: context.elementSpacing),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
 
-              // Répondre
-              ListTile(
-                leading: Icon(Icons.reply, color: AppThemeSystem.primaryColor),
-                title: Text('Répondre'),
-                onTap: () {
-                  Navigator.pop(context);
-                  controller.setReplyToMessage(message);
-                },
-              ),
+                // Répondre
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.reply,
+                  title: 'Répondre',
+                  color: AppThemeSystem.primaryColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    controller.setReplyToMessage(message);
+                  },
+                  isDark: isDark,
+                ),
 
-              // Annuler
-              ListTile(
-                leading: Icon(Icons.close, color: Colors.grey),
-                title: Text('Annuler'),
-                onTap: () => Navigator.pop(context),
-              ),
+                Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
 
-              SizedBox(height: 8),
-            ],
+                // Annuler
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.close,
+                  title: 'Annuler',
+                  color: Colors.grey,
+                  onTap: () => Navigator.pop(context),
+                  isDark: isDark,
+                ),
+
+                SizedBox(height: context.elementSpacing),
+              ],
+            ),
           ),
         );
       },
@@ -1760,6 +1809,359 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                 controller.deleteMessage(message);
               },
               child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Show group options bottom sheet
+  void _showGroupOptions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final group = controller.group.value;
+
+    if (group == null) return;
+
+    final isCreator = group.isCreator;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewPadding.bottom,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Title
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.horizontalPadding * 2,
+                    vertical: context.elementSpacing,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.settings,
+                        color: AppThemeSystem.tertiaryColor,
+                        size: context.deviceType == DeviceType.mobile ? 24 : 28,
+                      ),
+                      SizedBox(width: context.elementSpacing),
+                      Text(
+                        'Options du groupe',
+                        style: context.textStyle(FontSizeType.h6).copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
+
+                // Option commune : Voir les informations
+                _buildBottomSheetOption(
+                  context: context,
+                  icon: Icons.info_outline,
+                  title: 'Informations du groupe',
+                  color: AppThemeSystem.primaryColor,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Get.to(() => GroupInfoView(group: group));
+                  },
+                  isDark: isDark,
+                ),
+
+                Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
+
+                // Options for creator
+                if (isCreator) ...[
+                  _buildBottomSheetOption(
+                    context: context,
+                    icon: Icons.person_remove,
+                    title: 'Gérer les membres',
+                    color: AppThemeSystem.tertiaryColor,
+                    onTap: () {
+                      Navigator.pop(context);
+                      controller.showMembersList();
+                    },
+                    isDark: isDark,
+                  ),
+                ],
+
+                // Options for all members (except creator)
+                if (!isCreator) ...[
+                  _buildBottomSheetOption(
+                    context: context,
+                    icon: Icons.flag,
+                    title: 'Signaler le groupe',
+                    color: Colors.orange,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showReportDialog(context);
+                    },
+                    isDark: isDark,
+                  ),
+                  Divider(height: 1, color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200),
+                  _buildBottomSheetOption(
+                    context: context,
+                    icon: Icons.exit_to_app,
+                    title: 'Quitter le groupe',
+                    color: Colors.grey,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showLeaveGroupDialog(context);
+                    },
+                    isDark: isDark,
+                  ),
+                ],
+
+                SizedBox(height: context.elementSpacing),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheetOption({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.horizontalPadding * 2,
+          vertical: context.elementSpacing * 1.2,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: context.deviceType == DeviceType.mobile ? 24 : 28,
+            ),
+            SizedBox(width: context.elementSpacing * 1.5),
+            Expanded(
+              child: Text(
+                title,
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  color: context.primaryTextColor,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: context.secondaryTextColor,
+              size: context.deviceType == DeviceType.mobile ? 20 : 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show rename dialog
+  void _showRenameDialog(BuildContext context) {
+    final controller = Get.find<GroupeDetailController>();
+    final textController = TextEditingController(text: controller.groupName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Renommer le groupe'),
+          content: TextField(
+            controller: textController,
+            decoration: const InputDecoration(
+              hintText: 'Nouveau nom',
+              border: OutlineInputBorder(),
+            ),
+            maxLength: 100,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (textController.text.trim().isNotEmpty) {
+                  Navigator.pop(context);
+                  controller.renameGroup(textController.text.trim());
+                }
+              },
+              child: const Text('Renommer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Show delete group dialog
+  void _showDeleteGroupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Supprimer le groupe ?'),
+          content: const Text(
+            'Cette action est irréversible. Le groupe et tous ses messages seront supprimés définitivement.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                controller.deleteGroup();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Show report dialog
+  void _showReportDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String selectedReason = 'spam';
+    final descriptionController = TextEditingController();
+
+    final reasons = {
+      'spam': 'Spam',
+      'harassment': 'Harcèlement',
+      'inappropriate_content': 'Contenu inapproprié',
+      'hate_speech': 'Discours haineux',
+      'violence': 'Violence',
+      'other': 'Autre',
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Signaler le groupe'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Raison du signalement :'),
+                    const SizedBox(height: 12),
+                    ...reasons.entries.map((entry) {
+                      return RadioListTile<String>(
+                        title: Text(entry.value),
+                        value: entry.key,
+                        groupValue: selectedReason,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              selectedReason = value;
+                            });
+                          }
+                        },
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    }).toList(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (optionnel)',
+                        hintText: 'Donnez plus de détails...',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                      maxLength: 1000,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    controller.reportGroup(
+                      selectedReason,
+                      descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
+                    );
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                  child: const Text('Signaler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Show leave group dialog
+  void _showLeaveGroupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Quitter le groupe ?'),
+          content: const Text(
+            'Vous ne recevrez plus les messages de ce groupe.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                controller.leaveGroup();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Quitter'),
             ),
           ],
         );
