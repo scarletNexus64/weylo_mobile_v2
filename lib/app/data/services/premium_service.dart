@@ -26,16 +26,29 @@ class PremiumService {
   /// GET /api/v1/premium-pass/status
   Future<Map<String, dynamic>> getPremiumStatus() async {
     try {
+      print('🔍 [PREMIUM SERVICE] Appel API /premium-pass/status...');
       final response = await _apiService.dio.get('/premium-pass/status');
 
+      print('📡 [PREMIUM SERVICE] Réponse API:');
+      print('   - Status Code: ${response.statusCode}');
+      print('   - Data: ${response.data}');
+
       if (response.statusCode == 200) {
+        final data = response.data as Map<String, dynamic>;
+        print('✅ [PREMIUM SERVICE] Statut premium récupéré:');
+        print('   - is_premium: ${data['is_premium']}');
+        print('   - has_active_premium: ${data['has_active_premium']}');
+        print('   - expires_at: ${data['expires_at']}');
+        print('   - days_remaining: ${data['days_remaining']}');
+
         // L'API retourne directement les données sans wrapper 'data'
-        return response.data as Map<String, dynamic>;
+        return data;
       } else {
         throw Exception('Failed to get premium status');
       }
     } on DioException catch (e) {
-      print('❌ Error getting premium status: ${e.message}');
+      print('❌ [PREMIUM SERVICE] Error getting premium status: ${e.message}');
+      print('   - Response: ${e.response?.data}');
       throw Exception(e.response?.data['message'] ?? 'Failed to get premium status');
     }
   }

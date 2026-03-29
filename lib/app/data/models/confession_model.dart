@@ -17,6 +17,7 @@ class ConfessionModel {
   final String authorInitial;
   final ConfessionAuthor? author;
   final bool isIdentityRevealed;
+  final bool isAuthorPremium; // Badge premium/certifié (visible même si anonyme)
 
   // Stats (for public confessions)
   final int likesCount;
@@ -44,6 +45,7 @@ class ConfessionModel {
     required this.authorInitial,
     this.author,
     required this.isIdentityRevealed,
+    this.isAuthorPremium = false,
     required this.likesCount,
     required this.viewsCount,
     required this.commentsCount,
@@ -70,6 +72,7 @@ class ConfessionModel {
           ? ConfessionAuthor.fromJson(json['author'] as Map<String, dynamic>)
           : null,
       isIdentityRevealed: json['is_identity_revealed'] as bool? ?? false,
+      isAuthorPremium: json['is_author_premium'] as bool? ?? false,
       likesCount: json['likes_count'] as int? ?? 0,
       viewsCount: json['views_count'] as int? ?? 0,
       commentsCount: json['comments_count'] as int? ?? 0,
@@ -95,6 +98,7 @@ class ConfessionModel {
       'author_initial': authorInitial,
       'author': author?.toJson(),
       'is_identity_revealed': isIdentityRevealed,
+      'is_author_premium': isAuthorPremium,
       'likes_count': likesCount,
       'views_count': viewsCount,
       'comments_count': commentsCount,
@@ -127,6 +131,7 @@ class ConfessionModel {
       authorInitial: authorInitial,
       author: author,
       isIdentityRevealed: isIdentityRevealed,
+      isAuthorPremium: isAuthorPremium,
       likesCount: likesCount ?? this.likesCount,
       viewsCount: viewsCount ?? this.viewsCount,
       commentsCount: commentsCount ?? this.commentsCount,

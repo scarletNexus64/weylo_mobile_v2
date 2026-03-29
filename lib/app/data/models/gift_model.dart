@@ -4,6 +4,7 @@ class GiftModel {
   final String slug;
   final String description;
   final String icon; // Emoji icon (ex: 🌹)
+  final String? emojiImageUrl; // URL de l'image Twemoji
   final String animation; // Animation type
   final int price;
   final String formattedPrice; // Prix formaté depuis l'API
@@ -22,6 +23,7 @@ class GiftModel {
     required this.slug,
     required this.description,
     required this.icon,
+    this.emojiImageUrl,
     required this.animation,
     required this.price,
     required this.formattedPrice,
@@ -42,6 +44,7 @@ class GiftModel {
       slug: json['slug'] as String? ?? '',
       description: json['description'] as String? ?? '',
       icon: json['icon'] as String? ?? '🎁', // Emoji par défaut
+      emojiImageUrl: json['emoji_image_url'] as String?, // URL Twemoji
       animation: json['animation'] as String? ?? '',
       price: json['price'] as int? ?? 0,
       formattedPrice: json['formatted_price'] as String? ?? '0 FCFA',
@@ -67,6 +70,7 @@ class GiftModel {
       'slug': slug,
       'description': description,
       'icon': icon,
+      'emoji_image_url': emojiImageUrl,
       'animation': animation,
       'price': price,
       'formatted_price': formattedPrice,
@@ -184,6 +188,7 @@ class GiftTransactionModel {
               slug: '',
               description: '',
               icon: '🎁',
+              emojiImageUrl: null,
               animation: '',
               price: 0,
               formattedPrice: '0 FCFA',

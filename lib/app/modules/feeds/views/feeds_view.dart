@@ -773,7 +773,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
                       Row(
                         children: [
                           Text(
-                            isAnonymous ? 'Anonyme' : post['username'] as String,
+                            post['username'] as String,
                             style: context.textStyle(FontSizeType.body1).copyWith(
                               fontWeight: FontWeight.w600,
                               color: isDark ? Colors.white : AppThemeSystem.blackColor,
@@ -784,7 +784,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
                             Icon(
                               Icons.verified_rounded,
                               size: 16,
-                              color: AppThemeSystem.primaryColor,
+                              color: AppThemeSystem.infoColor,
                             ),
                           ],
                         ],

@@ -6,6 +6,7 @@ import 'package:weylo/app/data/services/confession_service.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/data/models/sponsored_ad_model.dart';
 import 'package:weylo/app/data/services/sponsorship_service.dart';
+import 'package:weylo/app/data/services/premium_service.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
 import 'package:weylo/app/routes/app_pages.dart';
@@ -17,9 +18,14 @@ enum ConfessionFilter { all, popular, recent }
 class ConfessionsController extends GetxController {
   final _confessionService = ConfessionService();
   final _sponsorshipService = SponsorshipService();
+  final _premiumService = PremiumService();
 
   // Scroll controller for scroll to top functionality
   final scrollController = ScrollController();
+
+  // Premium status
+  final isPremium = false.obs;
+  final isLoadingPremiumStatus = false.obs;
 
   // GlobalKeys for each confession to enable precise scrolling
   final confessionKeys = <int, GlobalKey>{}; // Map confession ID to GlobalKey
@@ -58,12 +64,20 @@ class ConfessionsController extends GetxController {
   RxList<Map<String, dynamic>> get feedItems {
     // Convert confessions to legacy format
     return confessions.map((confession) {
+      // DEBUG: Log pour voir isAuthorPremium
+      if (confession.isAuthorPremium) {
+        print('🔵 [BADGE] Confession ${confession.id} : auteur premium détecté');
+        print('   - isAuthorPremium: ${confession.isAuthorPremium}');
+        print('   - username: ${confession.authorName}');
+      }
+
       return {
         'id': confession.id,
         'type': 'post',
         'username': confession.authorName,
         'isAnonymous': !confession.isIdentityRevealed,
-        'isVerified': false,
+        'isVerified': confession.isAuthorPremium, // Badge bleu si auteur premium
+        'isAuthorPremium': confession.isAuthorPremium, // Pour usage futur
         'content': confession.content,
         'image': confession.mediaType != 'none' ? confession.mediaUrl : null,
         'mediaType': confession.mediaType, // 'none', 'image', 'video'
@@ -91,9 +105,25 @@ class ConfessionsController extends GetxController {
 
     print('🎨 [CACHE] Cache Flutter configuré: max 100 images, 50 MB');
 
+    _loadPremiumStatus();
     _loadStories();
     loadConfessions();
     loadSponsoredAds();
+  }
+
+  /// Charger le statut premium de l'utilisateur
+  Future<void> _loadPremiumStatus() async {
+    try {
+      isLoadingPremiumStatus.value = true;
+      final status = await _premiumService.getPremiumStatus();
+      isPremium.value = status['is_premium'] ?? false;
+      print('✅ [PREMIUM] Statut premium chargé: ${isPremium.value}');
+    } catch (e) {
+      print('⚠️ [PREMIUM] Erreur lors du chargement du statut premium: $e');
+      isPremium.value = false;
+    } finally {
+      isLoadingPremiumStatus.value = false;
+    }
   }
 
   @override

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:weylo/app/routes/app_pages.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
 import 'package:weylo/app/data/services/storage_service.dart';
+import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 
 class ConfessionActionsBottomSheet extends StatelessWidget {
   final ConfessionModel confession;
@@ -30,9 +32,10 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
     final currentUser = storageService.getUser();
 
     // Check if this confession belongs to the current user
-    final isMyPost = confession.author != null &&
-                     currentUser != null &&
-                     confession.author!.id == currentUser.id;
+    final isMyPost =
+        confession.author != null &&
+        currentUser != null &&
+        confession.author!.id == currentUser.id;
 
     return Container(
       decoration: BoxDecoration(
@@ -65,18 +68,22 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
               ),
               child: Text(
                 'Actions',
-                style: context.textStyle(FontSizeType.h6).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : AppThemeSystem.blackColor,
-                ),
+                style: context
+                    .textStyle(FontSizeType.h6)
+                    .copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : AppThemeSystem.blackColor,
+                    ),
               ),
             ),
 
             const Divider(height: 1),
 
             // Actions
-            if (isMyPost) ..._buildMyPostActions(context, isDark, deviceType)
-            else ..._buildOthersPostActions(context, isDark, deviceType),
+            if (isMyPost)
+              ..._buildMyPostActions(context, isDark, deviceType)
+            else
+              ..._buildOthersPostActions(context, isDark, deviceType),
 
             SizedBox(height: context.elementSpacing),
           ],
@@ -85,7 +92,11 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildMyPostActions(BuildContext context, bool isDark, DeviceType deviceType) {
+  List<Widget> _buildMyPostActions(
+    BuildContext context,
+    bool isDark,
+    DeviceType deviceType,
+  ) {
     return [
       _buildActionTile(
         context: context,
@@ -124,7 +135,11 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
     ];
   }
 
-  List<Widget> _buildOthersPostActions(BuildContext context, bool isDark, DeviceType deviceType) {
+  List<Widget> _buildOthersPostActions(
+    BuildContext context,
+    bool isDark,
+    DeviceType deviceType,
+  ) {
     final actions = <Widget>[
       _buildActionTile(
         context: context,
@@ -148,25 +163,48 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
           _handleShare(context);
         },
       ),
+      _buildActionTile(
+        context: context,
+        icon: Icons.flag_outlined,
+        label: 'Signaler',
+        isDark: isDark,
+        deviceType: deviceType,
+        color: Colors.orange,
+        onTap: () {
+          Get.back();
+          _showReportDialog(context);
+        },
+      ),
     ];
 
     // Add reveal identity option only for anonymous posts
-    if (!confession.isIdentityRevealed && confession.author != null) {
-      actions.insert(
-        1,
-        _buildActionTile(
-          context: context,
-          icon: Icons.visibility_outlined,
-          label: 'Dévoiler l\'auteur',
-          isDark: isDark,
-          deviceType: deviceType,
-          onTap: () {
-            Get.back();
-            _handleRevealIdentity(context);
-          },
-        ),
-      );
-    }
+    // if (!confession.isIdentityRevealed) {
+    //   // Récupérer le statut premium depuis le controller
+    //   final controller = Get.find<ConfessionsController>();
+    //   final isPremium = controller.isPremium.value;
+
+    //   actions.insert(
+    //     1,
+    //     _buildActionTile(
+    //       context: context,
+    //       icon: Icons.visibility_outlined,
+    //       label: 'Dévoiler l\'auteur',
+    //       isDark: isDark,
+    //       deviceType: deviceType,
+    //       onTap: () {
+    //         if (!isPremium) {
+    //           // Si non premium, rediriger vers la page de certification
+    //           Get.back();
+    //           Get.toNamed(Routes.CERTIFICATION);
+    //         } else {
+    //           // Si premium, dévoiler l'identité directement
+    //           Get.back();
+    //           _handleRevealIdentity(context);
+    //         }
+    //       },
+    //     ),
+    //   );
+    // }
 
     return actions;
   }
@@ -180,7 +218,8 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
     required VoidCallback onTap,
     Color? color,
   }) {
-    final actionColor = color ?? (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey800);
+    final actionColor =
+        color ?? (isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey800);
 
     return InkWell(
       onTap: onTap,
@@ -200,10 +239,9 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  color: actionColor,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: context
+                    .textStyle(FontSizeType.body1)
+                    .copyWith(color: actionColor, fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -231,7 +269,9 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
     Get.dialog(
       AlertDialog(
         title: const Text('Supprimer la confession'),
-        content: const Text('Êtes-vous sûr de vouloir supprimer cette confession ? Cette action est irréversible.'),
+        content: const Text(
+          'Êtes-vous sûr de vouloir supprimer cette confession ? Cette action est irréversible.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -333,6 +373,125 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
       Get.snackbar(
         'Erreur',
         'Impossible de dévoiler l\'identité',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _showReportDialog(BuildContext context) {
+    String selectedReason = 'spam';
+    final descriptionController = TextEditingController();
+
+    final reasons = {
+      'spam': 'Spam ou contenu indésirable',
+      'harassment': 'Harcèlement',
+      'inappropriate_content': 'Contenu inapproprié',
+      'hate_speech': 'Discours haineux',
+      'violence': 'Violence',
+      'other': 'Autre',
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Signaler la confession'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Raison du signalement :'),
+                    const SizedBox(height: 12),
+                    ...reasons.entries.map((entry) {
+                      return RadioListTile<String>(
+                        title: Text(entry.value),
+                        value: entry.key,
+                        groupValue: selectedReason,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              selectedReason = value;
+                            });
+                          }
+                        },
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    }).toList(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description (optionnel)',
+                        hintText: 'Donnez plus de détails...',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
+                      maxLength: 1000,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _handleReport(
+                      context,
+                      selectedReason,
+                      descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
+                    );
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                  child: const Text('Signaler'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _handleReport(BuildContext context, String reason, String? description) async {
+    try {
+      final confessionService = ConfessionService();
+      await confessionService.reportConfession(
+        confessionId: confession.id,
+        reason: reason,
+        description: description,
+      );
+
+      Get.snackbar(
+        'Signalement envoyé',
+        'Merci pour votre vigilance. Notre équipe va examiner cette confession.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      String errorMessage = 'Impossible de signaler cette confession';
+
+      // Gérer les erreurs spécifiques
+      if (e.toString().contains('déjà signalé')) {
+        errorMessage = 'Vous avez déjà signalé cette confession';
+      }
+
+      Get.snackbar(
+        'Erreur',
+        errorMessage,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: AppThemeSystem.errorColor,
         colorText: Colors.white,

@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:animate_do/animate_do.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
+import 'package:weylo/app/widgets/gift_icon_image.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 import '../controllers/groupe_detail_controller.dart';
 import 'group_info_view.dart';
@@ -431,12 +433,14 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
       case GroupMessageType.gift:
         // Extract gift info from metadata
         final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
+        final giftImageUrl = message.metadata?['emoji_image_url'] as String?;
         final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
         mainContent = Column(
           children: [
-            Text(
-              giftIcon,
-              style: const TextStyle(fontSize: 48),
+            GiftIconImage(
+              imageUrl: giftImageUrl,
+              emojiIcon: giftIcon,
+              size: 48,
             ),
             const SizedBox(height: 4),
             Text(
@@ -710,28 +714,47 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                 itemBuilder: (context, index) {
                   final gift = filteredGifts[index];
 
-                  return GestureDetector(
-                    onTap: () => controller.sendGift(gift),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppThemeSystem.grey800.withValues(alpha: 0.4)
-                            : AppThemeSystem.grey100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
+                  return FadeInUp(
+                    duration: const Duration(milliseconds: 300),
+                    delay: Duration(milliseconds: index * 50),
+                    child: GestureDetector(
+                      onTap: () => controller.sendGift(gift),
+                      child: Container(
+                        decoration: BoxDecoration(
                           color: isDark
-                              ? AppThemeSystem.grey700.withValues(alpha: 0.5)
-                              : AppThemeSystem.grey200,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            gift.icon,
-                            style: const TextStyle(fontSize: 32),
+                              ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                              : AppThemeSystem.grey100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark
+                                ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                                : AppThemeSystem.grey200,
                           ),
-                          const SizedBox(height: 4),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Pulse(
+                              duration: Duration(milliseconds: 2000 + (index * 200)),
+                              infinite: true,
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    ..._buildGiftSparkles(gift, index),
+                                    GiftIconImage(
+                                      imageUrl: gift.emojiImageUrl,
+                                      emojiIcon: gift.icon,
+                                      size: 32,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
                           Text(
                             gift.name,
                             style: context.textStyle(FontSizeType.caption).copyWith(
@@ -765,6 +788,7 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                   );
                 },
@@ -2167,5 +2191,53 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         );
       },
     );
+  }
+
+  /// Construit les étincelles (sparkles) autour du cadeau
+  List<Widget> _buildGiftSparkles(gift, int index) {
+    // Couleur des étincelles basée sur la couleur d'arrière-plan du cadeau
+    Color sparkleColor = AppThemeSystem.primaryColor;
+    try {
+      if (gift.backgroundColor != null && gift.backgroundColor.isNotEmpty) {
+        final bgColor = gift.backgroundColor.replaceAll('#', '');
+        sparkleColor = Color(int.parse('FF$bgColor', radix: 16));
+      }
+    } catch (_) {
+      // Si parsing échoue, utiliser la couleur par défaut
+    }
+
+    final random = Random(index);
+    const center = 20.0; // Centre du container (40/2)
+
+    return List.generate(4, (i) {
+      final angle = (i * pi / 2) + (random.nextDouble() * 0.5);
+      final distance = 22.0 + (random.nextDouble() * 6);
+      final size = 3.0 + (random.nextDouble() * 3);
+
+      return Positioned(
+        left: center + (cos(angle) * distance) - (size / 2),
+        top: center + (sin(angle) * distance) - (size / 2),
+        child: Flash(
+          duration: Duration(milliseconds: 1500 + (i * 300)),
+          infinite: true,
+          delay: Duration(milliseconds: i * 200),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: sparkleColor.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: sparkleColor.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 }

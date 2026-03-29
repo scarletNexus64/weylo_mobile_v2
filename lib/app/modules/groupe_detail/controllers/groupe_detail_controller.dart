@@ -690,6 +690,7 @@ class GroupeDetailController extends GetxController {
         'icon': gift.icon,
         'name': gift.name,
         'price': gift.price,
+        'emoji_image_url': gift.emojiImageUrl,
         'reply_to_message_id': replyToMessage.value!.id,
         'reply_to_content': replyToMessage.value!.content ?? '(Media)',
         'reply_to_sender': recipientName,
@@ -722,6 +723,7 @@ class GroupeDetailController extends GetxController {
         'icon': gift.icon,
         'name': gift.name,
         'price': gift.price,
+        'emoji_image_url': gift.emojiImageUrl,
       };
       isAnimatingGift.value = true;
 

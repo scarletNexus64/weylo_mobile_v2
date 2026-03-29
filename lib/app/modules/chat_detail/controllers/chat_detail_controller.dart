@@ -500,6 +500,7 @@ class ChatDetailController extends GetxController {
   }
 
   /// Envoyer un cadeau dans la conversation 1-on-1
+  /// Optimisé pour éviter les refreshs inutiles - le WebSocket gère tout !
   Future<void> sendGift(GiftModel gift) async {
     try {
       if (conversationId == null) {
@@ -509,15 +510,11 @@ class ChatDetailController extends GetxController {
 
       print('🎁 [ChatDetailController] Starting gift send process for ${gift.name}');
 
-      // Fermer le gift picker explicitement AVANT l'animation
+      // Fermer le gift picker explicitement
       showGiftPicker.value = false;
       print('✅ [ChatDetailController] Gift picker closed');
-      print('📊 [ChatDetailController] UI State BEFORE animation:');
-      print('   - showGiftPicker: ${showGiftPicker.value}');
-      print('   - isAnimatingGift: ${isAnimatingGift.value}');
-      print('   - animatedGift: ${animatedGift.value}');
 
-      // Animation du cadeau (en arrière-plan)
+      // Démarrer l'animation du cadeau
       animatedGift.value = {
         'icon': gift.icon,
         'name': gift.name,
@@ -525,60 +522,82 @@ class ChatDetailController extends GetxController {
       };
       isAnimatingGift.value = true;
       print('🎬 [ChatDetailController] Gift animation STARTED');
-      print('📊 [ChatDetailController] UI State AFTER animation start:');
-      print('   - showGiftPicker: ${showGiftPicker.value}');
-      print('   - isAnimatingGift: ${isAnimatingGift.value}');
-      print('   - animatedGift: ${animatedGift.value}');
 
-      // Lancer l'envoi au backend en parallèle de l'animation
+      // Lancer l'envoi au backend EN PARALLÈLE de l'animation
       final giftSendFuture = _giftService.sendGiftInConversation(
         conversationId: conversationId!,
         giftId: gift.id,
         message: null, // Optionnel: ajouter un message avec le cadeau
       );
 
-      // Attendre que l'animation se termine (1.4 secondes pour arrêter avant la fin)
-      // Cela évite que le widget reste visible avec opacity=0
-      print('⏳ [ChatDetailController] Waiting 1400ms for animation to complete...');
+      // Attendre que l'animation se termine (1.4 secondes)
+      print('⏳ [ChatDetailController] Playing gift animation...');
       await Future.delayed(const Duration(milliseconds: 1400));
 
-      // Arrêter l'animation (le TweenAnimationBuilder continue jusqu'à 1500ms mais sera retiré du tree)
-      print('🛑 [ChatDetailController] Stopping gift animation NOW');
+      // Arrêter l'animation
+      print('🛑 [ChatDetailController] Stopping gift animation');
       isAnimatingGift.value = false;
       animatedGift.value = null;
       print('✅ [ChatDetailController] Gift animation STOPPED');
-      print('📊 [ChatDetailController] UI State AFTER animation stop:');
-      print('   - showGiftPicker: ${showGiftPicker.value}');
-      print('   - isAnimatingGift: ${isAnimatingGift.value}');
-      print('   - animatedGift: ${animatedGift.value}');
-      print('🌈 [ChatDetailController] Background and icons should be FULLY VISIBLE now');
 
       // Attendre que le backend réponde
       print('⏳ [ChatDetailController] Waiting for backend response...');
       final transaction = await giftSendFuture;
       print('✅ [ChatDetailController] Gift sent successfully! Transaction ID: ${transaction.id}');
 
-      // Recharger les messages pour afficher le cadeau
-      await refreshMessages();
+      // ⚡ CRÉER LE MESSAGE LOCALEMENT pour l'émetteur
+      // Le WebSocket n'envoie le message qu'au récepteur (backend ligne 395)
+      // Donc l'émetteur doit créer son propre message localement
+      // IMPORTANT: Utiliser EXACTEMENT le même format que le backend !
+      final giftMessage = ChatMessageModel(
+        id: -transaction.id, // ID temporaire négatif pour éviter les conflits
+        conversationId: conversationId!,
+        senderId: currentUserId!,
+        sender: _authService.getCurrentUser(), // L'émetteur
+        content: transaction.message ?? 'Vous avez reçu un cadeau',
+        type: ChatMessageType.gift,
+        giftData: ChatGiftData(
+          id: transaction.gift.id,
+          name: transaction.gift.name,
+          icon: transaction.gift.icon,
+          emojiImageUrl: transaction.gift.emojiImageUrl,
+          price: transaction.gift.price,
+          formattedPrice: transaction.gift.formattedPrice,
+          tier: transaction.gift.tier,
+          tierColor: transaction.gift.tierColor,
+          backgroundColor: transaction.gift.backgroundColor,
+          description: transaction.gift.description,
+          isAnonymous: transaction.isAnonymous,
+        ),
+        metadata: {
+          'gift': true,
+          'icon': transaction.gift.icon,
+          'name': transaction.gift.name,
+          'price': transaction.amount,
+        },
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        isMine: true, // C'est mon message
+        isRead: true, // Mon propre message est déjà lu
+      );
 
-      // Invalider le cache après envoi
-      await _cacheService.invalidateConversationCache(conversationId!);
-      await _cacheService.invalidateAllConversationsCache();
-      print('🗑️ [ChatDetailController] Cache invalidé après envoi de cadeau');
+      print('🎁 [ChatDetailController] Created gift message with icon: ${transaction.gift.icon}');
+      print('🎁 [ChatDetailController] Gift data: ${transaction.gift.name} - ${transaction.gift.formattedPrice}');
 
-      // Rafraîchir la liste des conversations pour mettre à jour le preview
-      try {
-        final chatController = Get.find<ChatController>();
-        await chatController.refreshConversations();
-        print('✅ [ChatDetailController] Liste des conversations rafraîchie');
-      } catch (e) {
-        print('⚠️ [ChatDetailController] ChatController not found, skipping refresh: $e');
-      }
+      // Ajouter le message à la liste locale
+      messages.add(giftMessage);
+      print('✅ [ChatDetailController] Gift message added locally for sender');
 
-      // Auto-scroll vers le bas après le refresh
+      // Auto-scroll vers le bas pour voir le cadeau
       WidgetsBinding.instance.addPostFrameCallback((_) {
         scrollToBottom(animated: true);
       });
+
+      // Invalider le cache de manière légère (sans refresh immédiat)
+      // Le cache se re-remplira naturellement lors du prochain chargement
+      _cacheService.invalidateConversationCache(conversationId!);
+      _cacheService.invalidateAllConversationsCache();
+      print('🗑️ [ChatDetailController] Cache marqué comme invalide (pas de refresh)');
 
       // Notification de succès
       Get.snackbar(
@@ -589,6 +608,8 @@ class ChatDetailController extends GetxController {
         colorText: Colors.white,
         duration: const Duration(seconds: 2),
       );
+
+      print('🎉 [ChatDetailController] Gift send completed - Le message arrivera via WebSocket !');
     } catch (e) {
       print('❌ [ChatDetailController] Error sending gift: $e');
 
@@ -612,24 +633,13 @@ class ChatDetailController extends GetxController {
       );
     } finally {
       // S'assurer que l'animation et le gift picker sont toujours arrêtés
-      print('🧹 [ChatDetailController] FINALLY block - Cleanup starting');
-      print('📊 [ChatDetailController] UI State BEFORE cleanup:');
-      print('   - showGiftPicker: ${showGiftPicker.value}');
-      print('   - isAnimatingGift: ${isAnimatingGift.value}');
-      print('   - animatedGift: ${animatedGift.value}');
-
+      print('🧹 [ChatDetailController] FINALLY block - Cleanup');
       isAnimatingGift.value = false;
       animatedGift.value = null;
       if (showGiftPicker.value) {
         showGiftPicker.value = false;
       }
-
-      print('📊 [ChatDetailController] UI State AFTER cleanup:');
-      print('   - showGiftPicker: ${showGiftPicker.value}');
-      print('   - isAnimatingGift: ${isAnimatingGift.value}');
-      print('   - animatedGift: ${animatedGift.value}');
-      print('✅ [ChatDetailController] Gift send process cleanup completed');
-      print('🌈 [ChatDetailController] UI should be back to normal state');
+      print('✅ [ChatDetailController] Cleanup completed');
     }
   }
 

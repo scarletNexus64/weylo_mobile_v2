@@ -7,6 +7,7 @@ class ChatGiftData {
   final int? id;
   final String name;
   final String icon;
+  final String? emojiImageUrl; // URL de l'image Twemoji
   final String? animation;
   final int? price;
   final String? formattedPrice;
@@ -21,6 +22,7 @@ class ChatGiftData {
     this.id,
     required this.name,
     required this.icon,
+    this.emojiImageUrl,
     this.animation,
     this.price,
     this.formattedPrice,
@@ -37,6 +39,7 @@ class ChatGiftData {
       id: (json['id'] as num?)?.toInt(),
       name: json['name'] as String? ?? 'Cadeau',
       icon: json['icon'] as String? ?? '🎁',
+      emojiImageUrl: json['emoji_image_url'] as String?,
       animation: json['animation'] as String?,
       price: (json['price'] as num?)?.toInt(),
       formattedPrice: json['formatted_price'] as String?,
@@ -54,6 +57,7 @@ class ChatGiftData {
       'id': id,
       'name': name,
       'icon': icon,
+      'emoji_image_url': emojiImageUrl,
       'animation': animation,
       'price': price,
       'formatted_price': formattedPrice,

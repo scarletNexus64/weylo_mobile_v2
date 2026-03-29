@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/core/api_service.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
+import 'package:weylo/app/widgets/gift_icon_image.dart';
 
 import '../controllers/profile_controller.dart';
 import '../../home/controllers/home_controller.dart';
@@ -818,11 +819,10 @@ class _ProfileViewState extends State<ProfileView>
                 children: [
                   // Display gift icon (emoji)
                   Center(
-                    child: Text(
-                      gift.icon,
-                      style: const TextStyle(
-                        fontSize: 50,
-                      ),
+                    child: GiftIconImage(
+                      imageUrl: gift.emojiImageUrl,
+                      emojiIcon: gift.icon,
+                      size: 50,
                     ),
                   ),
 

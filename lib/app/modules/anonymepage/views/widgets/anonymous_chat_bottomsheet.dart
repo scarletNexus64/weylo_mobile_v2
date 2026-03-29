@@ -18,6 +18,7 @@ import '../../../../data/services/chat_service.dart';
 import '../../../../data/services/gift_service.dart';
 import '../../../../data/services/auth_service.dart';
 import '../../../../widgets/app_theme_system.dart';
+import '../../../../widgets/gift_icon_image.dart';
 import '../../../chat/controllers/chat_controller.dart';
 
 /// Bottom sheet pour répondre à un message anonyme
@@ -1740,9 +1741,10 @@ class _AnonymousChatBottomSheetState extends State<AnonymousChatBottomSheet>
                                 shape: BoxShape.circle,
                               ),
                               child: gift.icon.isNotEmpty
-                                  ? Text(
-                                      gift.icon,
-                                      style: TextStyle(fontSize: 28),
+                                  ? GiftIconImage(
+                                      imageUrl: gift.emojiImageUrl,
+                                      emojiIcon: gift.icon,
+                                      size: 28,
                                     )
                                   : Icon(
                                       Icons.card_giftcard,

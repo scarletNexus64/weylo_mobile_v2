@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:animate_do/animate_do.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
+import 'package:weylo/app/widgets/gift_icon_image.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import '../controllers/chat_detail_controller.dart';
 import 'widgets/chat_image_picker_bottom_sheet.dart';
@@ -287,11 +289,9 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
   Widget _buildSimpleBackground(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenSize = MediaQuery.of(context).size;
 
-    print('🎨 [SimpleBackground] Building with ${screenSize.width}x${screenSize.height}');
+    print('🎨 [SimpleBackground] Building with wallpaper image');
 
-    // Structure simple comme groupe_detail - PAS de RepaintBoundary
     return Positioned.fill(
       child: Container(
         decoration: BoxDecoration(
@@ -312,52 +312,14 @@ class ChatDetailView extends GetView<ChatDetailController> {
           ),
         ),
         child: IgnorePointer(
-          child: Stack(
-            children: [
-              // Quelques icônes fixes positionnées stratégiquement - opacity augmentée pour visibilité
-              _buildFixedIcon('💬', 0.1, 0.15, 40, 0.25, isDark, screenSize),
-              _buildFixedIcon('❤️', 0.85, 0.12, 35, 0.22, isDark, screenSize),
-              _buildFixedIcon('⭐', 0.2, 0.35, 32, 0.28, isDark, screenSize),
-              _buildFixedIcon('✨', 0.75, 0.28, 38, 0.24, isDark, screenSize),
-              _buildFixedIcon('🎁', 0.15, 0.55, 42, 0.26, isDark, screenSize),
-              _buildFixedIcon('😊', 0.9, 0.48, 36, 0.23, isDark, screenSize),
-              _buildFixedIcon('💕', 0.3, 0.72, 40, 0.25, isDark, screenSize),
-              _buildFixedIcon('🌹', 0.8, 0.68, 34, 0.27, isDark, screenSize),
-              _buildFixedIcon('☕', 0.12, 0.85, 38, 0.24, isDark, screenSize),
-              _buildFixedIcon('🎈', 0.7, 0.82, 36, 0.26, isDark, screenSize),
-              _buildFixedIcon('💫', 0.45, 0.25, 32, 0.22, isDark, screenSize),
-              _buildFixedIcon('🌟', 0.55, 0.6, 40, 0.25, isDark, screenSize),
-              _buildFixedIcon('💐', 0.35, 0.42, 38, 0.23, isDark, screenSize),
-              _buildFixedIcon('🎉', 0.65, 0.9, 35, 0.24, isDark, screenSize),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFixedIcon(
-    String icon,
-    double xPercent,
-    double yPercent,
-    double size,
-    double opacity,
-    bool isDark,
-    Size screenSize,
-  ) {
-    return Positioned(
-      left: screenSize.width * xPercent,
-      top: screenSize.height * yPercent,
-      child: Transform.rotate(
-        angle: (xPercent * 6.28).clamp(-0.3, 0.3), // Légère rotation basée sur la position
-        child: Text(
-          icon,
-          style: TextStyle(
-            fontSize: size,
-            color: isDark
-                ? Colors.white.withValues(alpha: opacity)
-                : Colors.black.withValues(alpha: opacity),
-            decoration: TextDecoration.none,
+          child: Opacity(
+            opacity: isDark ? 0.08 : 0.12,
+            child: Image.asset(
+              'assets/images/wallpaper.png',
+              fit: BoxFit.cover,
+              repeat: ImageRepeat.repeat,
+              colorBlendMode: BlendMode.overlay,
+            ),
           ),
         ),
       ),
@@ -780,22 +742,35 @@ class ChatDetailView extends GetView<ChatDetailController> {
         final gift = message.giftData;
         final metadata = message.metadata;
 
-        // Try giftData first (new format), fallback to metadata (old format)
-        final giftIcon = (gift?.icon.trim().isNotEmpty ?? false)
-            ? gift!.icon.trim()
-            : (metadata?['icon']?.toString().trim().isNotEmpty ?? false)
-                ? metadata!['icon'].toString().trim()
-                : '🎁';
+        // Extract icon (emoji) - Try giftData first, fallback to metadata
+        String giftIcon = '🎁'; // Valeur par défaut
 
-        final giftName = (gift?.name.trim().isNotEmpty ?? false)
-            ? gift!.name.trim()
-            : (metadata?['name']?.toString().trim().isNotEmpty ?? false)
-                ? metadata!['name'].toString().trim()
-                : 'Cadeau';
+        if (gift?.icon != null && gift!.icon.isNotEmpty) {
+          giftIcon = gift.icon;
+        } else if (metadata?['icon'] != null) {
+          final iconStr = metadata!['icon'].toString();
+          if (iconStr.isNotEmpty) {
+            giftIcon = iconStr;
+          }
+        }
+
+        String giftName = 'Cadeau'; // Valeur par défaut
+        if (gift?.name != null && gift!.name.isNotEmpty) {
+          giftName = gift.name;
+        } else if (metadata?['name'] != null) {
+          final nameStr = metadata!['name'].toString();
+          if (nameStr.isNotEmpty) {
+            giftName = nameStr;
+          }
+        }
 
         final giftPrice = gift?.formattedPrice
             ?? (gift?.price != null ? '${gift!.price} FCFA' : null)
             ?? (metadata?['price'] != null ? '${metadata!['price']} FCFA' : null);
+
+        // Debug: Afficher les valeurs extraites ET les codes de caractères
+        print('🎁 [ChatDetailView] Displaying gift - Icon: "$giftIcon", Name: "$giftName", Price: "$giftPrice"');
+        print('🔍 [ChatDetailView] Icon string length: ${giftIcon.length}, runes: ${giftIcon.runes.toList()}');
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -818,7 +793,18 @@ class ChatDetailView extends GetView<ChatDetailController> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(giftIcon, style: const TextStyle(fontSize: 34)),
+                  // Afficher l'emoji comme image Twemoji
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: GiftIconImage(
+                        imageUrl: gift?.emojiImageUrl,
+                        emojiIcon: giftIcon,
+                        size: 32,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Column(
@@ -1129,30 +1115,49 @@ class ChatDetailView extends GetView<ChatDetailController> {
                 itemBuilder: (context, index) {
                   final gift = filteredGifts[index];
 
-                  return GestureDetector(
-                    onTap: () {
-                      controller.sendGift(gift);
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppThemeSystem.grey800.withValues(alpha: 0.4)
-                            : AppThemeSystem.grey100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
+                  return FadeInUp(
+                    duration: const Duration(milliseconds: 300),
+                    delay: Duration(milliseconds: index * 50),
+                    child: GestureDetector(
+                      onTap: () {
+                        controller.sendGift(gift);
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
                           color: isDark
-                              ? AppThemeSystem.grey700.withValues(alpha: 0.5)
-                              : AppThemeSystem.grey200,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            gift.icon,
-                            style: const TextStyle(fontSize: 32),
+                              ? AppThemeSystem.grey800.withValues(alpha: 0.4)
+                              : AppThemeSystem.grey100,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark
+                                ? AppThemeSystem.grey700.withValues(alpha: 0.5)
+                                : AppThemeSystem.grey200,
                           ),
-                          const SizedBox(height: 4),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Pulse(
+                              duration: Duration(milliseconds: 2000 + (index * 200)),
+                              infinite: true,
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    ..._buildGiftSparkles(gift, index),
+                                    GiftIconImage(
+                                      imageUrl: gift.emojiImageUrl,
+                                      emojiIcon: gift.icon,
+                                      size: 32,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
                           Text(
                             gift.name,
                             style: context.textStyle(FontSizeType.caption).copyWith(
@@ -1186,6 +1191,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
                           ),
                         ],
                       ),
+                    ),
                     ),
                   );
                 },
@@ -2167,4 +2173,53 @@ class ChatDetailView extends GetView<ChatDetailController> {
       },
     );
   }
+
+  /// Construit les étincelles (sparkles) autour du cadeau
+  List<Widget> _buildGiftSparkles(gift, int index) {
+    // Couleur des étincelles basée sur la couleur d'arrière-plan du cadeau
+    Color sparkleColor = AppThemeSystem.primaryColor;
+    try {
+      if (gift.backgroundColor != null && gift.backgroundColor.isNotEmpty) {
+        final bgColor = gift.backgroundColor.replaceAll('#', '');
+        sparkleColor = Color(int.parse('FF$bgColor', radix: 16));
+      }
+    } catch (_) {
+      // Si parsing échoue, utiliser la couleur par défaut
+    }
+
+    final random = Random(index);
+    const center = 20.0; // Centre du container (40/2)
+
+    return List.generate(4, (i) {
+      final angle = (i * pi / 2) + (random.nextDouble() * 0.5);
+      final distance = 22.0 + (random.nextDouble() * 6);
+      final size = 3.0 + (random.nextDouble() * 3);
+
+      return Positioned(
+        left: center + (cos(angle) * distance) - (size / 2),
+        top: center + (sin(angle) * distance) - (size / 2),
+        child: Flash(
+          duration: Duration(milliseconds: 1500 + (i * 300)),
+          infinite: true,
+          delay: Duration(milliseconds: i * 200),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: sparkleColor.withValues(alpha: 0.6),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: sparkleColor.withValues(alpha: 0.4),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
 }

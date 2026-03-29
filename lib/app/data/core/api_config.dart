@@ -21,16 +21,16 @@ class ApiConfig {
   // 127.0.0.1 pour iOS Simulator
   // nonhedonic-slung-aura.ngrok-free.dev pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://10.255.74.28:8001/api/v1';
+  static const String baseUrl = 'http://10.195.115.28:8001/api/v1';
 
   // Anonymous link base URL (without trailing slash, will be appended with /username)
-  static const String anonymousLinkUrl = 'http://10.255.74.28:3000/u';
+  static const String anonymousLinkUrl = 'http://10.195.115.28:3000/u';
 
   // Anonymous link host (extracted from anonymousLinkUrl for deeplink validation)
-  static const String anonymousLinkHost = '10.255.74.28:3000';
+  static const String anonymousLinkHost = '10.195.115.28:3000';
 
   // WebSocket/Reverb configuration (Development)
-  static const String wsHost = '10.255.74.28';
+  static const String wsHost = '10.195.115.28';
   static const int wsPort = 8080;
   static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
   static const String wsAppId = 'Weylo-app';
