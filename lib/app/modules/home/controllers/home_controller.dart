@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 import 'package:weylo/app/modules/anonymepage/controllers/anonymepage_controller.dart';
 import 'package:weylo/app/modules/groupe/controllers/groupe_controller.dart';
+import 'package:weylo/app/modules/chat/controllers/chat_controller.dart';
 import 'package:weylo/app/data/services/realtime_service.dart';
 import 'package:weylo/app/data/services/group_service.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
@@ -24,6 +25,7 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   // Unread counts
   final groupsUnreadCount = 0.obs;
   final notificationsUnreadCount = 0.obs;
+  final activeStreaksCount = 0.obs;
 
   // Services
   final _groupService = GroupService();
@@ -490,6 +492,16 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
       final notificationsCount = await _notificationService.getUnreadCount();
       notificationsUnreadCount.value = notificationsCount;
       print('📊 [HOME_CONTROLLER] Notifications unread count: $notificationsCount');
+
+      // Récupérer le count des conversations avec streaks actifs
+      try {
+        final chatController = Get.find<ChatController>();
+        activeStreaksCount.value = chatController.activeStreaksCount;
+        print('🔥 [HOME_CONTROLLER] Active streaks count: ${activeStreaksCount.value}');
+      } catch (e) {
+        print('⚠️ [HOME_CONTROLLER] ChatController not found, streaks count: 0');
+        activeStreaksCount.value = 0;
+      }
     } catch (e) {
       print('❌ [HOME_CONTROLLER] Error loading notification counts: $e');
     }

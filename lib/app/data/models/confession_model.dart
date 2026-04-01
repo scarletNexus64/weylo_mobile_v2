@@ -28,6 +28,9 @@ class ConfessionModel {
   // Deletion status (for favorited confessions that have been deleted by author)
   final bool isDeleted;
 
+  // Is this confession mine? (to allow edit/delete even if anonymous)
+  final bool isMine;
+
   final DateTime createdAt;
 
   ConfessionModel({
@@ -51,6 +54,7 @@ class ConfessionModel {
     required this.commentsCount,
     required this.isLiked,
     this.isDeleted = false,
+    this.isMine = false,
     required this.createdAt,
   });
 
@@ -78,6 +82,7 @@ class ConfessionModel {
       commentsCount: json['comments_count'] as int? ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,
       isDeleted: json['is_deleted'] as bool? ?? false,
+      isMine: json['is_mine'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -104,6 +109,7 @@ class ConfessionModel {
       'comments_count': commentsCount,
       'is_liked': isLiked,
       'is_deleted': isDeleted,
+      'is_mine': isMine,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -115,6 +121,7 @@ class ConfessionModel {
     int? commentsCount,
     bool? isLiked,
     bool? isDeleted,
+    bool? isMine,
   }) {
     return ConfessionModel(
       id: id,
@@ -137,6 +144,7 @@ class ConfessionModel {
       commentsCount: commentsCount ?? this.commentsCount,
       isLiked: isLiked ?? this.isLiked,
       isDeleted: isDeleted ?? this.isDeleted,
+      isMine: isMine ?? this.isMine,
       createdAt: createdAt,
     );
   }

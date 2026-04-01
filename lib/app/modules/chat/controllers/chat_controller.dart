@@ -145,4 +145,9 @@ class ChatController extends GetxController {
   ConversationStoryStatus getStoryStatus(int? userId) {
     return _storyService?.getStoryStatus(userId) ?? ConversationStoryStatus.noStories();
   }
+
+  /// Get the count of conversations with active streaks
+  int get activeStreaksCount {
+    return conversations.where((c) => c.streak != null && c.streak!.hasStreak).length;
+  }
 }

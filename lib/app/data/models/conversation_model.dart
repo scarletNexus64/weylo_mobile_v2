@@ -1,6 +1,76 @@
 import 'user_model.dart';
 import 'chat_message_model.dart';
 
+/// Flame level enum matching backend
+enum FlameLevel {
+  none,
+  yellow,
+  orange,
+  purple;
+
+  static FlameLevel fromString(String? value) {
+    switch (value?.toLowerCase()) {
+      case 'yellow':
+        return FlameLevel.yellow;
+      case 'orange':
+        return FlameLevel.orange;
+      case 'purple':
+        return FlameLevel.purple;
+      default:
+        return FlameLevel.none;
+    }
+  }
+}
+
+/// Streak data for a conversation
+class StreakData {
+  final int count;
+  final FlameLevel flameLevel;
+  final DateTime? streakUpdatedAt;
+
+  StreakData({
+    required this.count,
+    required this.flameLevel,
+    this.streakUpdatedAt,
+  });
+
+  factory StreakData.fromJson(Map<String, dynamic> json) {
+    return StreakData(
+      count: json['count'] ?? 0,
+      flameLevel: FlameLevel.fromString(json['flame_level']),
+      streakUpdatedAt: json['streak_updated_at'] != null
+          ? DateTime.parse(json['streak_updated_at'])
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'count': count,
+      'flame_level': flameLevel.name,
+      'streak_updated_at': streakUpdatedAt?.toIso8601String(),
+    };
+  }
+
+  bool get hasStreak => count > 0;
+
+  /// Calculate progress to next level (0.0 to 1.0)
+  double get progressToNextLevel {
+    if (count >= 30) return 1.0; // Max level reached
+    if (count >= 7) return (count - 7) / 23.0; // Progress to purple (7-30)
+    if (count >= 2) return (count - 2) / 5.0; // Progress to orange (2-7)
+    return count / 2.0; // Progress to yellow (0-2)
+  }
+
+  /// Get the next milestone
+  int get nextMilestone {
+    if (count >= 30) return 30;
+    if (count >= 7) return 30;
+    if (count >= 2) return 7;
+    return 2;
+  }
+}
+
 class ConversationModel {
   final int id;
   final int? participantOneId;
@@ -16,6 +86,7 @@ class ConversationModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final DateTime? lastMessageAt;
+  final StreakData? streak;
 
   ConversationModel({
     required this.id,
@@ -32,6 +103,7 @@ class ConversationModel {
     required this.createdAt,
     this.updatedAt,
     this.lastMessageAt,
+    this.streak,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +130,9 @@ class ConversationModel {
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.parse(json['last_message_at'])
           : null,
+      streak: json['streak'] != null
+          ? StreakData.fromJson(json['streak'])
+          : null,
     );
   }
 
@@ -77,6 +152,7 @@ class ConversationModel {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'last_message_at': lastMessageAt?.toIso8601String(),
+      'streak': streak?.toJson(),
     };
   }
 }

@@ -151,13 +151,18 @@ class ChatDetailView extends GetView<ChatDetailController> {
             CircleAvatar(
               radius: 20,
               backgroundColor: AppThemeSystem.primaryColor,
-              child: Text(
-                controller.displayInitial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundImage: controller.displayAvatarUrl != null
+                  ? NetworkImage(controller.displayAvatarUrl!)
+                  : null,
+              child: controller.displayAvatarUrl == null
+                  ? Text(
+                      controller.displayInitial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -245,12 +250,79 @@ class ChatDetailView extends GetView<ChatDetailController> {
               Expanded(
                 child: Obx(() {
                   print('📱 [ListView] Building message list - ${controller.messages.length} messages');
+
+                  // Afficher le loader pendant le chargement initial
+                  if (controller.isLoading.value && controller.messages.isEmpty) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppThemeSystem.primaryColor,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Afficher un message si aucun message
+                  if (controller.messages.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 64,
+                            color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey400,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Aucun message',
+                            style: context.textStyle(FontSizeType.h3).copyWith(
+                              color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Commencez la conversation !',
+                            style: context.textStyle(FontSizeType.body2).copyWith(
+                              color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   return ListView.builder(
                     controller: controller.scrollController,
                     padding: EdgeInsets.all(context.elementSpacing),
-                    itemCount: controller.messages.length,
+                    itemCount: controller.messages.length + (controller.isLoadingMore.value ? 1 : 0),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    addAutomaticKeepAlives: true,
+                    addRepaintBoundaries: true,
+                    cacheExtent: 500, // Pré-cache les items pour un scroll fluide
                     itemBuilder: (context, index) {
-                      final message = controller.messages[index];
+                      // Afficher un loader en haut lors du chargement de plus de messages
+                      if (index == 0 && controller.isLoadingMore.value) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppThemeSystem.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Ajuster l'index si on affiche le loader
+                      final messageIndex = controller.isLoadingMore.value ? index - 1 : index;
+                      final message = controller.messages[messageIndex];
                       return _buildMessageBubble(context, message, isDark);
                     },
                   );

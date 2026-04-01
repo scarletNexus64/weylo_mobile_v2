@@ -85,7 +85,7 @@ class HomeView extends GetView<HomeController> {
                           SizedBox(width: context.elementSpacing * 0.5),
 
                           // Flame icon animée avec badge
-                          _buildIconButtonWithBadge(
+                          Obx(() => _buildIconButtonWithBadge(
                             context: context,
                             icon: SizedBox(
                               width: deviceType == DeviceType.mobile ? 28 : 34,
@@ -97,18 +97,23 @@ class HomeView extends GetView<HomeController> {
                                 filterQuality: FilterQuality.high,
                               ),
                             ),
-                            badgeCount: '5',
+                            badgeCount: controller.activeStreaksCount.value > 0
+                                ? '${controller.activeStreaksCount.value}'
+                                : null,
                             badgeColor: const LinearGradient(
                               colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
                             ),
                             onPressed: () {
+                              final count = controller.activeStreaksCount.value;
                               Get.snackbar(
                                 'Flammes',
-                                'Vous avez 5 conversations actives',
+                                count > 0
+                                    ? 'Vous avez $count conversation${count > 1 ? 's' : ''} avec streak actif'
+                                    : 'Aucune conversation avec streak actif',
                                 snackPosition: SnackPosition.BOTTOM,
                               );
                             },
-                          ),
+                          )),
 
                           SizedBox(width: context.elementSpacing * 0.5),
 

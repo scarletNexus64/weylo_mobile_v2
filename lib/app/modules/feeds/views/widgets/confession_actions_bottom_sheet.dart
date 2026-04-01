@@ -5,7 +5,6 @@ import 'package:weylo/app/routes/app_pages.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
-import 'package:weylo/app/data/services/storage_service.dart';
 import 'package:weylo/app/modules/feeds/controllers/feeds_controller.dart';
 
 class ConfessionActionsBottomSheet extends StatelessWidget {
@@ -28,14 +27,10 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final deviceType = context.deviceType;
-    final storageService = StorageService();
-    final currentUser = storageService.getUser();
 
     // Check if this confession belongs to the current user
-    final isMyPost =
-        confession.author != null &&
-        currentUser != null &&
-        confession.author!.id == currentUser.id;
+    // Utiliser confession.isMine du backend qui fonctionne même pour les posts anonymes
+    final isMyPost = confession.isMine;
 
     return Container(
       decoration: BoxDecoration(
@@ -176,36 +171,6 @@ class ConfessionActionsBottomSheet extends StatelessWidget {
         },
       ),
     ];
-
-    // Add reveal identity option only for anonymous posts
-    // if (!confession.isIdentityRevealed) {
-    //   // Récupérer le statut premium depuis le controller
-    //   final controller = Get.find<ConfessionsController>();
-    //   final isPremium = controller.isPremium.value;
-
-    //   actions.insert(
-    //     1,
-    //     _buildActionTile(
-    //       context: context,
-    //       icon: Icons.visibility_outlined,
-    //       label: 'Dévoiler l\'auteur',
-    //       isDark: isDark,
-    //       deviceType: deviceType,
-    //       onTap: () {
-    //         if (!isPremium) {
-    //           // Si non premium, rediriger vers la page de certification
-    //           Get.back();
-    //           Get.toNamed(Routes.CERTIFICATION);
-    //         } else {
-    //           // Si premium, dévoiler l'identité directement
-    //           Get.back();
-    //           _handleRevealIdentity(context);
-    //         }
-    //       },
-    //     ),
-    //   );
-    // }
-
     return actions;
   }
 

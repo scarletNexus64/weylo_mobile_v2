@@ -10,6 +10,7 @@ import 'widgets/confession_shimmer_loader.dart';
 import 'widgets/feed_video_player.dart';
 import 'widgets/confession_actions_bottom_sheet.dart';
 import 'widgets/sponsored_ads_carousel.dart';
+import 'widgets/contact_sync_card.dart';
 import 'image_viewer_page.dart';
 
 class ConfessionsView extends StatefulWidget {
@@ -21,7 +22,6 @@ class ConfessionsView extends StatefulWidget {
 
 class _ConfessionsViewState extends State<ConfessionsView>
     with AutomaticKeepAliveClientMixin<ConfessionsView> {
-
   @override
   bool get wantKeepAlive => true;
 
@@ -54,7 +54,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
             final offset = controller.scrollController.offset;
             print('✅ [FEEDS_VIEW] initState() - Scroll OK, offset: $offset');
           } else {
-            print('⚠️ [FEEDS_VIEW] initState() - Scroll n\'a pas encore de clients');
+            print(
+              '⚠️ [FEEDS_VIEW] initState() - Scroll n\'a pas encore de clients',
+            );
           }
         } catch (e) {
           print('❌ [FEEDS_VIEW] initState() - Erreur: $e');
@@ -66,7 +68,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('🔄 [FEEDS_VIEW] didChangeDependencies() - Retour au tab Confessions');
+    print(
+      '🔄 [FEEDS_VIEW] didChangeDependencies() - Retour au tab Confessions',
+    );
     // Vérifier le scroll quand les dépendances changent (retour au tab)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -93,7 +97,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
 
           _checkAndFixScroll();
         } catch (e) {
-          print('⚠️ [FEEDS] Erreur lors de la vérification initiale du scroll: $e');
+          print(
+            '⚠️ [FEEDS] Erreur lors de la vérification initiale du scroll: $e',
+          );
         }
       }
 
@@ -118,7 +124,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
 
       // Toujours réinitialiser le scroll à 0 quand on revient au tab
       if (offset != 0) {
-        print('🚨 [FEEDS] Scroll décalé détecté (offset: $offset, limites: [$minExtent, $maxExtent])');
+        print(
+          '🚨 [FEEDS] Scroll décalé détecté (offset: $offset, limites: [$minExtent, $maxExtent])',
+        );
 
         // Utiliser animateTo si le décalage est petit, sinon jumpTo
         if (offset < 100 && offset > 0) {
@@ -171,19 +179,22 @@ class _ConfessionsViewState extends State<ConfessionsView>
               !controller.isRefreshing.value &&
               scrollInfo.metrics.hasContentDimensions &&
               scrollInfo.metrics.maxScrollExtent > 0) {
-
             final pixels = scrollInfo.metrics.pixels;
             final maxExtent = scrollInfo.metrics.maxScrollExtent;
 
             // CRITIQUE: Vérifier que le scroll n'est pas dans un état invalide
             if (pixels < 0 || pixels > maxExtent * 2) {
-              print('⚠️ [SCROLL] Scroll invalide détecté: $pixels/$maxExtent - IGNORÉ');
+              print(
+                '⚠️ [SCROLL] Scroll invalide détecté: $pixels/$maxExtent - IGNORÉ',
+              );
               return false;
             }
 
             // Charger plus de confessions quand on atteint 80% du scroll
             if (pixels >= maxExtent * 0.8) {
-              print('📜 [SCROLL] Scroll à ${pixels.toStringAsFixed(0)}/${maxExtent.toStringAsFixed(0)}');
+              print(
+                '📜 [SCROLL] Scroll à ${pixels.toStringAsFixed(0)}/${maxExtent.toStringAsFixed(0)}',
+              );
 
               // CRITIQUE: Charger APRÈS le frame actuel pour éviter "Build scheduled during frame"
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -201,31 +212,44 @@ class _ConfessionsViewState extends State<ConfessionsView>
         child: CustomScrollView(
           key: const PageStorageKey<String>('confessions_scroll'),
           controller: controller.scrollController,
-          primary: false, // IMPORTANT: Ne pas se coordonner avec NestedScrollView parent
+          primary:
+              false, // IMPORTANT: Ne pas se coordonner avec NestedScrollView parent
           physics: const AlwaysScrollableScrollPhysics(),
           cacheExtent: 1000, // Précharger pour éviter les rebuilds
           slivers: [
             // Create Post Button
-            SliverToBoxAdapter(
-              child: _buildCreatePostButton(context),
-            ),
+            SliverToBoxAdapter(child: _buildCreatePostButton(context)),
 
             // Stories Vertical Bar (Facebook style)
-            const SliverToBoxAdapter(
-              child: StoriesVerticalBar(),
-            ),
+            const SliverToBoxAdapter(child: StoriesVerticalBar()),
+
+            // Contact Sync Card (if not synced yet)
+            Obx(() {
+              if (!controller.hasSyncedContacts.value) {
+                return SliverToBoxAdapter(
+                  child: ContactSyncCard(
+                    onSyncTap: () {
+                      controller.syncContacts();
+                    },
+                  ),
+                );
+              }
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            }),
 
             // Feed Content
             Obx(() {
               // Premier chargement: afficher shimmer
-              if (controller.isLoading.value && controller.confessions.isEmpty) {
+              if (controller.isLoading.value &&
+                  controller.confessions.isEmpty) {
                 return SliverToBoxAdapter(
                   child: ConfessionShimmerLoader(itemCount: 3),
                 );
               }
 
               // Aucune confession et pas de chargement: état vide
-              if (controller.confessions.isEmpty && !controller.isLoading.value) {
+              if (controller.confessions.isEmpty &&
+                  !controller.isLoading.value) {
                 return SliverFillRemaining(
                   hasScrollBody: false,
                   child: _buildEmptyState(context),
@@ -237,66 +261,80 @@ class _ConfessionsViewState extends State<ConfessionsView>
               final hasAds = controller.sponsoredAds.isNotEmpty;
               final combinedCount = hasAds
                   ? (controller.confessions.length +
-                      (controller.confessions.length ~/ confessionsBetweenAds))
+                        (controller.confessions.length ~/
+                            confessionsBetweenAds))
                   : controller.feedItems.length;
 
               return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    bool isAdSlot(int i) {
-                      if (!hasAds) return false;
-                      if (i <= 0) return false;
-                      return i % (confessionsBetweenAds + 1) == confessionsBetweenAds;
-                    }
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  bool isAdSlot(int i) {
+                    if (!hasAds) return false;
+                    if (i <= 0) return false;
+                    return i % (confessionsBetweenAds + 1) ==
+                        confessionsBetweenAds;
+                  }
 
-                    if (isAdSlot(index)) {
-                      final ads = controller.sponsoredAds;
-                      const perCarousel = 5;
-                      final slotNumber = index ~/ (confessionsBetweenAds + 1);
-                      final start = ads.isEmpty ? 0 : (slotNumber * perCarousel) % ads.length;
-                      final count = ads.length < perCarousel ? ads.length : perCarousel;
-                      final adsForSlot = List.generate(count, (i) => ads[(start + i) % ads.length]);
+                  if (isAdSlot(index)) {
+                    final ads = controller.sponsoredAds;
+                    const perCarousel = 5;
+                    final slotNumber = index ~/ (confessionsBetweenAds + 1);
+                    final start = ads.isEmpty
+                        ? 0
+                        : (slotNumber * perCarousel) % ads.length;
+                    final count = ads.length < perCarousel
+                        ? ads.length
+                        : perCarousel;
+                    final adsForSlot = List.generate(
+                      count,
+                      (i) => ads[(start + i) % ads.length],
+                    );
 
-                      return SponsoredAdsCarousel(
-                        ads: adsForSlot,
-                        onImpression: controller.trackAdImpression,
-                      );
-                    }
+                    return SponsoredAdsCarousel(
+                      ads: adsForSlot,
+                      onImpression: controller.trackAdImpression,
+                    );
+                  }
 
-                    final adsBefore = hasAds ? (index ~/ (confessionsBetweenAds + 1)) : 0;
-                    final confessionIndex = index - adsBefore;
-                    final confession = controller.confessions[confessionIndex];
-                    final item = controller.feedItems[confessionIndex];
-                    final confessionKey = controller.getConfessionKey(confession.id);
+                  final adsBefore = hasAds
+                      ? (index ~/ (confessionsBetweenAds + 1))
+                      : 0;
+                  final confessionIndex = index - adsBefore;
+                  final confession = controller.confessions[confessionIndex];
+                  final item = controller.feedItems[confessionIndex];
+                  final confessionKey = controller.getConfessionKey(
+                    confession.id,
+                  );
 
-                    return Obx(() {
-                      final isHighlighted = controller.highlightedConfessionId.value == confession.id;
+                  return Obx(() {
+                    final isHighlighted =
+                        controller.highlightedConfessionId.value ==
+                        confession.id;
 
-                      return Container(
-                        key: confessionKey,
-                        decoration: BoxDecoration(
-                          border: isHighlighted
-                              ? Border.all(
-                                  color: AppThemeSystem.primaryColor,
-                                  width: 3,
-                                )
-                              : null,
-                          boxShadow: isHighlighted
-                              ? [
-                                  BoxShadow(
-                                    color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
-                                    blurRadius: 12,
-                                    spreadRadius: 2,
+                    return Container(
+                      key: confessionKey,
+                      decoration: BoxDecoration(
+                        border: isHighlighted
+                            ? Border.all(
+                                color: AppThemeSystem.primaryColor,
+                                width: 3,
+                              )
+                            : null,
+                        boxShadow: isHighlighted
+                            ? [
+                                BoxShadow(
+                                  color: AppThemeSystem.primaryColor.withValues(
+                                    alpha: 0.3,
                                   ),
-                                ]
-                              : null,
-                        ),
-                        child: _buildPostCard(context, item),
-                      );
-                    });
-                  },
-                  childCount: combinedCount,
-                ),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: _buildPostCard(context, item),
+                    );
+                  });
+                }, childCount: combinedCount),
               );
             }),
 
@@ -364,19 +402,38 @@ class _ConfessionsViewState extends State<ConfessionsView>
           itemBuilder: (context, index) {
             // First item: Create Story
             if (index == 0) {
-              return _buildCreateStoryCard(context, storyWidth, storyHeight, isDark, deviceType);
+              return _buildCreateStoryCard(
+                context,
+                storyWidth,
+                storyHeight,
+                isDark,
+                deviceType,
+              );
             }
 
             // Regular stories
             final story = controller.stories[index - 1];
-            return _buildStoryCard(context, story, storyWidth, storyHeight, isDark, deviceType);
+            return _buildStoryCard(
+              context,
+              story,
+              storyWidth,
+              storyHeight,
+              isDark,
+              deviceType,
+            );
           },
         );
       }),
     );
   }
 
-  Widget _buildCreateStoryCard(BuildContext context, double width, double height, bool isDark, DeviceType deviceType) {
+  Widget _buildCreateStoryCard(
+    BuildContext context,
+    double width,
+    double height,
+    bool isDark,
+    DeviceType deviceType,
+  ) {
     return Container(
       width: width,
       height: height,
@@ -415,7 +472,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
             right: 0,
             child: Center(
               child: Container(
-                padding: EdgeInsets.all(deviceType == DeviceType.mobile ? 8 : 10),
+                padding: EdgeInsets.all(
+                  deviceType == DeviceType.mobile ? 8 : 10,
+                ),
                 decoration: BoxDecoration(
                   color: AppThemeSystem.primaryColor,
                   shape: BoxShape.circle,
@@ -440,7 +499,14 @@ class _ConfessionsViewState extends State<ConfessionsView>
     );
   }
 
-  Widget _buildStoryCard(BuildContext context, Map<String, dynamic> story, double width, double height, bool isDark, DeviceType deviceType) {
+  Widget _buildStoryCard(
+    BuildContext context,
+    Map<String, dynamic> story,
+    double width,
+    double height,
+    bool isDark,
+    DeviceType deviceType,
+  ) {
     final isViewed = story['isViewed'] as bool;
 
     return Container(
@@ -482,21 +548,31 @@ class _ConfessionsViewState extends State<ConfessionsView>
                         }
                         // Shimmer pendant le chargement
                         return Shimmer.fromColors(
-                          baseColor: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
-                          highlightColor: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200,
+                          baseColor: isDark
+                              ? AppThemeSystem.grey800
+                              : AppThemeSystem.grey300,
+                          highlightColor: isDark
+                              ? AppThemeSystem.grey700
+                              : AppThemeSystem.grey200,
                           child: Container(
-                            color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
+                            color: isDark
+                                ? AppThemeSystem.grey800
+                                : AppThemeSystem.grey300,
                           ),
                         );
                       },
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey300,
+                          color: isDark
+                              ? AppThemeSystem.grey800
+                              : AppThemeSystem.grey300,
                           child: Center(
                             child: Icon(
                               Icons.image_rounded,
                               size: 40,
-                              color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey500,
+                              color: isDark
+                                  ? AppThemeSystem.grey600
+                                  : AppThemeSystem.grey500,
                             ),
                           ),
                         );
@@ -506,7 +582,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
                       child: Icon(
                         Icons.image_rounded,
                         size: 40,
-                        color: isDark ? AppThemeSystem.grey600 : AppThemeSystem.grey500,
+                        color: isDark
+                            ? AppThemeSystem.grey600
+                            : AppThemeSystem.grey500,
                       ),
                     ),
             ),
@@ -521,7 +599,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isViewed ? AppThemeSystem.grey500 : AppThemeSystem.primaryColor,
+                  color: isViewed
+                      ? AppThemeSystem.grey500
+                      : AppThemeSystem.primaryColor,
                   width: 2.5,
                 ),
                 color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
@@ -540,16 +620,18 @@ class _ConfessionsViewState extends State<ConfessionsView>
             right: 10,
             child: Text(
               story['username'] as String,
-              style: context.textStyle(FontSizeType.caption).copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.8),
-                    blurRadius: 6,
+              style: context
+                  .textStyle(FontSizeType.caption)
+                  .copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        blurRadius: 6,
+                      ),
+                    ],
                   ),
-                ],
-              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -578,17 +660,25 @@ class _ConfessionsViewState extends State<ConfessionsView>
             SizedBox(height: context.elementSpacing * 1.5),
             Text(
               'Aucune confession',
-              style: context.textStyle(FontSizeType.h5).copyWith(
-                fontWeight: FontWeight.w600,
-                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-              ),
+              style: context
+                  .textStyle(FontSizeType.h5)
+                  .copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppThemeSystem.grey400
+                        : AppThemeSystem.grey600,
+                  ),
             ),
             SizedBox(height: context.elementSpacing * 0.5),
             Text(
               'Soyez le premier à partager une confession',
-              style: context.textStyle(FontSizeType.body2).copyWith(
-                color: isDark ? AppThemeSystem.grey500 : AppThemeSystem.grey600,
-              ),
+              style: context
+                  .textStyle(FontSizeType.body2)
+                  .copyWith(
+                    color: isDark
+                        ? AppThemeSystem.grey500
+                        : AppThemeSystem.grey600,
+                  ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: context.elementSpacing * 2),
@@ -605,17 +695,19 @@ class _ConfessionsViewState extends State<ConfessionsView>
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(
-                    AppThemeSystem.getBorderRadius(context, BorderRadiusType.medium),
+                    AppThemeSystem.getBorderRadius(
+                      context,
+                      BorderRadiusType.medium,
+                    ),
                   ),
                 ),
               ),
               icon: const Icon(Icons.add_rounded),
               label: Text(
                 'Créer une confession',
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+                style: context
+                    .textStyle(FontSizeType.body1)
+                    .copyWith(fontWeight: FontWeight.w600, color: Colors.white),
               ),
             ),
           ],
@@ -630,9 +722,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
     final deviceType = context.deviceType;
 
     return Container(
-      margin: EdgeInsets.only(
-        bottom: context.elementSpacing * 0.5,
-      ),
+      margin: EdgeInsets.only(bottom: context.elementSpacing * 0.5),
       padding: EdgeInsets.all(context.elementSpacing),
       decoration: BoxDecoration(
         color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
@@ -688,9 +778,13 @@ class _ConfessionsViewState extends State<ConfessionsView>
                 ),
                 child: Text(
                   'Quoi de neuf ?',
-                  style: context.textStyle(FontSizeType.body2).copyWith(
-                    color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                  ),
+                  style: context
+                      .textStyle(FontSizeType.body2)
+                      .copyWith(
+                        color: isDark
+                            ? AppThemeSystem.grey400
+                            : AppThemeSystem.grey600,
+                      ),
                 ),
               ),
             ),
@@ -734,9 +828,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
     );
 
     return Container(
-      margin: EdgeInsets.only(
-        bottom: context.elementSpacing * 1.2,
-      ),
+      margin: EdgeInsets.only(bottom: context.elementSpacing * 1.2),
       decoration: BoxDecoration(
         color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
         border: Border(
@@ -774,10 +866,14 @@ class _ConfessionsViewState extends State<ConfessionsView>
                         children: [
                           Text(
                             post['username'] as String,
-                            style: context.textStyle(FontSizeType.body1).copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : AppThemeSystem.blackColor,
-                            ),
+                            style: context
+                                .textStyle(FontSizeType.body1)
+                                .copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? Colors.white
+                                      : AppThemeSystem.blackColor,
+                                ),
                           ),
                           if (post['isVerified'] == true) ...[
                             const SizedBox(width: 4),
@@ -792,9 +888,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
                       const SizedBox(height: 2),
                       Text(
                         _getTimeAgo(post['timestamp'] as DateTime),
-                        style: context.textStyle(FontSizeType.caption).copyWith(
-                          color: AppThemeSystem.grey600,
-                        ),
+                        style: context
+                            .textStyle(FontSizeType.caption)
+                            .copyWith(color: AppThemeSystem.grey600),
                       ),
                     ],
                   ),
@@ -803,7 +899,9 @@ class _ConfessionsViewState extends State<ConfessionsView>
                 IconButton(
                   icon: Icon(
                     Icons.more_horiz_rounded,
-                    color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                    color: isDark
+                        ? AppThemeSystem.grey400
+                        : AppThemeSystem.grey600,
                   ),
                   onPressed: () {
                     if (confession != null) {
@@ -852,10 +950,14 @@ class _ConfessionsViewState extends State<ConfessionsView>
               padding: EdgeInsets.all(context.elementSpacing),
               child: Text(
                 post['content'] as String,
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  color: isDark ? AppThemeSystem.grey200 : AppThemeSystem.grey900,
-                  height: 1.5,
-                ),
+                style: context
+                    .textStyle(FontSizeType.body1)
+                    .copyWith(
+                      color: isDark
+                          ? AppThemeSystem.grey200
+                          : AppThemeSystem.grey900,
+                      height: 1.5,
+                    ),
               ),
             ),
 
@@ -882,9 +984,13 @@ class _ConfessionsViewState extends State<ConfessionsView>
                     const SizedBox(width: 4),
                     Text(
                       '${post['reactions'] ?? 0}',
-                      style: context.textStyle(FontSizeType.caption).copyWith(
-                        color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                      ),
+                      style: context
+                          .textStyle(FontSizeType.caption)
+                          .copyWith(
+                            color: isDark
+                                ? AppThemeSystem.grey400
+                                : AppThemeSystem.grey600,
+                          ),
                     ),
                   ],
                 ),
@@ -892,9 +998,13 @@ class _ConfessionsViewState extends State<ConfessionsView>
                 // Comments count
                 Text(
                   '${post['comments'] ?? 0} commentaires',
-                  style: context.textStyle(FontSizeType.caption).copyWith(
-                    color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                  ),
+                  style: context
+                      .textStyle(FontSizeType.caption)
+                      .copyWith(
+                        color: isDark
+                            ? AppThemeSystem.grey400
+                            : AppThemeSystem.grey600,
+                      ),
                 ),
               ],
             ),
@@ -915,11 +1025,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
             ),
             child: Row(
               children: [
-                _buildLikeButton(
-                  context: context,
-                  post: post,
-                  isDark: isDark,
-                ),
+                _buildLikeButton(context: context, post: post, isDark: isDark),
                 _buildPostActionButton(
                   context: context,
                   icon: Icons.chat_bubble_outline_rounded,
@@ -961,10 +1067,7 @@ class _ConfessionsViewState extends State<ConfessionsView>
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 transitionBuilder: (child, animation) {
-                  return ScaleTransition(
-                    scale: animation,
-                    child: child,
-                  );
+                  return ScaleTransition(scale: animation, child: child);
                 },
                 child: Icon(
                   isLiked ? Icons.favorite : Icons.favorite_border_rounded,
@@ -972,18 +1075,24 @@ class _ConfessionsViewState extends State<ConfessionsView>
                   size: 20,
                   color: isLiked
                       ? AppThemeSystem.errorColor
-                      : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600),
+                      : (isDark
+                            ? AppThemeSystem.grey400
+                            : AppThemeSystem.grey600),
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 'J\'aime',
-                style: context.textStyle(FontSizeType.body2).copyWith(
-                  color: isLiked
-                      ? AppThemeSystem.errorColor
-                      : (isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600),
-                  fontWeight: FontWeight.w500,
-                ),
+                style: context
+                    .textStyle(FontSizeType.body2)
+                    .copyWith(
+                      color: isLiked
+                          ? AppThemeSystem.errorColor
+                          : (isDark
+                                ? AppThemeSystem.grey400
+                                : AppThemeSystem.grey600),
+                      fontWeight: FontWeight.w500,
+                    ),
               ),
             ],
           ),
@@ -1016,10 +1125,14 @@ class _ConfessionsViewState extends State<ConfessionsView>
               const SizedBox(width: 6),
               Text(
                 label,
-                style: context.textStyle(FontSizeType.body2).copyWith(
-                  color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: context
+                    .textStyle(FontSizeType.body2)
+                    .copyWith(
+                      color: isDark
+                          ? AppThemeSystem.grey400
+                          : AppThemeSystem.grey600,
+                      fontWeight: FontWeight.w500,
+                    ),
               ),
             ],
           ),

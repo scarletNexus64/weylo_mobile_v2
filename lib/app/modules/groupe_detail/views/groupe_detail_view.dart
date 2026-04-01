@@ -280,16 +280,41 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                // Sender name for group messages (only for received messages)
+                // Sender avatar and name for group messages (only for received messages)
                 if (!isSentByMe)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4, left: 12, right: 12),
-                    child: Text(
-                      senderName,
-                      style: context.textStyle(FontSizeType.caption).copyWith(
-                        color: AppThemeSystem.tertiaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    padding: const EdgeInsets.only(bottom: 4, left: 4, right: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Avatar de l'expéditeur
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: AppThemeSystem.tertiaryColor,
+                          backgroundImage: message.sender?.avatarUrl != null
+                              ? NetworkImage(message.sender!.avatarUrl!)
+                              : null,
+                          child: message.sender?.avatarUrl == null
+                              ? Text(
+                                  message.sender?.firstName[0].toUpperCase() ?? '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 6),
+                        // Nom de l'expéditeur
+                        Text(
+                          senderName,
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: AppThemeSystem.tertiaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 

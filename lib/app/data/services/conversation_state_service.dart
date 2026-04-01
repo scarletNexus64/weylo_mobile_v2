@@ -309,6 +309,7 @@ class ConversationStateService extends GetxService {
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
         lastMessageAt: DateTime.now(),
+        streak: conversation.streak, // Preserve streak data
       );
 
       // Retirer de l'ancienne position
@@ -379,6 +380,7 @@ class ConversationStateService extends GetxService {
         createdAt: conversation.createdAt,
         updatedAt: conversation.updatedAt,
         lastMessageAt: conversation.lastMessageAt,
+        streak: conversation.streak, // Preserve streak data
       );
 
       // Remplacer dans la liste

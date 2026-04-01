@@ -71,5 +71,9 @@
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Weylo a besoin d'accéder à vos photos pour créer des stories</string>
 
+    <!-- Permission pour accès aux contacts -->
+    <key>NSContactsUsageDescription</key>
+    <string>Weylo a besoin d'accéder à vos contacts pour vous suggérer des amis sur l'application</string>
+
   </dict>
 </plist>

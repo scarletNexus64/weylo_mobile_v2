@@ -4,6 +4,7 @@ import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
 import 'package:weylo/app/widgets/story_status_border.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
+import 'package:weylo/app/data/models/conversation_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/modules/feeds/controllers/story_controller.dart';
 import 'package:weylo/app/modules/feeds/views/story_viewer.dart';
@@ -11,6 +12,7 @@ import 'package:weylo/app/modules/feeds/views/story_viewer.dart';
 import '../controllers/chat_controller.dart';
 import '../../chat_detail/views/chat_detail_view.dart';
 import '../../chat_detail/bindings/chat_detail_binding.dart';
+import 'widgets/flame_indicator.dart';
 
 class ChatView extends GetView<ChatController> {
   const ChatView({super.key});
@@ -317,7 +319,6 @@ class ChatView extends GetView<ChatController> {
   }
 
   Widget _buildChatCardFromModel(BuildContext context, conversation) {
-    final isRead = conversation.unreadCount == 0;
     final otherUser = conversation.otherParticipant;
     final lastMessage = conversation.lastMessage;
 
@@ -326,10 +327,11 @@ class ChatView extends GetView<ChatController> {
     final hasPremium = currentUser?.hasActivePremium ?? false;
 
     // Déterminer si c'est une conversation anonyme non révélée
-    // Si l'utilisateur a Premium, il peut toujours voir la vraie identité
+    // Si l'utilisateur a Premium, il peut toujours voir la vraie identité (nom)
     final isAnonymousUnrevealed = conversation.isAnonymous && !conversation.identityRevealed && !hasPremium;
     final displayName = isAnonymousUnrevealed ? 'Anonyme' : (otherUser?.fullName ?? 'Inconnu');
-    final avatarInitial = isAnonymousUnrevealed ? '?' : (otherUser?.firstName[0].toUpperCase() ?? '?');
+    // L'avatar est toujours visible - afficher initiale si pas de photo
+    final avatarInitial = otherUser?.firstName[0].toUpperCase() ?? '?';
 
     return Card(
       margin: EdgeInsets.only(bottom: context.elementSpacing),
@@ -351,10 +353,10 @@ class ChatView extends GetView<ChatController> {
                 CircleAvatar(
                   radius: 25,
                   backgroundColor: AppThemeSystem.primaryColor,
-                  backgroundImage: otherUser?.avatarUrl != null && !isAnonymousUnrevealed
+                  backgroundImage: otherUser?.avatarUrl != null
                       ? NetworkImage(otherUser!.avatarUrl!)
                       : null,
-                  child: otherUser?.avatarUrl == null || isAnonymousUnrevealed
+                  child: otherUser?.avatarUrl == null
                       ? Text(
                           avatarInitial,
                           style: const TextStyle(
@@ -414,13 +416,21 @@ class ChatView extends GetView<ChatController> {
             ),
           ],
         ),
-        subtitle: Text(
-          _getLastMessagePreview(lastMessage),
-          style: context.textStyle(FontSizeType.body2).copyWith(
-            color: AppThemeSystem.grey600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _getLastMessagePreview(lastMessage),
+              style: context.textStyle(FontSizeType.body2).copyWith(
+                color: AppThemeSystem.grey600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            // Display flame indicator if streak exists
+            if (conversation.streak != null && conversation.streak!.hasStreak)
+              FlameIndicator(streak: conversation.streak!),
+          ],
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -506,207 +516,8 @@ class ChatView extends GetView<ChatController> {
       case ChatMessageType.system:
         return message.content ?? 'Message système';
       case ChatMessageType.text:
-      default:
         return message.content ?? 'Aucun message';
     }
-  }
-
-  Widget _buildChatCard(BuildContext context, int index, {bool isGroup = false, bool isRead = true}) {
-    final isOnline = index % 3 == 0;
-    final hasFlame = !isGroup && index % 2 == 0; // Some private chats have active flame
-    final hasUnseenStory = index % 4 != 0; // Simulate unseen story status
-    final flameLevel = hasFlame ? ((index % 5) + 1) / 5 : 0.0; // Progress from 0.0 to 1.0
-
-    return Card(
-      margin: EdgeInsets.only(bottom: context.elementSpacing),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(context.elementSpacing / 2),
-        leading: Stack(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: hasUnseenStory
-                      ? AppThemeSystem.successColor
-                      : AppThemeSystem.grey600.withValues(alpha: 0.3),
-                  width: 2.5,
-                ),
-              ),
-              child: CircleAvatar(
-                radius: 25,
-                backgroundColor: isGroup
-                    ? AppThemeSystem.tertiaryColor
-                    : AppThemeSystem.primaryColor,
-                child: isGroup
-                    ? const Icon(
-                        Icons.group_rounded,
-                        color: Colors.white,
-                        size: 26,
-                      )
-                    : Text(
-                        String.fromCharCode(65 + index),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ),
-            if (isOnline && !isGroup)
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: AppThemeSystem.successColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppThemeSystem.darkBackgroundColor
-                          : Colors.white,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                isGroup ? 'Groupe ${index + 1}' : 'Contact ${index + 1}',
-                style: context.textStyle(FontSizeType.body1).copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white
-                      : AppThemeSystem.blackColor,
-                ),
-              ),
-            ),
-            if (isGroup)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppThemeSystem.tertiaryColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${(index + 3) * 10} membres',
-                  style: context.textStyle(FontSizeType.caption).copyWith(
-                    color: AppThemeSystem.tertiaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGroup
-                  ? 'Vous: Dernier message du groupe...'
-                  : 'Dernier message ici...',
-              style: context.textStyle(FontSizeType.body2).copyWith(
-                color: AppThemeSystem.grey600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (hasFlame) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.local_fire_department_rounded,
-                    color: Color(0xFFFF6B35),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: flameLevel,
-                        backgroundColor: AppThemeSystem.grey600.withValues(alpha: 0.2),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFFFF6B35),
-                        ),
-                        minHeight: 6,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${(flameLevel * 100).toInt()}%',
-                    style: context.textStyle(FontSizeType.caption).copyWith(
-                      color: const Color(0xFFFF6B35),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${index + 1}h',
-              style: context.textStyle(FontSizeType.caption).copyWith(
-                color: AppThemeSystem.grey600,
-              ),
-            ),
-            if (index % 2 == 0)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isGroup
-                      ? AppThemeSystem.tertiaryColor
-                      : AppThemeSystem.primaryColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        onTap: () {
-          final contactName = isGroup ? 'Groupe ${index + 1}' : 'Contact ${index + 1}';
-          final contactId = index.toString();
-
-          Get.to(
-            () => const ChatDetailView(),
-            binding: ChatDetailBinding(),
-            arguments: {
-              'contactName': contactName,
-              'contactId': contactId,
-            },
-            transition: Transition.rightToLeft,
-            duration: const Duration(milliseconds: 300),
-          );
-        },
-      ),
-    );
   }
 
   /// Open story viewer for a specific user

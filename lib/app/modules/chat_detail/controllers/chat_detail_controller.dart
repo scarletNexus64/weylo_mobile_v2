@@ -268,15 +268,16 @@ class ChatDetailController extends GetxController {
       return;
     }
 
-    // NOUVEAU: Tentative de chargement depuis le cache si pas de refresh
-    if (!refresh && _cacheService.isMessagesCacheValid(conversationId!)) {
+    // NOUVEAU: Tentative de chargement depuis le cache UNIQUEMENT pour la page 1
+    // Pour la pagination (page > 1), toujours appeler l'API
+    if (!refresh && currentPage == 1 && _cacheService.isMessagesCacheValid(conversationId!)) {
       final cachedMessages = _cacheService.getMessagesCache(conversationId!);
       if (cachedMessages != null && cachedMessages.isNotEmpty) {
         messages.value = cachedMessages;
         currentPage = _cacheService.getMessagesCachedPage(conversationId!);
-        print('📦 [ChatDetailController] ✅ Chargé depuis CACHE: ${cachedMessages.length} messages');
+        print('📦 [ChatDetailController] ✅ Chargé depuis CACHE: ${cachedMessages.length} messages (page 1 only)');
 
-        // Auto-scroll vers le bas après chargement depuis cache
+        // Auto-scroll vers le bas UNIQUEMENT pour le chargement initial
         WidgetsBinding.instance.addPostFrameCallback((_) {
           scrollToBottom(animated: false);
         });
@@ -294,7 +295,7 @@ class ChatDetailController extends GetxController {
       final response = await _chatService.getMessages(
         conversationId: conversationId!,
         page: currentPage,
-        perPage: 50,
+        perPage: 10,
       );
 
       print('✅ [ChatDetailController] Got ${response.messages.length} messages from API');
@@ -303,8 +304,35 @@ class ChatDetailController extends GetxController {
       if (refresh) {
         messages.value = response.messages;
       } else {
-        // Pour la pagination: insérer les anciens messages au début
+        // Pour la pagination: désactiver temporairement le listener
+        final scrollPosition = scrollController.hasClients ? scrollController.position.pixels : 0.0;
+        final oldScrollHeight = scrollController.hasClients ? scrollController.position.maxScrollExtent : 0.0;
+        final oldItemCount = messages.length;
+
+        print('📍 [ChatDetailController] Scroll avant insert: position=$scrollPosition, maxHeight=$oldScrollHeight, items=$oldItemCount');
+
+        // Insérer les anciens messages au début
         messages.insertAll(0, response.messages);
+
+        print('📍 [ChatDetailController] Messages insérés: ${response.messages.length} nouveaux, total=${messages.length}');
+
+        // Attendre 2 frames pour être sûr que le ListView est rebuildé
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (scrollController.hasClients) {
+              final newScrollHeight = scrollController.position.maxScrollExtent;
+              final heightDifference = newScrollHeight - oldScrollHeight;
+              final newPosition = scrollPosition + heightDifference;
+
+              print('📍 [ChatDetailController] Scroll après insert: newHeight=$newScrollHeight, diff=$heightDifference, newPos=$newPosition');
+
+              // Restaurer la position sans animation pour éviter les saccades
+              if (newPosition >= 0 && newPosition <= newScrollHeight) {
+                scrollController.jumpTo(newPosition);
+              }
+            }
+          });
+        });
       }
 
       currentPage = response.meta.currentPage;
@@ -395,8 +423,13 @@ class ChatDetailController extends GetxController {
   void _setupScrollListener() {
     scrollController.addListener(() {
       // Si on scroll vers le haut et qu'on atteint le début
-      if (scrollController.position.pixels <= 100 && canLoadMore.value && !isLoadingMore.value) {
-        print('📜 [ChatDetailController] Reached top - loading more messages...');
+      // Déclencher à 200px du haut pour précharger avant d'atteindre vraiment le haut
+      if (scrollController.hasClients &&
+          scrollController.position.pixels <= 200 &&
+          canLoadMore.value &&
+          !isLoadingMore.value &&
+          !isLoading.value) {
+        print('📜 [ChatDetailController] Reached top threshold - loading more messages...');
         loadMoreMessages();
       }
     });
@@ -1028,16 +1061,14 @@ class ChatDetailController extends GetxController {
 
   /// Obtenir l'initial à afficher dans l'avatar
   String get displayInitial {
-    final conv = conversation.value;
-    // Vérifier si l'utilisateur connecté a le forfait Premium/Certification
-    final currentUser = _authService.getCurrentUser();
-    final hasPremium = currentUser?.hasActivePremium ?? false;
-
-    // Si Premium, toujours montrer la vraie initial
-    if (conv != null && conv.isAnonymous && !conv.identityRevealed && !hasPremium) {
-      return '?';
-    }
+    // L'initial est basé sur le vrai nom (toujours visible via avatar)
     return contactName[0].toUpperCase();
+  }
+
+  /// Obtenir l'URL de l'avatar à afficher (toujours visible)
+  String? get displayAvatarUrl {
+    final conv = conversation.value;
+    return conv?.otherParticipant?.avatarUrl;
   }
 
   /// Vérifier si on doit afficher le badge vérifié

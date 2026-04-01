@@ -7,6 +7,7 @@ import 'package:weylo/app/data/models/confession_model.dart';
 import 'package:weylo/app/data/models/sponsored_ad_model.dart';
 import 'package:weylo/app/data/services/sponsorship_service.dart';
 import 'package:weylo/app/data/services/premium_service.dart';
+import 'package:weylo/app/data/services/contact_sync_service.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/modules/feeds/views/widgets/comments_bottom_sheet.dart';
 import 'package:weylo/app/routes/app_pages.dart';
@@ -19,9 +20,15 @@ class ConfessionsController extends GetxController {
   final _confessionService = ConfessionService();
   final _sponsorshipService = SponsorshipService();
   final _premiumService = PremiumService();
+  final _contactSyncService = ContactSyncService();
 
   // Scroll controller for scroll to top functionality
   final scrollController = ScrollController();
+
+  // Contact sync status
+  final hasSyncedContacts = false.obs;
+  final syncedContactIds = <int>[].obs;
+  final isSyncingContacts = false.obs;
 
   // Premium status
   final isPremium = false.obs;
@@ -78,6 +85,7 @@ class ConfessionsController extends GetxController {
         'isAnonymous': !confession.isIdentityRevealed,
         'isVerified': confession.isAuthorPremium, // Badge bleu si auteur premium
         'isAuthorPremium': confession.isAuthorPremium, // Pour usage futur
+        'isMyPost': confession.isMine, // Pour permettre edit/delete même si anonyme
         'content': confession.content,
         'image': confession.mediaType != 'none' ? confession.mediaUrl : null,
         'mediaType': confession.mediaType, // 'none', 'image', 'video'
@@ -105,10 +113,66 @@ class ConfessionsController extends GetxController {
 
     print('🎨 [CACHE] Cache Flutter configuré: max 100 images, 50 MB');
 
+    _loadContactSyncStatus();
     _loadPremiumStatus();
     _loadStories();
     loadConfessions();
     loadSponsoredAds();
+  }
+
+  /// Charger le statut de synchronisation des contacts
+  void _loadContactSyncStatus() {
+    hasSyncedContacts.value = _contactSyncService.hasSyncedContacts();
+    syncedContactIds.value = _contactSyncService.getSyncedContactIds();
+    print('📱 [CONTACTS] Statut de sync: ${hasSyncedContacts.value}, ${syncedContactIds.length} contacts');
+  }
+
+  /// Synchroniser les contacts avec le backend
+  Future<void> syncContacts() async {
+    try {
+      isSyncingContacts.value = true;
+      print('🔄 [CONTACTS] Début de la synchronisation...');
+
+      final result = await _contactSyncService.syncContacts();
+
+      if (result['success'] == true) {
+        final count = result['contacts_count'] as int;
+        syncedContactIds.value = (result['contact_ids'] as List<int>?) ?? [];
+        hasSyncedContacts.value = true;
+
+        print('✅ [CONTACTS] $count contacts synchronisés');
+
+        // Refresh feed to apply prioritization
+        await loadConfessions(refresh: true);
+
+        Get.snackbar(
+          'Contacts synchronisés',
+          '$count contacts trouvés sur Weylo',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: AppThemeSystem.successColor,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (e) {
+      print('❌ [CONTACTS] Erreur lors de la synchronisation: $e');
+
+      String errorMessage = 'Impossible de synchroniser les contacts';
+      if (e.toString().contains('Permission refusée')) {
+        errorMessage = 'Permission d\'accès aux contacts refusée';
+      }
+
+      Get.snackbar(
+        'Erreur',
+        errorMessage,
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      isSyncingContacts.value = false;
+    }
   }
 
   /// Charger le statut premium de l'utilisateur
@@ -531,7 +595,29 @@ class ConfessionsController extends GetxController {
         break;
     }
 
-    confessions.value = sortedList;
+    // Prioritize contacts: move confessions from contacts to the top
+    if (hasSyncedContacts.value && syncedContactIds.isNotEmpty) {
+      final contactConfessions = <ConfessionModel>[];
+      final otherConfessions = <ConfessionModel>[];
+
+      for (final confession in sortedList) {
+        final authorId = confession.author?.id;
+        if (authorId != null && syncedContactIds.contains(authorId)) {
+          contactConfessions.add(confession);
+        } else {
+          otherConfessions.add(confession);
+        }
+      }
+
+      // Combine: contacts first, then others
+      confessions.value = [...contactConfessions, ...otherConfessions];
+
+      if (contactConfessions.isNotEmpty) {
+        print('📱 [CONTACTS] ${contactConfessions.length} confessions de contacts priorisées');
+      }
+    } else {
+      confessions.value = sortedList;
+    }
   }
 
   /// Like or unlike a confession
