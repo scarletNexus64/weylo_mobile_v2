@@ -55,10 +55,11 @@ class StreakData {
   bool get hasStreak => count > 0;
 
   /// Calculate progress to next level (0.0 to 1.0)
+  /// Affiche le progrès depuis 0 jusqu'au prochain milestone
   double get progressToNextLevel {
     if (count >= 30) return 1.0; // Max level reached
-    if (count >= 7) return (count - 7) / 23.0; // Progress to purple (7-30)
-    if (count >= 2) return (count - 2) / 5.0; // Progress to orange (2-7)
+    if (count >= 7) return count / 30.0; // Progress to purple (0-30)
+    if (count >= 2) return count / 7.0; // Progress to orange (0-7)
     return count / 2.0; // Progress to yellow (0-2)
   }
 

@@ -51,6 +51,10 @@ import '../modules/sponsoring/bindings/sponsoring_binding.dart';
 import '../modules/sponsoring/views/sponsoring_entry_view.dart';
 import '../modules/certification/bindings/certification_binding.dart';
 import '../modules/certification/views/certification_view.dart';
+import '../modules/search/bindings/search_binding.dart';
+import '../modules/search/views/search_view.dart';
+import '../modules/user_profile/bindings/user_profile_binding.dart';
+import '../modules/user_profile/views/user_profile_view.dart';
 
 part 'app_routes.dart';
 
@@ -214,6 +218,16 @@ class AppPages {
       name: _Paths.CERTIFICATION,
       page: () => const CertificationView(),
       binding: CertificationBinding(),
+    ),
+    GetPage(
+      name: _Paths.SEARCH,
+      page: () => const SearchView(),
+      binding: SearchBinding(),
+    ),
+    GetPage(
+      name: _Paths.USER_PROFILE,
+      page: () => const UserProfileView(),
+      binding: UserProfileBinding(),
     ),
   ];
 }

@@ -14,6 +14,9 @@ class ChatController extends GetxController {
   // Filtre de messages
   final Rx<ChatFilter> selectedFilter = ChatFilter.all.obs;
 
+  // Total réactif des flammes (somme de tous les streak counts)
+  final RxInt totalStreakDays = 0.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -23,6 +26,14 @@ class ChatController extends GetxController {
     try {
       _conversationStateService = ConversationStateService.to;
       print('✅ [ChatController] ConversationStateService récupéré');
+
+      // Écouter les changements de conversations pour recalculer automatiquement le total des flammes
+      ever(_conversationStateService!.conversations, (_) {
+        _calculateTotalStreakDays();
+      });
+
+      // Calculer le total initial
+      _calculateTotalStreakDays();
     } catch (e) {
       print('❌ [ChatController] ConversationStateService non disponible: $e');
     }
@@ -34,6 +45,16 @@ class ChatController extends GetxController {
     } catch (e) {
       print('⚠️ [ChatController] ConversationStoryService non disponible: $e');
     }
+  }
+
+  /// Calculer le total des jours de streak
+  void _calculateTotalStreakDays() {
+    final total = conversations.fold<int>(
+      0,
+      (sum, conversation) => sum + (conversation.streak?.count ?? 0),
+    );
+    totalStreakDays.value = total;
+    print('🔥 [ChatController] Total streak days calculé: $total');
   }
 
   @override

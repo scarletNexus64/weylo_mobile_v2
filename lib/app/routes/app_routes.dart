@@ -32,6 +32,8 @@ abstract class Routes {
   static const SPONSORING = _Paths.SPONSORING;
   static const PREFERENCES = _Paths.PREFERENCES;
   static const CERTIFICATION = _Paths.CERTIFICATION;
+  static const SEARCH = _Paths.SEARCH;
+  static const USER_PROFILE = _Paths.USER_PROFILE;
 }
 
 abstract class _Paths {
@@ -65,4 +67,6 @@ abstract class _Paths {
   static const SPONSORING = '/sponsoring';
   static const PREFERENCES = '/preferences';
   static const CERTIFICATION = '/certification';
+  static const SEARCH = '/search';
+  static const USER_PROFILE = '/user-profile';
 }

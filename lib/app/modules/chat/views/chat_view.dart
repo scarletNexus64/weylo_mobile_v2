@@ -4,7 +4,6 @@ import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
 import 'package:weylo/app/widgets/story_status_border.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
-import 'package:weylo/app/data/models/conversation_model.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/modules/feeds/controllers/story_controller.dart';
 import 'package:weylo/app/modules/feeds/views/story_viewer.dart';
@@ -393,32 +392,27 @@ class ChatView extends GetView<ChatController> {
         title: Row(
           children: [
             Flexible(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      displayName,
-                      style: context.textStyle(FontSizeType.body1).copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : AppThemeSystem.blackColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (!isAnonymousUnrevealed && (otherUser?.shouldShowBlueBadge ?? false)) ...[
-                    const SizedBox(width: 4),
-                    const VerifiedBadge(size: 14),
-                  ],
-                ],
+              child: Text(
+                displayName,
+                style: context.textStyle(FontSizeType.body1).copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : AppThemeSystem.blackColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (!isAnonymousUnrevealed && (otherUser?.shouldShowBlueBadge ?? false)) ...[
+              const SizedBox(width: 4),
+              const VerifiedBadge(size: 14),
+            ],
           ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Dernier message
             Text(
               _getLastMessagePreview(lastMessage),
               style: context.textStyle(FontSizeType.body2).copyWith(
@@ -427,7 +421,7 @@ class ChatView extends GetView<ChatController> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            // Display flame indicator if streak exists
+            // Progress bar des flammes
             if (conversation.streak != null && conversation.streak!.hasStreak)
               FlameIndicator(streak: conversation.streak!),
           ],

@@ -14,6 +14,7 @@ class StorageService {
   static const String _userKey = 'user_data';
   static const String _isLoggedInKey = 'is_logged_in';
   static const String _onboardingCompletedKey = 'onboarding_completed';
+  static const String _searchHistoryKey = 'search_history';
 
   /// Initialize storage
   static Future<void> init() async {
@@ -135,5 +136,22 @@ class StorageService {
   Future<void> resetOnboarding() async {
     print('🔄 [STORAGE] Réinitialisation de l\'onboarding');
     await _storage.remove(_onboardingCompletedKey);
+  }
+
+  /// Get search history
+  List<String> getSearchHistory() {
+    final history = _storage.read<List>(_searchHistoryKey);
+    if (history == null) return [];
+    return List<String>.from(history);
+  }
+
+  /// Save search history
+  Future<void> saveSearchHistory(List<String> history) async {
+    await _storage.write(_searchHistoryKey, history);
+  }
+
+  /// Clear search history
+  Future<void> clearSearchHistory() async {
+    await _storage.remove(_searchHistoryKey);
   }
 }

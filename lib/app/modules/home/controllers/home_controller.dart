@@ -9,7 +9,8 @@ import 'package:weylo/app/data/services/group_service.dart';
 import 'package:weylo/app/data/services/auth_service.dart';
 import 'package:weylo/app/data/services/notification_service.dart';
 
-class HomeController extends GetxController with GetSingleTickerProviderStateMixin {
+class HomeController extends GetxController
+    with GetSingleTickerProviderStateMixin {
   // Scaffold key for drawer
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -35,7 +36,13 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   int? _currentUserId;
 
   // Tab names
-  final List<String> tabNames = ['Anonyme', 'Chat', 'Groupe', 'Confession', 'Profile'];
+  final List<String> tabNames = [
+    'Anonyme',
+    'Chat',
+    'Groupe',
+    'Confession',
+    'Profile',
+  ];
 
   // Tab icons
   final List<IconData> tabIcons = [
@@ -98,7 +105,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
           onEvent: _handleGroupMessageNotification,
         );
 
-        print('✅ [HOME_CONTROLLER] Subscribed to private-user.$_currentUserId for group notifications');
+        print(
+          '✅ [HOME_CONTROLLER] Subscribed to private-user.$_currentUserId for group notifications',
+        );
       }
 
       // La connexion WebSocket se fera automatiquement dans onInit() du service
@@ -121,7 +130,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
     final previousIndex = currentTabIndex.value;
     currentTabIndex.value = newIndex;
 
-    print('🔀 [HOME_CONTROLLER] Changement de tab: $previousIndex -> $newIndex (${tabNames[newIndex]})');
+    print(
+      '🔀 [HOME_CONTROLLER] Changement de tab: $previousIndex -> $newIndex (${tabNames[newIndex]})',
+    );
 
     // CRITIQUE: Réinitialiser le NestedScrollView à chaque changement de tab
     _resetNestedScroll(reason: 'Changement de tab vers ${tabNames[newIndex]}');
@@ -136,8 +147,11 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
       final offset = nestedScrollController.offset;
 
       // Détecter les offsets anormaux (hors limites)
-      if (offset < 0 || offset > nestedScrollController.position.maxScrollExtent + 100) {
-        print('⚠️ [HOME_CONTROLLER] Offset NestedScroll ANORMAL détecté: $offset');
+      if (offset < 0 ||
+          offset > nestedScrollController.position.maxScrollExtent + 100) {
+        print(
+          '⚠️ [HOME_CONTROLLER] Offset NestedScroll ANORMAL détecté: $offset',
+        );
         _resetNestedScroll(reason: 'Offset anormal détecté');
       }
     }
@@ -145,7 +159,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
   /// Vérifier la santé du scroll du tab Confession quand on y revient
   void _checkConfessionScroll() {
-    print('🔍 [HOME_CONTROLLER] _checkConfessionScroll() - Début de la vérification');
+    print(
+      '🔍 [HOME_CONTROLLER] _checkConfessionScroll() - Début de la vérification',
+    );
     // Attendre plusieurs frames pour que le tab soit complètement affiché et rendu
     // Utiliser plusieurs vérifications espacées pour garantir la stabilité
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -164,7 +180,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
   void _performScrollCheck() {
     // Vérifier si le controller existe avant de l'utiliser
     if (!Get.isRegistered<ConfessionsController>()) {
-      print('⚠️ [HOME] ConfessionsController pas encore enregistré, vérification ignorée');
+      print(
+        '⚠️ [HOME] ConfessionsController pas encore enregistré, vérification ignorée',
+      );
       return;
     }
 
@@ -192,7 +210,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
       // IMPORTANT: Toujours réinitialiser le scroll à 0 quand on revient au tab Confessions
       // pour s'assurer que les stories sont visibles en haut
       if (currentOffset != 0) {
-        print('🔧 [HOME] Scroll détecté à $currentOffset (limites: [$minExtent, $maxExtent]), RÉINITIALISATION forcée à 0...');
+        print(
+          '🔧 [HOME] Scroll détecté à $currentOffset (limites: [$minExtent, $maxExtent]), RÉINITIALISATION forcée à 0...',
+        );
 
         // Utiliser animateTo pour un retour en douceur si le scroll est petit
         if (currentOffset < 200) {
@@ -247,14 +267,18 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
       final position = nestedScrollController.position;
 
       if (!position.hasContentDimensions) {
-        print('⚠️ [HOME_CONTROLLER] Position n\'a pas de dimensions de contenu');
+        print(
+          '⚠️ [HOME_CONTROLLER] Position n\'a pas de dimensions de contenu',
+        );
         return;
       }
 
       final maxExtent = position.maxScrollExtent;
       final minExtent = position.minScrollExtent;
 
-      print('📊 [HOME_CONTROLLER] État actuel - Offset: $currentOffset, Limites: [$minExtent, $maxExtent]');
+      print(
+        '📊 [HOME_CONTROLLER] État actuel - Offset: $currentOffset, Limites: [$minExtent, $maxExtent]',
+      );
 
       // TOUJOURS réinitialiser à 0 pour garantir un état propre
       if (currentOffset != 0) {
@@ -288,24 +312,32 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         case 0: // Anonyme
         case 1: // Chat
         case 2: // Groupe
-          print('📱 [HOME_CONTROLLER] Vérification du scroll ${tabNames[newIndex]}');
+          print(
+            '📱 [HOME_CONTROLLER] Vérification du scroll ${tabNames[newIndex]}',
+          );
           // Les autres tabs peuvent aussi avoir besoin de vérification
           break;
         case 4: // Profile
-          print('📱 [HOME_CONTROLLER] Profile affiché, pas de vérification nécessaire');
+          print(
+            '📱 [HOME_CONTROLLER] Profile affiché, pas de vérification nécessaire',
+          );
           break;
       }
     });
 
     // Deuxième vérification après un délai plus long
     Future.delayed(const Duration(milliseconds: 250), () {
-      _resetNestedScroll(reason: 'Vérification tardive après changement de tab');
+      _resetNestedScroll(
+        reason: 'Vérification tardive après changement de tab',
+      );
     });
   }
 
   // Change tab programmatically
   void changeTab(int index) {
-    print('🎯 [HOME_CONTROLLER] Changement de tab programmé vers ${tabNames[index]}');
+    print(
+      '🎯 [HOME_CONTROLLER] Changement de tab programmé vers ${tabNames[index]}',
+    );
     tabController.animateTo(index);
   }
 
@@ -357,7 +389,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         print('✅ [HOME_CONTROLLER] Scroll Anonyme réinitialisé');
       }
     } catch (e) {
-      print('⚠️ [HOME_CONTROLLER] Erreur lors de la réinitialisation du scroll Anonyme: $e');
+      print(
+        '⚠️ [HOME_CONTROLLER] Erreur lors de la réinitialisation du scroll Anonyme: $e',
+      );
     }
   }
 
@@ -402,7 +436,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         print('✅ [HOME_CONTROLLER] Scroll Confessions réinitialisé');
       }
     } catch (e) {
-      print('⚠️ [HOME_CONTROLLER] Erreur lors de la réinitialisation du scroll Confessions: $e');
+      print(
+        '⚠️ [HOME_CONTROLLER] Erreur lors de la réinitialisation du scroll Confessions: $e',
+      );
     }
   }
 
@@ -466,7 +502,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
         return;
       }
 
-      print('📨 [HOME_CONTROLLER] New group message received, incrementing badge');
+      print(
+        '📨 [HOME_CONTROLLER] New group message received, incrementing badge',
+      );
       print('   - Group ID: $groupId');
       print('   - Sender ID: $senderId');
       print('   - Current badge: ${groupsUnreadCount.value}');
@@ -476,7 +514,9 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
 
       print('   - New badge: ${groupsUnreadCount.value}');
     } catch (e) {
-      print('❌ [HOME_CONTROLLER] Error handling group message notification: $e');
+      print(
+        '❌ [HOME_CONTROLLER] Error handling group message notification: $e',
+      );
     }
   }
 
@@ -491,17 +531,13 @@ class HomeController extends GetxController with GetSingleTickerProviderStateMix
       // Récupérer le count des notifications non lues
       final notificationsCount = await _notificationService.getUnreadCount();
       notificationsUnreadCount.value = notificationsCount;
-      print('📊 [HOME_CONTROLLER] Notifications unread count: $notificationsCount');
+      print(
+        '📊 [HOME_CONTROLLER] Notifications unread count: $notificationsCount',
+      );
 
-      // Récupérer le count des conversations avec streaks actifs
-      try {
-        final chatController = Get.find<ChatController>();
-        activeStreaksCount.value = chatController.activeStreaksCount;
-        print('🔥 [HOME_CONTROLLER] Active streaks count: ${activeStreaksCount.value}');
-      } catch (e) {
-        print('⚠️ [HOME_CONTROLLER] ChatController not found, streaks count: 0');
-        activeStreaksCount.value = 0;
-      }
+      // Le compteur de flammes est maintenant réactif et mis à jour automatiquement
+      // via le ChatController.totalStreakDays qui est un RxInt
+      print('🔥 [HOME_CONTROLLER] Flame counter is reactive and auto-updated');
     } catch (e) {
       print('❌ [HOME_CONTROLLER] Error loading notification counts: $e');
     }

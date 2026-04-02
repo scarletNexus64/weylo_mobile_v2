@@ -74,46 +74,44 @@ class HomeView extends GetView<HomeController> {
                               color: isDark ? Colors.white : AppThemeSystem.blackColor,
                             ),
                             onPressed: () {
-                              Get.snackbar(
-                                'Recherche',
-                                'Fonctionnalité à venir',
-                                snackPosition: SnackPosition.BOTTOM,
-                              );
+                              Get.toNamed('/search');
                             },
                           ),
 
                           SizedBox(width: context.elementSpacing * 0.5),
 
                           // Flame icon animée avec badge
-                          Obx(() => _buildIconButtonWithBadge(
-                            context: context,
-                            icon: SizedBox(
-                              width: deviceType == DeviceType.mobile ? 28 : 34,
-                              height: deviceType == DeviceType.mobile ? 28 : 34,
-                              child: Image.asset(
-                                'assets/gif/flame.gif',
-                                fit: BoxFit.contain,
-                                gaplessPlayback: true,
-                                filterQuality: FilterQuality.high,
-                              ),
-                            ),
-                            badgeCount: controller.activeStreaksCount.value > 0
-                                ? '${controller.activeStreaksCount.value}'
-                                : null,
-                            badgeColor: const LinearGradient(
-                              colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
-                            ),
-                            onPressed: () {
-                              final count = controller.activeStreaksCount.value;
-                              Get.snackbar(
-                                'Flammes',
-                                count > 0
-                                    ? 'Vous avez $count conversation${count > 1 ? 's' : ''} avec streak actif'
-                                    : 'Aucune conversation avec streak actif',
-                                snackPosition: SnackPosition.BOTTOM,
+                          GetX<ChatController>(
+                            builder: (chatController) {
+                              final totalFlames = chatController.totalStreakDays.value;
+                              return _buildIconButtonWithBadge(
+                                context: context,
+                                icon: SizedBox(
+                                  width: deviceType == DeviceType.mobile ? 28 : 34,
+                                  height: deviceType == DeviceType.mobile ? 28 : 34,
+                                  child: Image.asset(
+                                    'assets/gif/flame.gif',
+                                    fit: BoxFit.contain,
+                                    gaplessPlayback: true,
+                                    filterQuality: FilterQuality.high,
+                                  ),
+                                ),
+                                badgeCount: totalFlames > 0 ? '$totalFlames' : null,
+                                badgeColor: const LinearGradient(
+                                  colors: [Color(0xFFFF6B35), Color(0xFFF7931E)],
+                                ),
+                                onPressed: () {
+                                  Get.snackbar(
+                                    'Flammes',
+                                    totalFlames > 0
+                                        ? 'Vous avez $totalFlames flamme${totalFlames > 1 ? 's' : ''} au total'
+                                        : 'Aucune flamme active',
+                                    snackPosition: SnackPosition.BOTTOM,
+                                  );
+                                },
                               );
                             },
-                          )),
+                          ),
 
                           SizedBox(width: context.elementSpacing * 0.5),
 
