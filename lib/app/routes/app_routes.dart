@@ -34,6 +34,7 @@ abstract class Routes {
   static const CERTIFICATION = _Paths.CERTIFICATION;
   static const SEARCH = _Paths.SEARCH;
   static const USER_PROFILE = _Paths.USER_PROFILE;
+  static const PROFILE_VISITORS = _Paths.PROFILE_VISITORS;
 }
 
 abstract class _Paths {
@@ -69,4 +70,5 @@ abstract class _Paths {
   static const CERTIFICATION = '/certification';
   static const SEARCH = '/search';
   static const USER_PROFILE = '/user-profile';
+  static const PROFILE_VISITORS = '/profile-visitors';
 }

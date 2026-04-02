@@ -13,6 +13,7 @@ class GroupModel {
   final int creatorId;
   final String inviteCode;
   final bool isPublic;
+  final String postingPermission; // 'everyone' or 'admins_only'
   final int maxMembers;
   final int membersCount;
   final int messagesCount;
@@ -36,6 +37,7 @@ class GroupModel {
     required this.creatorId,
     required this.inviteCode,
     this.isPublic = false,
+    this.postingPermission = 'everyone',
     this.maxMembers = 50,
     this.membersCount = 0,
     this.messagesCount = 0,
@@ -63,6 +65,7 @@ class GroupModel {
       creatorId: json['creator_id'],
       inviteCode: json['invite_code'],
       isPublic: json['is_public'] ?? false,
+      postingPermission: json['posting_permission'] ?? 'everyone',
       maxMembers: json['max_members'] ?? 50,
       membersCount: json['members_count'] ?? 0,
       messagesCount: json['messages_count'] ?? 0,
@@ -93,6 +96,7 @@ class GroupModel {
       'creator_id': creatorId,
       'invite_code': inviteCode,
       'is_public': isPublic,
+      'posting_permission': postingPermission,
       'max_members': maxMembers,
       'members_count': membersCount,
       'messages_count': messagesCount,
@@ -121,6 +125,15 @@ class GroupModel {
   /// Helpers
   bool get isFull => membersCount >= maxMembers;
   bool get hasUnreadMessages => unreadCount > 0;
+
+  /// Check if current user can post messages
+  bool get canPost {
+    if (postingPermission == 'everyone') {
+      return true;
+    }
+    // If posting is restricted to admins only
+    return isCreator || isAdmin;
+  }
 }
 
 /// Pagination metadata pour les groupes

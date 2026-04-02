@@ -271,36 +271,100 @@ class _ProfileViewState extends State<ProfileView>
                   children: [
                     Row(
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  user?.fullName ?? 'Utilisateur',
-                                  style: context.textStyle(FontSizeType.h2).copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white
-                                        : AppThemeSystem.blackColor,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      user?.fullName ?? 'Utilisateur',
+                                      style: context.textStyle(FontSizeType.h2).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.white
+                                            : AppThemeSystem.blackColor,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
                                   ),
+                                  if (user?.shouldShowBlueBadge ?? false) ...[
+                                    const SizedBox(width: 6),
+                                    const VerifiedBadge(size: 20),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '@${user?.username ?? 'username'}',
+                                style: context.textStyle(FontSizeType.body2).copyWith(
+                                  color: AppThemeSystem.grey600,
                                 ),
-                                if (user?.shouldShowBlueBadge ?? false) ...[
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Profile visitors button
+                        Obx(() => GestureDetector(
+                          onTap: controller.showProfileVisitors,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppThemeSystem.darkCardColor.withValues(alpha: 0.5)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.visibility_rounded,
+                                  color: AppThemeSystem.primaryColor,
+                                  size: 18,
+                                ),
+                                if (controller.visitorsCount.value > 0) ...[
                                   const SizedBox(width: 6),
-                                  const VerifiedBadge(size: 20),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          AppThemeSystem.primaryColor,
+                                          AppThemeSystem.secondaryColor,
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${controller.visitorsCount.value}',
+                                      style: context.textStyle(FontSizeType.caption).copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '@${user?.username ?? 'username'}',
-                              style: context.textStyle(FontSizeType.body2).copyWith(
-                                color: AppThemeSystem.grey600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
+                          ),
+                        )),
+                        const SizedBox(width: 8),
                         Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(

@@ -11,9 +11,6 @@ import 'package:weylo/app/data/services/notification_service.dart';
 
 class HomeController extends GetxController
     with GetSingleTickerProviderStateMixin {
-  // Scaffold key for drawer
-  final scaffoldKey = GlobalKey<ScaffoldState>();
-
   // Tab controller
   late TabController tabController;
 
@@ -554,13 +551,4 @@ class HomeController extends GetxController
     Get.toNamed('/notification');
   }
 
-  // Open drawer
-  void openDrawer() {
-    scaffoldKey.currentState?.openDrawer();
-  }
-
-  // Close drawer
-  void closeDrawer() {
-    scaffoldKey.currentState?.closeDrawer();
-  }
 }

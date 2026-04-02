@@ -6,15 +6,19 @@ import '../../../data/models/user_model.dart';
 import '../../../data/models/profile_stats_model.dart';
 import '../../../data/models/confession_model.dart';
 import '../../../data/models/gift_model.dart';
+import '../../../data/models/profile_view_model.dart';
 import '../../../data/services/profile_service.dart';
 import '../../../data/services/confession_service.dart';
 import '../../../data/services/gift_service.dart';
+import '../../../data/services/user_profile_service.dart';
 import '../../../utils/image_editor_page.dart';
+import '../../../widgets/app_theme_system.dart';
 
 class ProfileController extends GetxController {
   final _profileService = ProfileService();
   final _confessionService = ConfessionService();
   final _giftService = GiftService();
+  final _userProfileService = UserProfileService();
   final _imagePicker = ImagePicker();
 
   // Observable variables
@@ -23,6 +27,11 @@ class ProfileController extends GetxController {
   final Rxn<UserModel> user = Rxn<UserModel>();
   final Rxn<ProfileStatsModel> stats = Rxn<ProfileStatsModel>();
   final shareLink = ''.obs;
+
+  // Profile visitors
+  final RxList<ProfileViewModel> profileViews = <ProfileViewModel>[].obs;
+  final isLoadingVisitors = false.obs;
+  final visitorsCount = 0.obs;
 
   // Posts (confessions) and gifts
   final RxList<ConfessionModel> posts = <ConfessionModel>[].obs;
@@ -40,6 +49,7 @@ class ProfileController extends GetxController {
     loadPosts();
     loadFavorites();
     loadGifts();
+    loadProfileVisitors();
   }
 
   @override
@@ -625,5 +635,283 @@ class ProfileController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     }
+  }
+
+  /// Load profile visitors (who viewed my profile)
+  Future<void> loadProfileVisitors() async {
+    try {
+      isLoadingVisitors.value = true;
+      print('👁️ [PROFILE_CONTROLLER] Chargement des visiteurs du profil...');
+
+      final views = await _userProfileService.getProfileViews(page: 1);
+
+      profileViews.value = views;
+      visitorsCount.value = views.length;
+
+      print('✅ [PROFILE_CONTROLLER] ${views.length} visiteurs chargés');
+      if (views.isNotEmpty) {
+        print('👁️ [PROFILE_CONTROLLER] Premier visiteur: ${views.first.viewer.fullName}');
+      }
+    } catch (e, stackTrace) {
+      print('❌ [PROFILE_CONTROLLER] Erreur chargement visiteurs: $e');
+      print('❌ [PROFILE_CONTROLLER] StackTrace: $stackTrace');
+      // Don't show error to user, just log it
+    } finally {
+      isLoadingVisitors.value = false;
+    }
+  }
+
+  /// Show profile visitors bottom sheet
+  void showProfileVisitors() {
+    Get.bottomSheet(
+      _ProfileVisitorsBottomSheet(controller: this),
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+    );
+  }
+}
+
+/// Profile Visitors Bottom Sheet Widget
+class _ProfileVisitorsBottomSheet extends StatelessWidget {
+  final ProfileController controller;
+
+  const _ProfileVisitorsBottomSheet({required this.controller});
+
+  String _buildImageUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Use your API base URL here
+    return 'http://10.202.205.28:8001/storage/$url';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.8,
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[400],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Obx(() => Text(
+                        'Visiteurs (${controller.visitorsCount.value})',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      )),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    onPressed: () => Get.back(),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // Visitors list
+            Expanded(
+              child: Obx(() {
+                if (controller.isLoadingVisitors.value && controller.profileViews.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                if (controller.profileViews.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.visibility_off_rounded,
+                            size: 60,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucun visiteur',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Personne n\'a encore consulté votre profil',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: controller.loadProfileVisitors,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: controller.profileViews.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final view = controller.profileViews[index];
+                      final viewer = view.viewer;
+
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: viewer.isAnonymous
+                                ? null
+                                : () {
+                                    Get.back();
+                                    Get.toNamed('/user-profile', arguments: {'username': viewer.username});
+                                  },
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  // Avatar
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: viewer.isAnonymous
+                                        ? Colors.grey[400]
+                                        : AppThemeSystem.primaryColor,
+                                    backgroundImage: viewer.hasRealAvatar
+                                        ? NetworkImage(_buildImageUrl(viewer.avatar!))
+                                        : null,
+                                    child: !viewer.hasRealAvatar
+                                        ? Icon(
+                                            viewer.isAnonymous ? Icons.person_off_rounded : Icons.person_rounded,
+                                            size: 24,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+
+                                  const SizedBox(width: 12),
+
+                                  // User info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                viewer.fullName,
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: viewer.isAnonymous
+                                                      ? Colors.grey[600]
+                                                      : (isDark ? Colors.white : Colors.black),
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            if (viewer.isVerified) ...[
+                                              const SizedBox(width: 4),
+                                              Icon(
+                                                Icons.verified,
+                                                color: AppThemeSystem.primaryColor,
+                                                size: 14,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        if (!viewer.isAnonymous && viewer.username != null)
+                                          Text(
+                                            '@${viewer.username}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Time
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Icon(
+                                        Icons.visibility_rounded,
+                                        color: AppThemeSystem.primaryColor.withOpacity(0.7),
+                                        size: 18,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        view.formattedTime,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

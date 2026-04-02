@@ -304,6 +304,19 @@ class GroupeDetailController extends GetxController {
 
   /// Start recording audio
   Future<void> startRecording() async {
+    // Vérifier si l'utilisateur peut poster
+    if (!(group.value?.canPost ?? true)) {
+      Get.snackbar(
+        'Non autorisé',
+        'Seuls les administrateurs peuvent poster des messages dans ce groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     try {
       // Request microphone permission
       final status = await Permission.microphone.request();
@@ -429,6 +442,19 @@ class GroupeDetailController extends GetxController {
     final groupIdInt = int.tryParse(groupId);
     if (groupIdInt == null) return;
 
+    // Vérifier si l'utilisateur peut poster
+    if (!(group.value?.canPost ?? true)) {
+      Get.snackbar(
+        'Non autorisé',
+        'Seuls les administrateurs peuvent poster des messages dans ce groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     try {
       // Préparer les metadata pour le reply si présent
       Map<String, dynamic>? metadata;
@@ -506,6 +532,19 @@ class GroupeDetailController extends GetxController {
 
   /// Envoyer une image dans le groupe
   Future<void> sendImage() async {
+    // Vérifier si l'utilisateur peut poster
+    if (!(group.value?.canPost ?? true)) {
+      Get.snackbar(
+        'Non autorisé',
+        'Seuls les administrateurs peuvent poster des messages dans ce groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
@@ -664,6 +703,19 @@ class GroupeDetailController extends GetxController {
 
   /// Envoyer un cadeau dans le groupe
   Future<void> sendGift(GiftModel gift) async {
+    // Vérifier si l'utilisateur peut poster
+    if (!(group.value?.canPost ?? true)) {
+      Get.snackbar(
+        'Non autorisé',
+        'Seuls les administrateurs peuvent poster des messages dans ce groupe',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
     try {
       final groupIdInt = int.tryParse(groupId);
       if (groupIdInt == null) return;
@@ -1481,23 +1533,52 @@ class GroupeDetailController extends GetxController {
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       subtitle: Text(
-                        member.role == 'creator'
-                            ? 'Créateur'
-                            : member.role == 'admin'
-                                ? 'Administrateur'
+                        member.role == 'admin'
+                            ? 'Administrateur'
+                            : member.role == 'moderator'
+                                ? 'Modérateur'
                                 : 'Membre',
                         style: TextStyle(
-                          color: member.role == 'creator'
+                          color: member.role == 'admin'
                               ? AppThemeSystem.primaryColor
-                              : AppThemeSystem.grey600,
+                              : member.role == 'moderator'
+                                  ? AppThemeSystem.secondaryColor
+                                  : AppThemeSystem.grey600,
                         ),
                       ),
                       trailing: !isCurrentUser && group.value?.isCreator == true
-                          ? IconButton(
-                              icon: const Icon(Icons.remove_circle, color: Colors.red),
-                              onPressed: () {
-                                _confirmRemoveMember(member);
+                          ? PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (value) {
+                                if (value == 'remove') {
+                                  _confirmRemoveMember(member);
+                                } else if (value == 'admin') {
+                                  _confirmChangeRole(member, value);
+                                }
                               },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'admin',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.admin_panel_settings, size: 20, color: AppThemeSystem.primaryColor),
+                                      SizedBox(width: 12),
+                                      Text('Promouvoir Admin'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuDivider(),
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.remove_circle, size: 20, color: Colors.red),
+                                      SizedBox(width: 12),
+                                      Text('Retirer du groupe', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             )
                           : null,
                     );
@@ -1523,6 +1604,35 @@ class GroupeDetailController extends GetxController {
         colorText: Colors.white,
       );
     }
+  }
+
+  /// Confirm changing a member's role
+  void _confirmChangeRole(GroupMemberModel member, String newRole) {
+    final roleName = newRole == 'admin'
+        ? 'Administrateur'
+        : newRole == 'moderator'
+            ? 'Modérateur'
+            : 'Membre';
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Modifier le rôle ?'),
+        content: Text('Voulez-vous changer le rôle de ${member.effectiveDisplayName} en $roleName ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              updateMemberRole(member, newRole);
+            },
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Confirm removing a member
@@ -1580,6 +1690,115 @@ class GroupeDetailController extends GetxController {
       Get.snackbar(
         'Erreur',
         'Impossible de retirer le membre',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Update posting permission (creator/admin only)
+  Future<void> updatePostingPermission(String permission) async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('🔒 [GroupeDetailController] Updating posting permission to: $permission');
+
+      final updatedGroup = await _groupService.updatePostingPermission(
+        groupId: groupIdInt,
+        postingPermission: permission,
+      );
+
+      // Mettre à jour le groupe local
+      group.value = updatedGroup;
+
+      // Mettre à jour les listes du GroupeController en temps réel
+      try {
+        final groupeController = Get.find<GroupeController>();
+
+        // Trouver et mettre à jour le groupe dans "Mes groupes"
+        final myGroupIndex = groupeController.myGroups.indexWhere((g) => g.id == groupIdInt);
+        if (myGroupIndex != -1) {
+          print('📝 [GroupeDetailController] Updating myGroups posting_permission');
+          groupeController.myGroups[myGroupIndex] = updatedGroup;
+          groupeController.myGroups.refresh();
+        }
+
+        // Mettre à jour aussi dans "Découvrir" si présent
+        final discoverIndex = groupeController.discoverGroups.indexWhere((g) => g.id == groupIdInt);
+        if (discoverIndex != -1) {
+          print('📝 [GroupeDetailController] Updating discoverGroups posting_permission');
+          groupeController.discoverGroups[discoverIndex] = updatedGroup;
+          groupeController.discoverGroups.refresh();
+        }
+
+        print('✅ [GroupeDetailController] Updated GroupeController lists after posting permission change');
+      } catch (e) {
+        print('⚠️ [GroupeDetailController] Could not update GroupeController: $e');
+      }
+
+      Get.snackbar(
+        'Succès',
+        permission == 'everyone'
+            ? 'Tout le monde peut maintenant poster des messages'
+            : 'Seuls les administrateurs peuvent poster des messages',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error updating posting permission: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de mettre à jour les permissions',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Update member role (creator only)
+  Future<void> updateMemberRole(GroupMemberModel member, String newRole) async {
+    final groupIdInt = int.tryParse(groupId);
+    if (groupIdInt == null) return;
+
+    try {
+      print('👤⬆️ [GroupeDetailController] Updating role of member ${member.id} to: $newRole');
+
+      await _groupService.updateMemberRole(
+        groupId: groupIdInt,
+        memberId: member.id,
+        role: newRole,
+      );
+
+      final roleName = newRole == 'admin'
+          ? 'Administrateur'
+          : newRole == 'moderator'
+              ? 'Modérateur'
+              : 'Membre';
+
+      Get.snackbar(
+        'Succès',
+        '${member.effectiveDisplayName} est maintenant $roleName',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+
+      // Refresh members list
+      Get.back();
+      showMembersList();
+    } catch (e) {
+      print('❌ [GroupeDetailController] Error updating member role: $e');
+
+      Get.snackbar(
+        'Erreur',
+        'Impossible de modifier le rôle du membre',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: AppThemeSystem.errorColor,
         colorText: Colors.white,

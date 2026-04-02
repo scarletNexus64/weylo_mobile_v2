@@ -472,33 +472,30 @@ class AppDrawer extends StatelessWidget {
             );
 
             try {
-              // Perform logout
+              // Perform complete logout with cleanup
               await AuthService().logout();
 
+              // Wait a bit to ensure all cleanup is done
+              await Future.delayed(const Duration(milliseconds: 300));
+
               // Close loading dialog
               Get.back();
 
-              // Navigate to login
+              // Small delay before navigation to ensure dialog is closed
+              await Future.delayed(const Duration(milliseconds: 100));
+
+              // Navigate to login and clear all navigation stack
               Get.offAllNamed(Routes.LOGIN);
-
-              Get.snackbar(
-                'Déconnexion',
-                'Vous avez été déconnecté avec succès',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: AppThemeSystem.successColor,
-                colorText: Colors.white,
-              );
             } catch (e) {
+              print('❌ [APP_DRAWER] Erreur lors de la déconnexion: $e');
+
               // Close loading dialog
               Get.back();
 
-              Get.snackbar(
-                'Erreur',
-                'Une erreur est survenue lors de la déconnexion',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: AppThemeSystem.errorColor,
-                colorText: Colors.white,
-              );
+              // Even if logout fails, navigate to login anyway
+              // (the local data has been cleared in the finally block)
+              await Future.delayed(const Duration(milliseconds: 100));
+              Get.offAllNamed(Routes.LOGIN);
             }
           }
         },

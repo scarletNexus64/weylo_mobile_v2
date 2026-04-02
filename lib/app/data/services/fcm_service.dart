@@ -3,7 +3,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'package:weylo/app/routes/app_pages.dart';
 import 'storage_service.dart';
+import '../../modules/profile/controllers/profile_controller.dart';
+import '../../modules/home/controllers/home_controller.dart';
 
 // Handler pour les notifications en arrière-plan
 @pragma('vm:entry-point')
@@ -376,6 +379,36 @@ class FCMService extends GetxService {
         // L'utilisateur peut déjà voir le message dans la notification
         break;
 
+      case 'profile_view':
+        print('🧭 [FCM_NAV] Type: Vue de profil (Admirateur secret)');
+        print('🧭 [FCM_NAV] Navigation vers le profil et ouverture du bottomsheet...');
+
+        // Naviguer vers la page home (qui contient le profil comme onglet)
+        Get.offAllNamed(Routes.HOME);
+
+        // Attendre que la navigation soit complète et que le profil se charge
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          try {
+            print('🧭 [FCM_NAV] Changement vers l\'onglet profil...');
+
+            // Obtenir le HomeController et changer l'onglet vers Profile (index 4)
+            final homeController = Get.find<HomeController>();
+            homeController.tabController.animateTo(4); // Profile tab index
+
+            print('🧭 [FCM_NAV] Tentative d\'ouverture du bottomsheet des visiteurs...');
+            final profileController = Get.find<ProfileController>();
+
+            // Recharger les visiteurs avant d'ouvrir le bottomsheet
+            profileController.loadProfileVisitors().then((_) {
+              print('🧭 [FCM_NAV] Visiteurs rechargés, ouverture du bottomsheet...');
+              profileController.showProfileVisitors();
+            });
+          } catch (e) {
+            print('❌ [FCM_NAV] Erreur affichage visiteurs: $e');
+          }
+        });
+        break;
+
       default:
         print('⚠️ [FCM_NAV] Type de notification inconnu: $type');
     }
@@ -415,6 +448,21 @@ class FCMService extends GetxService {
 
     print('📢 [FCM_TOPIC] ========================================');
     print('📢 [FCM_TOPIC] Souscription terminée (3 topics)');
+    print('📢 [FCM_TOPIC] ========================================');
+  }
+
+  /// Se désabonner de tous les topics (appelé lors du logout)
+  Future<void> unsubscribeFromAllTopics() async {
+    print('📢 [FCM_TOPIC] ========================================');
+    print('📢 [FCM_TOPIC] Désinscription de tous les topics...');
+    print('📢 [FCM_TOPIC] ========================================');
+
+    await unsubscribeFromTopic('global_announcements');
+    await unsubscribeFromTopic('new_confessions');
+    await unsubscribeFromTopic('new_stories');
+
+    print('📢 [FCM_TOPIC] ========================================');
+    print('📢 [FCM_TOPIC] Désinscription terminée (3 topics)');
     print('📢 [FCM_TOPIC] ========================================');
   }
 

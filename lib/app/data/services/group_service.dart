@@ -586,6 +586,44 @@ class GroupService {
       rethrow;
     }
   }
+
+  /// Update posting permission (creator/admin only)
+  /// postingPermission: 'everyone' or 'admins_only'
+  Future<GroupModel> updatePostingPermission({
+    required int groupId,
+    required String postingPermission,
+  }) async {
+    try {
+      final response = await _api.put(
+        '${ApiConfig.groups}/$groupId/posting-permission',
+        data: {
+          'posting_permission': postingPermission,
+        },
+      );
+      return GroupModel.fromJson(response.data['group']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update member role (creator only)
+  /// role: 'admin', 'moderator', or 'member'
+  Future<void> updateMemberRole({
+    required int groupId,
+    required int memberId,
+    required String role,
+  }) async {
+    try {
+      await _api.put(
+        '${ApiConfig.groups}/$groupId/members/$memberId/role',
+        data: {
+          'role': role,
+        },
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 /// Response wrapper for group list with pagination

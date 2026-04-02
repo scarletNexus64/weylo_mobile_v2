@@ -52,6 +52,25 @@ class AuthService {
         );
         print('✅ [AUTH_SERVICE] Données sauvegardées avec succès');
 
+        // Clean up all existing controllers to ensure fresh data
+        print('🧹 [AUTH_SERVICE] Nettoyage des controllers existants...');
+        try {
+          // Force delete all controllers including permanent ones
+          // But keep FCMService which is needed for the app
+          final fcmService = Get.isRegistered<FCMService>() ? Get.find<FCMService>() : null;
+
+          Get.deleteAll(force: true);
+
+          // Re-register FCMService if it existed
+          if (fcmService != null) {
+            Get.put(fcmService, permanent: true);
+          }
+
+          print('✅ [AUTH_SERVICE] Controllers nettoyés (force)');
+        } catch (e) {
+          print('⚠️ [AUTH_SERVICE] Erreur nettoyage controllers: $e');
+        }
+
         // Send FCM token to backend after successful registration
         print('📱 [AUTH_SERVICE] Envoi du FCM token au backend...');
         await _sendFcmTokenToBackend();
@@ -114,6 +133,25 @@ class AuthService {
       );
       print('✅ [AUTH_SERVICE] Données sauvegardées avec succès');
 
+      // Clean up all existing controllers to ensure fresh data
+      print('🧹 [AUTH_SERVICE] Nettoyage des controllers existants...');
+      try {
+        // Force delete all controllers including permanent ones
+        // But keep FCMService which is needed for the app
+        final fcmService = Get.isRegistered<FCMService>() ? Get.find<FCMService>() : null;
+
+        Get.deleteAll(force: true);
+
+        // Re-register FCMService if it existed
+        if (fcmService != null) {
+          Get.put(fcmService, permanent: true);
+        }
+
+        print('✅ [AUTH_SERVICE] Controllers nettoyés (force)');
+      } catch (e) {
+        print('⚠️ [AUTH_SERVICE] Erreur nettoyage controllers: $e');
+      }
+
       // Send FCM token to backend after successful login
       print('📱 [AUTH_SERVICE] Envoi du FCM token au backend...');
       await _sendFcmTokenToBackend();
@@ -145,20 +183,75 @@ class AuthService {
 
   /// Logout user
   Future<void> logout() async {
+    print('🚪 [AUTH_SERVICE] ========================================');
+    print('🚪 [AUTH_SERVICE] Début du processus de déconnexion...');
+    print('🚪 [AUTH_SERVICE] ========================================');
+
     try {
-      // Call logout API
+      // 1. Unsubscribe from FCM topics
+      print('📢 [AUTH_SERVICE] Désinscription des topics FCM...');
+      try {
+        if (Get.isRegistered<FCMService>()) {
+          final fcmService = Get.find<FCMService>();
+          await fcmService.unsubscribeFromAllTopics();
+          print('✅ [AUTH_SERVICE] Désinscription des topics terminée');
+        }
+      } catch (e) {
+        print('⚠️ [AUTH_SERVICE] Erreur lors de la désinscription FCM: $e');
+      }
+
+      // 2. Call logout API
+      print('🌐 [AUTH_SERVICE] Appel de l\'API de déconnexion...');
       await _api.post(ApiConfig.logout);
+      print('✅ [AUTH_SERVICE] API de déconnexion appelée avec succès');
     } catch (e) {
       // Continue with local logout even if API call fails
-      print('Logout API failed: $e');
+      print('⚠️ [AUTH_SERVICE] Erreur API de déconnexion: $e');
+      print('⏭️ [AUTH_SERVICE] Continuation du nettoyage local...');
     } finally {
-      // Always clear local storage
-      await _storage.clearAuthData();
+      // 3. Clear all storage data (not just auth data)
+      print('🗑️ [AUTH_SERVICE] Nettoyage complet du stockage...');
+      await _storage.clearAll(); // Clear ALL data including search history, etc.
+      print('✅ [AUTH_SERVICE] Stockage complètement vidé');
 
-      // NOTE: We don't manually delete controllers here.
-      // The calling code should use Get.offAllNamed() to navigate,
-      // which will automatically clean up all controllers.
-      // This prevents crashes when trying to delete active controllers.
+      // 4. Clean up ConversationStateService if it exists
+      print('💬 [AUTH_SERVICE] Nettoyage du ConversationStateService...');
+      try {
+        if (Get.isRegistered<ConversationStateService>()) {
+          final conversationService = Get.find<ConversationStateService>();
+          conversationService.onClose();
+          await Get.delete<ConversationStateService>(force: true);
+          print('✅ [AUTH_SERVICE] ConversationStateService nettoyé');
+        }
+      } catch (e) {
+        print('⚠️ [AUTH_SERVICE] Erreur nettoyage ConversationStateService: $e');
+      }
+
+      // 5. Delete all controllers including permanent ones, except FCMService
+      print('🧹 [AUTH_SERVICE] Nettoyage des controllers...');
+      try {
+        // Force delete all controllers including permanent ones
+        // But keep FCMService which is needed for the app
+        final fcmService = Get.isRegistered<FCMService>() ? Get.find<FCMService>() : null;
+
+        Get.deleteAll(force: true);
+
+        // Re-register FCMService if it existed
+        if (fcmService != null) {
+          Get.put(fcmService, permanent: true);
+        }
+
+        print('✅ [AUTH_SERVICE] Controllers nettoyés (force)');
+      } catch (e) {
+        print('⚠️ [AUTH_SERVICE] Erreur nettoyage controllers: $e');
+      }
+
+      print('🚪 [AUTH_SERVICE] ========================================');
+      print('🚪 [AUTH_SERVICE] Déconnexion terminée avec succès');
+      print('🚪 [AUTH_SERVICE] ========================================');
+
+      // NOTE: The calling code should use Get.offAllNamed() to navigate to login
+      // which will complete the cleanup and reset the navigation stack
     }
   }
 

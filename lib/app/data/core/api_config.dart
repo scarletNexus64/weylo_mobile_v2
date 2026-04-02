@@ -107,6 +107,9 @@ class ApiConfig {
   static const String stories = '/stories';
   static const String myStories = '/stories/my-stories';
 
+  // Profile views endpoints
+  static const String profileViews = '/profile-views';
+
   // Timeout configuration
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 60);

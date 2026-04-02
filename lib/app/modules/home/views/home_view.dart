@@ -22,7 +22,6 @@ class HomeView extends GetView<HomeController> {
     final deviceType = context.deviceType;
 
     return Scaffold(
-      key: controller.scaffoldKey,
       drawer: const AppDrawer(),
       body: NestedScrollView(
         controller: controller.nestedScrollController,
@@ -55,10 +54,12 @@ class HomeView extends GetView<HomeController> {
                     children: [
                       // Menu hamburger et avatar badge
                       Expanded(
-                        child: UserProfileHeader(
-                          onTap: () {
-                            controller.scaffoldKey.currentState?.openDrawer();
-                          },
+                        child: Builder(
+                          builder: (context) => UserProfileHeader(
+                            onTap: () {
+                              Scaffold.of(context).openDrawer();
+                            },
+                          ),
                         ),
                       ),
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../data/models/user_model.dart';
 import '../../../data/services/search_service.dart';
+import '../../../data/services/auth_service.dart';
 
 class SearchController extends GetxController {
   final _searchService = SearchService();
+  final _authService = AuthService();
 
   // Search query
   final searchQuery = ''.obs;
@@ -67,14 +69,20 @@ class SearchController extends GetxController {
         page: currentPage,
       );
 
-      searchResults.value = results;
+      // Filter out current user from search results
+      final currentUser = _authService.getCurrentUser();
+      final filteredResults = currentUser != null
+          ? results.where((user) => user.id != currentUser.id).toList()
+          : results;
+
+      searchResults.value = filteredResults;
       hasSearched.value = true;
       hasMoreResults.value = results.length >= 20; // If we got full page, there might be more
 
       // Reload history (in case search was added)
       await loadSearchHistory();
 
-      print('✅ [SearchController] Found ${results.length} results');
+      print('✅ [SearchController] Found ${filteredResults.length} results (${results.length - filteredResults.length} filtered)');
     } catch (e) {
       print('💥 [SearchController] Search error: $e');
       Get.snackbar(

@@ -11,9 +11,6 @@ import 'group_info_view.dart';
 class GroupeDetailView extends GetView<GroupeDetailController> {
   const GroupeDetailView({super.key});
 
-  // Cache pour les positions du background
-  static List<Map<String, dynamic>>? _cachedBackgroundPositions;
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -131,79 +128,37 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
 
   Widget _buildBackgroundPattern(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenSize = MediaQuery.of(context).size;
 
-    print('📐 [GroupeBackground] Building pattern - screenSize: ${screenSize.width}x${screenSize.height}');
-
-    // Icons pour le background
-    final backgroundIcons = [
-      '💬', '❤️', '⭐', '✨', '🎁', '😊', '👍', '🔥',
-      '💕', '💐', '🌹', '☕', '🍕', '🍷', '💎', '👑',
-      '🎈', '🎆', '💫', '🌟', '📧', '💌', '🎉', '🎊'
-    ];
-
-    // Calculer les positions une seule fois (ou les régénérer si la taille d'écran a changé)
-    if (_cachedBackgroundPositions == null || _cachedBackgroundPositions!.isEmpty) {
-      print('🔄 [GroupeBackground] Generating NEW positions (first time or cache empty)');
-      _cachedBackgroundPositions = [];
-      final random = Random(42); // Seed fixe pour cohérence
-
-      for (var i = 0; i < 150; i++) {
-        final icon = backgroundIcons[i % backgroundIcons.length];
-        final x = random.nextDouble() * screenSize.width;
-        final y = random.nextDouble() * (screenSize.height * 1.5);
-        final size = 24.0 + (random.nextDouble() * 28); // 24-52px
-        final rotation = random.nextDouble() * 6.28; // 0-360°
-        final opacity = 0.12 + (random.nextDouble() * 0.18); // 0.12-0.30
-
-        _cachedBackgroundPositions!.add({
-          'icon': icon,
-          'x': x,
-          'y': y,
-          'size': size,
-          'rotation': rotation,
-          'opacity': opacity,
-        });
-      }
-      print('✅ [GroupeBackground] Generated ${_cachedBackgroundPositions!.length} positions');
-    } else {
-      print('♻️ [GroupeBackground] Using CACHED positions (${_cachedBackgroundPositions!.length} items)');
-    }
-
-    // Construire les widgets à partir des positions cachées
-    final positions = <Widget>[];
-    for (var data in _cachedBackgroundPositions!) {
-      positions.add(
-        Positioned(
-          left: data['x'] - data['size'] / 2,
-          top: data['y'] - data['size'] / 2,
-          child: Transform.rotate(
-            angle: data['rotation'],
-            child: Opacity(
-              opacity: isDark ? data['opacity'] : data['opacity'] * 0.8,
-              child: Text(
-                data['icon'],
-                style: TextStyle(
-                  fontSize: data['size'],
-                  color: isDark ? Colors.white : Colors.black,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    print('🎨 [GroupeBackground] Rendering ${positions.length} emoji widgets');
+    print('🎨 [GroupeBackground] Building with wallpaper image');
 
     return Positioned.fill(
       child: Container(
-        color: Colors.transparent,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    AppThemeSystem.darkBackgroundColor,
+                    AppThemeSystem.darkBackgroundColor.withValues(alpha: 0.95),
+                    AppThemeSystem.darkCardColor.withValues(alpha: 0.8),
+                  ]
+                : [
+                    Colors.white,
+                    const Color(0xFFFAFAFA),
+                    const Color(0xFFF5F5F5),
+                  ],
+          ),
+        ),
         child: IgnorePointer(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: positions,
+          child: Opacity(
+            opacity: isDark ? 0.08 : 0.12,
+            child: Image.asset(
+              'assets/images/wallpaper.png',
+              fit: BoxFit.cover,
+              repeat: ImageRepeat.repeat,
+              colorBlendMode: BlendMode.overlay,
+            ),
           ),
         ),
       ),
@@ -275,97 +230,103 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
               left: isSentByMe ? context.horizontalPadding * 2 : 0,
               right: isSentByMe ? 0 : context.horizontalPadding * 2,
             ),
-            child: Column(
-              crossAxisAlignment: isSentByMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Sender avatar and name for group messages (only for received messages)
-                if (!isSentByMe)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4, left: 4, right: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Avatar de l'expéditeur
-                        CircleAvatar(
-                          radius: 10,
-                          backgroundColor: AppThemeSystem.tertiaryColor,
-                          backgroundImage: message.sender?.avatarUrl != null
-                              ? NetworkImage(message.sender!.avatarUrl!)
-                              : null,
-                          child: message.sender?.avatarUrl == null
-                              ? Text(
-                                  message.sender?.firstName[0].toUpperCase() ?? '?',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 6),
-                        // Nom de l'expéditeur
-                        Text(
-                          senderName,
-                          style: context.textStyle(FontSizeType.caption).copyWith(
-                            color: AppThemeSystem.tertiaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Message content
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.elementSpacing,
-                    vertical: context.elementSpacing * 0.7,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: isSentByMe
-                        ? const LinearGradient(
-                            colors: [
-                              AppThemeSystem.primaryColor,
-                              AppThemeSystem.secondaryColor,
-                            ],
+                // Avatar à gauche pour les messages reçus
+                if (!isSentByMe) ...[
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppThemeSystem.tertiaryColor,
+                    backgroundImage: message.sender?.avatarUrl != null
+                        ? NetworkImage(message.sender!.avatarUrl!)
+                        : null,
+                    child: message.sender?.avatarUrl == null
+                        ? Text(
+                            _getUserInitials(message),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           )
                         : null,
-                    color: isSentByMe
-                        ? null
-                        : (isDark
-                            ? AppThemeSystem.darkCardColor
-                            : AppThemeSystem.grey100),
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(16),
-                      topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isSentByMe ? 16 : 4),
-                      bottomRight: Radius.circular(isSentByMe ? 4 : 16),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isSentByMe
-                            ? AppThemeSystem.primaryColor.withValues(alpha: 0.3)
-                            : Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+
+                // Contenu du message
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: isSentByMe
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    children: [
+                      // Nom de l'expéditeur pour les messages reçus
+                      if (!isSentByMe)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4, left: 4),
+                          child: Text(
+                            senderName,
+                            style: context.textStyle(FontSizeType.caption).copyWith(
+                              color: AppThemeSystem.tertiaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                      // Message content
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.elementSpacing,
+                          vertical: context.elementSpacing * 0.7,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: isSentByMe
+                              ? const LinearGradient(
+                                  colors: [
+                                    AppThemeSystem.primaryColor,
+                                    AppThemeSystem.secondaryColor,
+                                  ],
+                                )
+                              : null,
+                          color: isSentByMe
+                              ? null
+                              : (isDark
+                                  ? AppThemeSystem.darkCardColor
+                                  : AppThemeSystem.grey100),
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(16),
+                            topRight: const Radius.circular(16),
+                            bottomLeft: Radius.circular(isSentByMe ? 16 : 4),
+                            bottomRight: Radius.circular(isSentByMe ? 4 : 16),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isSentByMe
+                                  ? AppThemeSystem.primaryColor.withValues(alpha: 0.3)
+                                  : Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildMessageContent(context, message, isDark, isSentByMe),
+                      ),
+
+                      // Timestamp
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
+                        child: Text(
+                          _formatTime(message.createdAt),
+                          style: context.textStyle(FontSizeType.caption).copyWith(
+                            color: AppThemeSystem.grey600,
+                            fontSize: 10,
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                  child: _buildMessageContent(context, message, isDark, isSentByMe),
-                ),
-
-                // Timestamp
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
-                  child: Text(
-                    _formatTime(message.createdAt),
-                    style: context.textStyle(FontSizeType.caption).copyWith(
-                      color: AppThemeSystem.grey600,
-                      fontSize: 10,
-                    ),
                   ),
                 ),
               ],
@@ -374,6 +335,45 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         ),
       ),
     );
+  }
+
+  /// Obtenir les initiales de l'utilisateur pour l'avatar
+  String _getUserInitials(GroupMessageModel message) {
+    final sender = message.sender;
+
+    // PRIORITÉ 1: Utiliser l'attribut 'initial' calculé par le backend si disponible
+    // Cet attribut contient les initiales calculées côté serveur (2 lettres)
+    final initial = sender?.initial;
+    if (initial != null && initial.isNotEmpty) {
+      return initial.toUpperCase();
+    }
+
+    // FALLBACK 1: Si on a le prénom et le nom, calculer les initiales
+    if (sender?.firstName != null && sender!.firstName.isNotEmpty) {
+      final lastName = sender.lastName;
+      if (lastName != null && lastName.isNotEmpty) {
+        return '${sender.firstName[0]}${lastName[0]}'.toUpperCase();
+      }
+
+      // Si on a juste le prénom, prendre les 2 premières lettres (ou 1 si trop court)
+      final firstName = sender.firstName;
+      if (firstName.length >= 2) {
+        return firstName.substring(0, 2).toUpperCase();
+      }
+      return firstName[0].toUpperCase();
+    }
+
+    // FALLBACK 2: Si on a le username, prendre les 2 premières lettres
+    if (sender?.username != null && sender!.username.isNotEmpty) {
+      final username = sender.username;
+      if (username.length >= 2) {
+        return username.substring(0, 2).toUpperCase();
+      }
+      return username[0].toUpperCase();
+    }
+
+    // Par défaut, retourner 'A' pour Anonyme
+    return 'A';
   }
 
   Widget _buildMessageContent(BuildContext context, GroupMessageModel message, bool isDark, bool isSentByMe) {
@@ -456,28 +456,94 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         break;
 
       case GroupMessageType.gift:
-        // Extract gift info from metadata
-        final giftIcon = message.metadata?['icon'] as String? ?? '🎁';
-        final giftImageUrl = message.metadata?['emoji_image_url'] as String?;
-        final giftName = message.metadata?['name'] as String? ?? 'Cadeau';
-        mainContent = Column(
-          children: [
-            GiftIconImage(
-              imageUrl: giftImageUrl,
-              emojiIcon: giftIcon,
-              size: 48,
+        // Extract gift info from metadata (similar to chat_detail but using metadata only)
+        final metadata = message.metadata;
+
+        // Extract icon (emoji) from metadata
+        String giftIcon = '🎁'; // Default value
+        if (metadata?['icon'] != null) {
+          final iconStr = metadata!['icon'].toString();
+          if (iconStr.isNotEmpty) {
+            giftIcon = iconStr;
+          }
+        }
+
+        // Extract name from metadata
+        String giftName = 'Cadeau'; // Default value
+        if (metadata?['name'] != null) {
+          final nameStr = metadata!['name'].toString();
+          if (nameStr.isNotEmpty) {
+            giftName = nameStr;
+          }
+        }
+
+        // Extract image URL from metadata
+        final giftImageUrl = metadata?['emoji_image_url'] as String?;
+
+        // Extract price from metadata
+        final giftPrice = metadata?['price'] != null ? '${metadata!['price']} FCFA' : null;
+
+        mainContent = Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSentByMe
+                ? Colors.white.withValues(alpha: 0.18)
+                : (isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey200)
+                    .withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSentByMe
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : AppThemeSystem.grey300.withValues(alpha: 0.8),
+              width: 1,
             ),
-            const SizedBox(height: 4),
-            Text(
-              giftName,
-              style: context.textStyle(FontSizeType.caption).copyWith(
-                color: isSentByMe
-                    ? Colors.white
-                    : (isDark ? Colors.white : AppThemeSystem.blackColor),
-                fontWeight: FontWeight.w600,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Display emoji as Twemoji image
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: Center(
+                  child: GiftIconImage(
+                    imageUrl: giftImageUrl,
+                    emojiIcon: giftIcon,
+                    size: 32,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      giftName,
+                      style: context.textStyle(FontSizeType.body2).copyWith(
+                        color: isSentByMe
+                            ? Colors.white
+                            : (isDark ? Colors.white : AppThemeSystem.blackColor),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (giftPrice != null && giftPrice.trim().isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        giftPrice,
+                        style: context.textStyle(FontSizeType.caption).copyWith(
+                          color: isSentByMe
+                              ? Colors.white.withValues(alpha: 0.85)
+                              : AppThemeSystem.grey600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         );
         break;
 
@@ -850,6 +916,45 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
         ],
       ),
       child: Obx(() {
+        // Vérifier si l'utilisateur peut poster
+        final group = controller.group.value;
+        final canPost = group?.canPost ?? true;
+
+        // Debug logs
+        print('🔍 [GroupeDetailView] Input bar check:');
+        print('   - posting_permission: ${group?.postingPermission}');
+        print('   - isCreator: ${group?.isCreator}');
+        print('   - isAdmin: ${group?.isAdmin}');
+        print('   - canPost: $canPost');
+
+        // Si l'utilisateur ne peut pas poster, afficher un message informatif
+        if (!canPost) {
+          return SafeArea(
+            child: Container(
+              padding: EdgeInsets.all(context.elementSpacing * 1.5),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: AppThemeSystem.grey600,
+                    size: 20,
+                  ),
+                  SizedBox(width: context.elementSpacing),
+                  Expanded(
+                    child: Text(
+                      'Seuls les administrateurs peuvent poster des messages dans ce groupe',
+                      style: context.textStyle(FontSizeType.body2).copyWith(
+                        color: AppThemeSystem.grey600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         // Basculer entre l'interface d'enregistrement et l'interface normale
         if (controller.isRecording.value) {
           return _buildRecordingInterface(context, isDark);

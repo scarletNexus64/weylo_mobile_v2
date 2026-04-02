@@ -555,6 +555,54 @@ class _GroupInfoViewState extends State<GroupInfoView> {
 
             SizedBox(height: context.elementSpacing),
 
+            // Posting Permission (Admin/Creator only)
+            if (isCreator || widget.group.isAdmin)
+              GetBuilder<GroupeDetailController>(
+                builder: (controller) => Obx(() {
+                  final currentGroup = controller.group.value ?? widget.group;
+                  return _buildInfoCard(
+                    context,
+                    title: 'Qui peut poster',
+                    child: Column(
+                      children: [
+                        RadioListTile<String>(
+                          value: 'everyone',
+                          groupValue: currentGroup.postingPermission,
+                          onChanged: isCreator || currentGroup.isAdmin
+                              ? (value) {
+                                  if (value != null) {
+                                    controller.updatePostingPermission(value);
+                                  }
+                                }
+                              : null,
+                          title: const Text('Tout le monde'),
+                          subtitle: const Text('Tous les membres peuvent poster'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        RadioListTile<String>(
+                          value: 'admins_only',
+                          groupValue: currentGroup.postingPermission,
+                          onChanged: isCreator || currentGroup.isAdmin
+                              ? (value) {
+                                  if (value != null) {
+                                    controller.updatePostingPermission(value);
+                                  }
+                                }
+                              : null,
+                          title: const Text('Administrateurs seulement'),
+                          subtitle: const Text('Seuls les admins peuvent poster'),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+
+            SizedBox(height: context.elementSpacing),
+
             // Invite Code
             _buildInfoCard(
               context,

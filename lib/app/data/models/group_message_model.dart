@@ -53,9 +53,16 @@ class GroupMessageModel {
     UserModel? sender;
     if (json['sender'] != null && json['sender'] is Map) {
       // Cas 1: sender est un objet imbriqué
+      print('📨 [GroupMessage] Parsing sender from object: ${json['sender']}');
       sender = UserModel.fromJson(json['sender'] as Map<String, dynamic>);
-    } else if (json['sender_first_name'] != null || json['sender_username'] != null) {
+    } else if (json['sender_first_name'] != null || json['sender_username'] != null || json['sender_avatar_url'] != null) {
       // Cas 2: les infos du sender sont dans des champs plats (depuis l'API groups)
+      print('📨 [GroupMessage] Parsing sender from flat fields:');
+      print('  - first_name: ${json['sender_first_name']}');
+      print('  - username: ${json['sender_username']}');
+      print('  - avatar_url: ${json['sender_avatar_url']}');
+      print('  - initial: ${json['sender_initial']}');
+
       final firstName = json['sender_first_name'] ?? '';
       final lastName = json['sender_last_name'] ?? '';
       final fullName = lastName.isNotEmpty ? '$firstName $lastName'.trim() : firstName;
@@ -70,11 +77,16 @@ class GroupMessageModel {
         phone: '', // Non fourni dans ce contexte
         avatar: json['sender_avatar_url'],
         avatarUrl: json['sender_avatar_url'],
+        initial: json['sender_initial'], // Initiales calculées par le backend
         isPremium: json['sender_is_premium'] ?? false,
         isVerified: json['sender_is_verified'] ?? false,
         createdAt: DateTime.now(), // Non fourni dans ce contexte
         updatedAt: DateTime.now(), // Non fourni dans ce contexte
       );
+
+      print('📨 [GroupMessage] Created sender: ${sender.username}, avatar: ${sender.avatarUrl}, initial: ${sender.initial}');
+    } else {
+      print('⚠️ [GroupMessage] No sender data found in JSON!');
     }
 
     // Parse dates - use created_at as fallback for updated_at if missing (WebSocket events)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/group_details_modal.dart';
@@ -996,8 +997,10 @@ class GroupeView extends GetView<GroupeController> {
         ),
       ),
     ).then((_) {
-      // S'assurer que le controller est toujours disposé, peu importe comment le dialog est fermé
-      codeController.dispose();
+      // Retarder le dispose pour éviter les erreurs pendant l'animation de fermeture
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        codeController.dispose();
+      });
     });
   }
 

@@ -24,6 +24,9 @@ class UserProfileController extends GetxController {
       // If a UserModel was passed directly
       user.value = args;
       username = args.username;
+
+      // Enregistrer la vue de profil
+      _userProfileService.recordProfileView(args.id);
     } else if (args is Map) {
       // If arguments are passed as a map
       username = args['username'] as String?;
@@ -31,6 +34,9 @@ class UserProfileController extends GetxController {
 
       if (args['user'] != null) {
         user.value = args['user'] as UserModel;
+
+        // Enregistrer la vue de profil
+        _userProfileService.recordProfileView((args['user'] as UserModel).id);
       }
     }
 
@@ -67,6 +73,9 @@ class UserProfileController extends GetxController {
       user.value = loadedUser;
 
       print('✅ [USER_PROFILE_CONTROLLER] Profil chargé avec succès');
+
+      // Enregistrer la vue de profil (ne pas bloquer l'UI si ça échoue)
+      _userProfileService.recordProfileView(loadedUser.id);
     } catch (e) {
       print('❌ [USER_PROFILE_CONTROLLER] Erreur: $e');
       Get.snackbar(

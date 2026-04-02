@@ -3,14 +3,13 @@ import 'package:get/get.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/data/models/notification_model.dart';
+import 'package:weylo/app/modules/profile/controllers/profile_controller.dart';
+import 'package:weylo/app/modules/home/controllers/home_controller.dart';
 
 class NotificationDetailBottomSheet extends StatelessWidget {
   final NotificationModel notification;
 
-  const NotificationDetailBottomSheet({
-    super.key,
-    required this.notification,
-  });
+  const NotificationDetailBottomSheet({super.key, required this.notification});
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +51,12 @@ class NotificationDetailBottomSheet extends StatelessWidget {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: _getNotificationColor(notification.type).withValues(alpha: 0.1),
-                        borderRadius: context.borderRadius(BorderRadiusType.medium),
+                        color: _getNotificationColor(
+                          notification.type,
+                        ).withValues(alpha: 0.1),
+                        borderRadius: context.borderRadius(
+                          BorderRadiusType.medium,
+                        ),
                       ),
                       child: Center(
                         child: Text(
@@ -95,88 +98,46 @@ class NotificationDetailBottomSheet extends StatelessWidget {
                 Text(
                   notification.body,
                   style: context.body1.copyWith(
-                    color: isDark ? AppThemeSystem.grey300 : AppThemeSystem.grey700,
+                    color: isDark
+                        ? AppThemeSystem.grey300
+                        : AppThemeSystem.grey700,
                     height: 1.5,
                   ),
                 ),
 
-                // Additional data if available
-                if (notification.data != null && notification.data!.isNotEmpty) ...[
-                  SizedBox(height: context.sectionSpacing),
-                  Container(
-                    padding: EdgeInsets.all(context.elementSpacing),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppThemeSystem.grey800.withValues(alpha: 0.5)
-                          : AppThemeSystem.grey100,
-                      borderRadius: context.borderRadius(BorderRadiusType.medium),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Détails',
-                          style: context.body2.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: context.elementSpacing * 0.5),
-                        ...notification.data!.entries.map((entry) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: context.elementSpacing * 0.3),
-                            child: Row(
-                              children: [
-                                Text(
-                                  '${entry.key}: ',
-                                  style: context.caption.copyWith(
-                                    color: AppThemeSystem.grey500,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    '${entry.value}',
-                                    style: context.caption.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  ),
-                ],
-
                 SizedBox(height: context.sectionSpacing),
 
-                // Action button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Get.back();
-                      _handleNotificationAction(notification);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppThemeSystem.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        vertical: context.verticalPadding,
+                // Action button (if applicable)
+                if (_shouldShowActionButton(notification.type)) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back(); // Close bottomsheet
+                        _handleNotificationAction(notification);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _getNotificationColor(
+                          notification.type,
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.verticalPadding,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: context.borderRadius(BorderRadiusType.medium),
+                      child: Text(
+                        _getActionButtonText(notification.type),
+                        style: context.button.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _getActionButtonText(notification.type),
-                      style: context.button,
                     ),
                   ),
-                ),
-
-                SizedBox(height: context.elementSpacing * 0.5),
+                  SizedBox(height: context.elementSpacing),
+                ],
 
                 // Close button
                 SizedBox(
@@ -196,12 +157,18 @@ class NotificationDetailBottomSheet extends StatelessWidget {
                     ),
                   ),
                 ),
+                SizedBox(height: context.elementSpacing * 2.5),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  bool _shouldShowActionButton(String type) {
+    // Afficher le bouton d'action uniquement pour profile_view
+    return type == 'profile_view';
   }
 
   Color _getNotificationColor(String type) {
@@ -226,6 +193,8 @@ class NotificationDetailBottomSheet extends StatelessWidget {
       case 'wallet_credit':
       case 'wallet_debit':
         return Colors.green;
+      case 'profile_view':
+        return AppThemeSystem.primaryColor;
       default:
         return AppThemeSystem.primaryColor;
     }
@@ -249,6 +218,8 @@ class NotificationDetailBottomSheet extends StatelessWidget {
       case 'wallet_credit':
       case 'wallet_debit':
         return 'Voir le portefeuille';
+      case 'profile_view':
+        return 'Voir mes visiteurs';
       default:
         return 'Voir les détails';
     }
@@ -256,43 +227,74 @@ class NotificationDetailBottomSheet extends StatelessWidget {
 
   void _handleNotificationAction(NotificationModel notification) {
     final data = notification.data;
-    if (data == null) return;
 
     switch (notification.type) {
       case 'message':
       case 'new_chat_message':
       case 'new_message':
-        if (data['conversation_id'] != null) {
-          Get.toNamed('/chat-detail', arguments: {
-            'conversationId': data['conversation_id'],
-          });
+        if (data != null && data['conversation_id'] != null) {
+          Get.toNamed(
+            '/chat-detail',
+            arguments: {'conversationId': data['conversation_id']},
+          );
         }
         break;
 
       case 'gift':
       case 'gift_received':
       case 'gift_sent':
-        // Navigate to gift or wallet page
-        Get.toNamed('/wallet');
+        Get.toNamed('/my-wallet');
         break;
 
       case 'follow':
       case 'new_follower':
-        if (data['user_id'] != null) {
-          Get.toNamed('/profile', arguments: {
-            'userId': data['user_id'],
-          });
+        if (data != null && data['user_id'] != null) {
+          Get.toNamed('/user-profile', arguments: {'userId': data['user_id']});
         }
         break;
 
       case 'wallet':
       case 'wallet_credit':
       case 'wallet_debit':
-        Get.toNamed('/wallet');
+        Get.toNamed('/my-wallet');
+        break;
+
+      case 'profile_view':
+        print('🧭 [NOTIFICATION] Navigation vers les visiteurs du profil...');
+        // Naviguer vers la page home (qui contient le profil)
+        Get.offAllNamed('/home');
+
+        // Attendre que la navigation soit complète
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          try {
+            print('🧭 [NOTIFICATION] Changement vers l\'onglet profil...');
+
+            // Obtenir le HomeController et changer l'onglet vers Profile (index 4)
+            final homeController = Get.find<HomeController>();
+            homeController.tabController.animateTo(4); // Profile tab index
+
+            print(
+              '🧭 [NOTIFICATION] Ouverture du bottomsheet des visiteurs...',
+            );
+            final profileController = Get.find<ProfileController>();
+
+            // Recharger les visiteurs et ouvrir le bottomsheet
+            profileController.loadProfileVisitors().then((_) {
+              print(
+                '🧭 [NOTIFICATION] Visiteurs rechargés, ouverture du bottomsheet...',
+              );
+              profileController.showProfileVisitors();
+            });
+          } catch (e) {
+            print('❌ [NOTIFICATION] Erreur affichage visiteurs: $e');
+          }
+        });
         break;
 
       default:
-        print('⚠️ No action defined for notification type: ${notification.type}');
+        print(
+          '⚠️ No action defined for notification type: ${notification.type}',
+        );
     }
   }
 }

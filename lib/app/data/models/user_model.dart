@@ -8,6 +8,7 @@ class UserModel {
   final String phone;
   final String? avatar;
   final String? avatarUrl;
+  final String? initial; // Initiales (2 lettres) calculées par le backend
   final String? coverPhoto;
   final String? coverPhotoUrl;
   final String? bio;
@@ -42,6 +43,7 @@ class UserModel {
     required this.phone,
     this.avatar,
     this.avatarUrl,
+    this.initial,
     this.coverPhoto,
     this.coverPhotoUrl,
     this.bio,
@@ -121,6 +123,7 @@ class UserModel {
       phone: json['phone'] ?? '',
       avatar: json['avatar'],
       avatarUrl: avatarUrl,
+      initial: json['initial'], // Initiales calculées par le backend
       coverPhoto: json['cover_photo'],
       coverPhotoUrl: coverPhotoUrl,
       bio: json['bio'],
@@ -187,6 +190,7 @@ class UserModel {
       'phone': phone,
       'avatar': avatar,
       'avatar_url': avatarUrl,
+      'initial': initial,
       'bio': bio,
       'profile_url': profileUrl,
       'is_verified': isVerified,
