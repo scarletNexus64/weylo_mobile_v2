@@ -694,7 +694,7 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
       return url;
     }
     // Use your API base URL here
-    return 'http://192.168.1.98:8001/storage/$url';
+    return 'http://10.144.156.28:8001/storage/$url';
   }
 
   @override

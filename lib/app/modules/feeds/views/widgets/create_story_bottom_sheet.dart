@@ -277,7 +277,12 @@ class _CreateStoryBottomSheetState extends State<CreateStoryBottomSheet> {
                     ),
             ),
 
-            const SizedBox(height: 20),
+            // Espacement adaptatif pour la barre de navigation système
+            SizedBox(
+              height: MediaQuery.of(context).padding.bottom > 0
+                  ? MediaQuery.of(context).padding.bottom
+                  : 20,
+            ),
           ],
         ),
       ),
