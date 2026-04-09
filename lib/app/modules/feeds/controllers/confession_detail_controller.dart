@@ -7,9 +7,12 @@ import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
+import 'package:share_plus/share_plus.dart';
+import '../../../data/core/api_config.dart';
 import '../../../data/models/confession_model.dart';
 import '../../../data/services/confession_service.dart';
 import '../../../data/services/storage_service.dart';
+import '../../../widgets/app_theme_system.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'feeds_controller.dart';
 
@@ -646,6 +649,41 @@ class ConfessionDetailController extends GetxController {
     } catch (e) {
       // Ignorer les erreurs silencieusement
       if (foundation.kDebugMode) print('Sync error (non-critical): $e');
+    }
+  }
+
+  /// Share confession with link
+  Future<void> shareConfession() async {
+    try {
+      final currentConfession = confession.value;
+      if (currentConfession == null) return;
+
+      // Construire le lien vers la confession
+      final confessionUrl = '${ApiConfig.frontendUrl}/confessions/$confessionId';
+
+      // Construire le message de partage avec un aperçu du contenu
+      final contentPreview = currentConfession.content.length > 100
+          ? '${currentConfession.content.substring(0, 100)}...'
+          : currentConfession.content;
+
+      final shareText = 'Découvre cette confession sur Weylo: "$contentPreview"\n\n$confessionUrl';
+
+      // Partager via le plugin share_plus
+      await SharePlus.instance.share(
+        ShareParams(
+          text: shareText,
+          subject: 'Confession Weylo',
+        ),
+      );
+    } catch (e) {
+      if (foundation.kDebugMode) print('Error sharing confession: $e');
+      Get.snackbar(
+        'Erreur',
+        'Impossible de partager la confession',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
     }
   }
 }

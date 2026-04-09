@@ -404,6 +404,62 @@ class StoryController extends GetxController {
     }
   }
 
+  /// Like a story
+  Future<void> likeStory(int storyId) async {
+    try {
+      await _storyService.likeStory(storyId);
+
+      // Update the story in the current user stories to reflect the like
+      final storyIndex = currentUserStories.indexWhere((s) => s.id == storyId);
+      if (storyIndex != -1) {
+        final story = currentUserStories[storyIndex];
+        final updatedStory = StoryModel(
+          id: story.id,
+          user: story.user,
+          isAnonymous: story.isAnonymous,
+          isOwner: story.isOwner,
+          canReveal: story.canReveal,
+          type: story.type,
+          mediaUrl: story.mediaUrl,
+          content: story.content,
+          thumbnailUrl: story.thumbnailUrl,
+          backgroundColor: story.backgroundColor,
+          duration: story.duration,
+          viewsCount: story.viewsCount,
+          status: story.status,
+          isExpired: story.isExpired,
+          isActive: story.isActive,
+          timeRemaining: story.timeRemaining,
+          expiresAt: story.expiresAt,
+          createdAt: story.createdAt,
+          isViewed: story.isViewed,
+          isLiked: true, // Mark as liked
+          viewers: story.viewers,
+          viewersCount: story.viewersCount,
+          hasViewerSubscription: story.hasViewerSubscription,
+        );
+
+        currentUserStories[storyIndex] = updatedStory;
+        currentUserStories.refresh();
+      }
+
+      Get.snackbar(
+        'Succès',
+        'Story likée',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 1),
+      );
+    } catch (e) {
+      print('❌ Error liking story: $e');
+
+      Get.snackbar(
+        'Erreur',
+        _getErrorMessage(e),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
   /// Reply to a story
   Future<int?> replyToStory(int storyId, String message) async {
     try {

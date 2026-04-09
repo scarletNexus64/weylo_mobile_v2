@@ -115,12 +115,16 @@ class WelcomerController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
 
+      // Reset loading state BEFORE navigation to avoid widget rebuild issues
+      isLoading.value = false;
+
       // Navigate to home on success
       print('🏠 [WELCOMER] Navigation vers HOME');
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
       Get.offAllNamed(Routes.HOME);
 
     } on ApiException catch (e) {
+      isLoading.value = false;
       print('💥 [WELCOMER] Erreur API: ${e.message} (Code: ${e.statusCode})');
       Get.snackbar(
         'Erreur',
@@ -131,6 +135,7 @@ class WelcomerController extends GetxController {
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
+      isLoading.value = false;
       print('💥 [WELCOMER] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
@@ -139,9 +144,6 @@ class WelcomerController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
-    } finally {
-      isLoading.value = false;
-      print('🔓 [WELCOMER] Fin de la tentative de connexion');
     }
   }
 

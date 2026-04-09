@@ -342,6 +342,16 @@ class StoryService {
     }
   }
 
+  /// Like a story
+  Future<void> likeStory(int storyId) async {
+    try {
+      await _apiService.post('${ApiConfig.stories}/$storyId/like');
+    } catch (e) {
+      print('❌ Error liking story: $e');
+      rethrow;
+    }
+  }
+
   /// Reply to a story
   Future<Map<String, dynamic>> replyToStory(int storyId, String message) async {
     try {

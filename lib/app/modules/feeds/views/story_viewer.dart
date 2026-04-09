@@ -23,10 +23,19 @@ class _StoryViewerState extends State<StoryViewer> {
   final _replyController = TextEditingController();
   final _isSendingReply = false.obs;
   final _replyFocusNode = FocusNode();
+  final _isLiking = false.obs;
+  final _hasLiked = false.obs;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize like state from story
+    final currentStory = controller.currentStory;
+    if (currentStory != null) {
+      _hasLiked.value = currentStory.isLiked;
+    }
+
     _startStoryTimer();
 
     // Pause story when reply field is focused
@@ -60,6 +69,9 @@ class _StoryViewerState extends State<StoryViewer> {
 
     final currentStory = controller.currentStory;
     if (currentStory == null) return;
+
+    // Update like state for the new story
+    _hasLiked.value = currentStory.isLiked;
 
     // Mark as viewed
     controller.markStoryAsViewed(currentStory.id);
@@ -140,6 +152,19 @@ class _StoryViewerState extends State<StoryViewer> {
       _resumeStory();
     } finally {
       _isSendingReply.value = false;
+    }
+  }
+
+  Future<void> _likeStory(StoryModel story) async {
+    if (_isLiking.value || _hasLiked.value) return;
+
+    _isLiking.value = true;
+
+    try {
+      await controller.likeStory(story.id);
+      _hasLiked.value = true;
+    } finally {
+      _isLiking.value = false;
     }
   }
 
@@ -569,6 +594,38 @@ class _StoryViewerState extends State<StoryViewer> {
               ),
             ),
             const SizedBox(width: 12),
+            // Like button
+            Obx(() => GestureDetector(
+                  onTap: _isLiking.value || _hasLiked.value ? null : () => _likeStory(story),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _hasLiked.value
+                          ? Colors.red.withValues(alpha: 0.9)
+                          : Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: _isLiking.value
+                        ? const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            _hasLiked.value ? Icons.favorite : Icons.favorite_border,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                  ),
+                )),
+            const SizedBox(width: 12),
+            // Send button
             Obx(() => GestureDetector(
                   onTap: _isSendingReply.value ? null : () => _sendReply(story),
                   child: Container(

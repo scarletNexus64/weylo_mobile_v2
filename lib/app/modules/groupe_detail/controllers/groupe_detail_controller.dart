@@ -123,8 +123,17 @@ class GroupeDetailController extends GetxController {
   }
 
   void _onScroll() {
-    if (scrollController.position.pixels <= 100 && canLoadMore.value && !isLoadingMore.value) {
-      loadMoreMessages();
+    // Avec reverse: true, on scroll vers le haut (maxScrollExtent) pour charger les anciens messages
+    if (scrollController.hasClients) {
+      final maxScroll = scrollController.position.maxScrollExtent;
+      final currentScroll = scrollController.position.pixels;
+      final threshold = maxScroll - 200;
+
+      if (currentScroll >= threshold &&
+          canLoadMore.value &&
+          !isLoadingMore.value) {
+        loadMoreMessages();
+      }
     }
   }
 
@@ -197,6 +206,8 @@ class GroupeDetailController extends GetxController {
     hasError.value = false;
 
     try {
+      print('📡 [GroupeDetailController] Loading messages - page: $currentPage, refresh: $refresh');
+
       final response = await _groupService.getMessages(
         groupId: groupId,
         page: currentPage,
@@ -204,6 +215,7 @@ class GroupeDetailController extends GetxController {
       );
 
       print('📥 [GroupeDetailController] Loaded ${response.messages.length} messages');
+      print('📊 [GroupeDetailController] Meta - current_page: ${response.meta.currentPage}, last_page: ${response.meta.lastPage}, has_more: ${response.meta.hasMorePages}');
 
       // Debug: Log image messages with captions
       for (var msg in response.messages) {
@@ -213,26 +225,30 @@ class GroupeDetailController extends GetxController {
       }
 
       if (refresh || initialLoad) {
-        // Backend déjà envoie les messages dans l'ordre chronologique (ancien→récent)
-        // Pas besoin de reverser!
+        // Backend envoie les messages dans l'ordre chronologique (ancien→récent)
+        // Avec reverse: true, on garde cet ordre et le ListView l'affiche correctement
         messages.value = response.messages;
+        print('✅ [GroupeDetailController] Messages refreshed, total: ${messages.length}');
+
         // Scroll vers le bas après un délai pour laisser le temps au widget de se construire
-        // Utiliser plusieurs tentatives pour s'assurer que le scroll fonctionne
         Future.delayed(const Duration(milliseconds: 100), () => _scrollToBottom());
         Future.delayed(const Duration(milliseconds: 300), () => _scrollToBottom());
         Future.delayed(const Duration(milliseconds: 600), () => _scrollToBottom());
       } else {
-        // Pour la pagination, insérer au début (messages plus anciens)
+        // Pour la pagination avec reverse: true, insérer les anciens messages au DÉBUT
         messages.insertAll(0, response.messages);
+        print('📍 [GroupeDetailController] Messages inserted at beginning, total: ${messages.length}');
       }
 
       currentPage = response.meta.currentPage;
       lastPage = response.meta.lastPage;
       canLoadMore.value = response.meta.hasMorePages;
+
+      print('✅ [GroupeDetailController] Pagination state - page: $currentPage/$lastPage, canLoadMore: ${canLoadMore.value}');
     } catch (e) {
       hasError.value = true;
       errorMessage.value = e.toString();
-      print('Error loading group messages: $e');
+      print('❌ [GroupeDetailController] Error loading group messages: $e');
     } finally {
       isLoading.value = false;
       isLoadingMore.value = false;
@@ -518,9 +534,9 @@ class GroupeDetailController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
         try {
-          // Utiliser jumpTo au lieu de animateTo pour un scroll instantané et fiable
-          scrollController.jumpTo(scrollController.position.maxScrollExtent);
-          print('📜 [GroupeDetailController] Scrolled to bottom (max: ${scrollController.position.maxScrollExtent})');
+          // Avec reverse: true, position 0 = bas de la liste (messages récents)
+          scrollController.jumpTo(0);
+          print('📜 [GroupeDetailController] Scrolled to bottom (position 0 with reverse mode)');
         } catch (e) {
           print('❌ [GroupeDetailController] Failed to scroll: $e');
         }
@@ -1533,52 +1549,81 @@ class GroupeDetailController extends GetxController {
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                       subtitle: Text(
-                        member.role == 'admin'
-                            ? 'Administrateur'
-                            : member.role == 'moderator'
-                                ? 'Modérateur'
-                                : 'Membre',
+                        member.role == 'admin' ? 'Administrateur' : 'Membre',
                         style: TextStyle(
                           color: member.role == 'admin'
                               ? AppThemeSystem.primaryColor
-                              : member.role == 'moderator'
-                                  ? AppThemeSystem.secondaryColor
-                                  : AppThemeSystem.grey600,
+                              : AppThemeSystem.grey600,
                         ),
                       ),
                       trailing: !isCurrentUser && group.value?.isCreator == true
                           ? PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert),
                               onSelected: (value) {
+                                // Fermer le bottomsheet d'abord pour éviter l'empilement
+                                Get.back();
+
                                 if (value == 'remove') {
                                   _confirmRemoveMember(member);
-                                } else if (value == 'admin') {
+                                } else {
                                   _confirmChangeRole(member, value);
                                 }
                               },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: 'admin',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.admin_panel_settings, size: 20, color: AppThemeSystem.primaryColor),
-                                      SizedBox(width: 12),
-                                      Text('Promouvoir Admin'),
-                                    ],
+                              itemBuilder: (context) {
+                                List<PopupMenuEntry<String>> items = [];
+
+                                // Options selon le rôle actuel (uniquement admin et membre)
+                                if (member.role == 'member') {
+                                  // Membre normal : peut être promu admin
+                                  items.add(
+                                    const PopupMenuItem(
+                                      value: 'admin',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.admin_panel_settings, size: 20, color: AppThemeSystem.primaryColor),
+                                          SizedBox(width: 12),
+                                          Text('Promouvoir Admin'),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                } else if (member.role == 'admin') {
+                                  // Admin : peut être rétrogradé en membre
+                                  items.add(
+                                    const PopupMenuItem(
+                                      value: 'member',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.person, size: 20, color: AppThemeSystem.grey600),
+                                          SizedBox(width: 12),
+                                          Text('Rétrograder en Membre'),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                // Divider avant l'option de suppression
+                                if (items.isNotEmpty) {
+                                  items.add(const PopupMenuDivider());
+                                }
+
+                                // Option de retirer du groupe (toujours disponible)
+                                items.add(
+                                  const PopupMenuItem(
+                                    value: 'remove',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.remove_circle, size: 20, color: Colors.red),
+                                        SizedBox(width: 12),
+                                        Text('Retirer du groupe', style: TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const PopupMenuDivider(),
-                                const PopupMenuItem(
-                                  value: 'remove',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.remove_circle, size: 20, color: Colors.red),
-                                      SizedBox(width: 12),
-                                      Text('Retirer du groupe', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                                );
+
+                                return items;
+                              },
                             )
                           : null,
                     );
@@ -1608,16 +1653,24 @@ class GroupeDetailController extends GetxController {
 
   /// Confirm changing a member's role
   void _confirmChangeRole(GroupMemberModel member, String newRole) {
-    final roleName = newRole == 'admin'
-        ? 'Administrateur'
-        : newRole == 'moderator'
-            ? 'Modérateur'
-            : 'Membre';
+    final roleName = newRole == 'admin' ? 'Administrateur' : 'Membre';
+
+    // Déterminer si c'est une promotion ou une rétrogradation
+    final currentRole = member.role;
+    final roleHierarchy = {'member': 0, 'admin': 1};
+    final currentLevel = roleHierarchy[currentRole] ?? 0;
+    final newLevel = roleHierarchy[newRole] ?? 0;
+    final isPromotion = newLevel > currentLevel;
+
+    final action = isPromotion ? 'Promouvoir' : 'Rétrograder';
+    final message = isPromotion
+        ? 'Voulez-vous promouvoir ${member.effectiveDisplayName} au rôle de $roleName ?'
+        : 'Voulez-vous rétrograder ${member.effectiveDisplayName} au rôle de $roleName ?';
 
     Get.dialog(
       AlertDialog(
-        title: const Text('Modifier le rôle ?'),
-        content: Text('Voulez-vous changer le rôle de ${member.effectiveDisplayName} en $roleName ?'),
+        title: Text('$action le membre ?'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -1628,6 +1681,9 @@ class GroupeDetailController extends GetxController {
               Get.back();
               updateMemberRole(member, newRole);
             },
+            style: TextButton.styleFrom(
+              foregroundColor: isPromotion ? AppThemeSystem.primaryColor : Colors.orange,
+            ),
             child: const Text('Confirmer'),
           ),
         ],
@@ -1681,9 +1737,10 @@ class GroupeDetailController extends GetxController {
         duration: const Duration(seconds: 2),
       );
 
-      // Refresh members list
-      Get.back();
-      showMembersList();
+      // Fermer le dialog de confirmation et réafficher la liste des membres
+      Get.back(); // Ferme le dialog
+      await Future.delayed(const Duration(milliseconds: 200)); // Petit délai pour une meilleure UX
+      showMembersList(); // Réaffiche le bottomsheet avec les données à jour
     } catch (e) {
       print('❌ [GroupeDetailController] Error removing member: $e');
 
@@ -1775,11 +1832,7 @@ class GroupeDetailController extends GetxController {
         role: newRole,
       );
 
-      final roleName = newRole == 'admin'
-          ? 'Administrateur'
-          : newRole == 'moderator'
-              ? 'Modérateur'
-              : 'Membre';
+      final roleName = newRole == 'admin' ? 'Administrateur' : 'Membre';
 
       Get.snackbar(
         'Succès',
@@ -1790,9 +1843,10 @@ class GroupeDetailController extends GetxController {
         duration: const Duration(seconds: 2),
       );
 
-      // Refresh members list
-      Get.back();
-      showMembersList();
+      // Fermer le dialog de confirmation et réafficher la liste des membres
+      Get.back(); // Ferme le dialog
+      await Future.delayed(const Duration(milliseconds: 200)); // Petit délai pour une meilleure UX
+      showMembersList(); // Réaffiche le bottomsheet avec les données à jour
     } catch (e) {
       print('❌ [GroupeDetailController] Error updating member role: $e');
 

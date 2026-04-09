@@ -75,5 +75,14 @@
     <key>NSContactsUsageDescription</key>
     <string>Weylo a besoin d'accéder à vos contacts pour vous suggérer des amis sur l'application</string>
 
+    <!-- URL Schemes pour ouvrir des liens externes -->
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>http</string>
+      <string>https</string>
+      <string>tel</string>
+      <string>mailto</string>
+    </array>
+
   </dict>
 </plist>

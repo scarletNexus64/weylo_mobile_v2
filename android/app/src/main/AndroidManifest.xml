@@ -30,7 +30,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep Links -->
+            <!-- Deep Links - User Profile -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -43,7 +43,20 @@
                 <data android:pathPrefix="/u/"/>
             </intent-filter>
 
-            <!-- Custom URL Scheme (fallback) -->
+            <!-- Deep Links - Confessions -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <!-- Domaine principal -->
+                <data android:scheme="https"/>
+                <data android:scheme="http"/>
+                <data android:host="weylo.app"/>
+                <data android:pathPrefix="/confessions/"/>
+            </intent-filter>
+
+            <!-- Custom URL Scheme - Send Message (fallback) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -51,6 +64,16 @@
 
                 <data android:scheme="weylo"/>
                 <data android:host="sendmessage"/>
+            </intent-filter>
+
+            <!-- Custom URL Scheme - Confessions (fallback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+
+                <data android:scheme="weylo"/>
+                <data android:host="confession"/>
             </intent-filter>
         </activity>
 
@@ -73,6 +96,24 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+
+        <!-- Queries pour ouvrir des liens externes -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
         </intent>
     </queries>
 </manifest>

@@ -72,7 +72,30 @@ class DeeplinkService {
         }
       }
 
-      // Cas 2: Custom URL Scheme - weylo://sendmessage?username={username}
+      // Cas 2: Universal Link - http://IP:PORT/confessions/{id}
+      else if ((uri.scheme == 'https' || uri.scheme == 'http') &&
+          '${uri.host}:${uri.port}' == ApiConfig.anonymousLinkHost &&
+          uri.path.startsWith('/confessions/')) {
+
+        final confessionIdStr = uri.path.replaceFirst('/confessions/', '');
+        final confessionId = int.tryParse(confessionIdStr);
+        print('🔗 [DEEPLINK] Confession ID extrait: $confessionId');
+
+        if (confessionId != null) {
+          // Attendre un peu pour que l'app soit complètement chargée
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          // Naviguer vers la page de détail de confession
+          Get.toNamed(
+            Routes.CONFESSION_DETAIL.replaceAll(':id', confessionId.toString()),
+          );
+          print('✅ [DEEPLINK] Navigation vers ConfessionDetail pour confession #$confessionId');
+        } else {
+          print('⚠️ [DEEPLINK] ID de confession invalide, impossible de naviguer');
+        }
+      }
+
+      // Cas 3: Custom URL Scheme - weylo://sendmessage?username={username}
       else if (uri.scheme == 'weylo' && uri.host == 'sendmessage') {
         final username = uri.queryParameters['username'];
         print('🔗 [DEEPLINK] Username (query param): $username');
@@ -86,6 +109,24 @@ class DeeplinkService {
           print('✅ [DEEPLINK] Navigation vers SendMessage pour @$username');
         } else {
           print('⚠️ [DEEPLINK] Username manquant dans le query param');
+        }
+      }
+
+      // Cas 4: Custom URL Scheme - weylo://confession?id={id}
+      else if (uri.scheme == 'weylo' && uri.host == 'confession') {
+        final confessionIdStr = uri.queryParameters['id'];
+        final confessionId = int.tryParse(confessionIdStr ?? '');
+        print('🔗 [DEEPLINK] Confession ID (query param): $confessionId');
+
+        if (confessionId != null) {
+          await Future.delayed(const Duration(milliseconds: 300));
+
+          Get.toNamed(
+            Routes.CONFESSION_DETAIL.replaceAll(':id', confessionId.toString()),
+          );
+          print('✅ [DEEPLINK] Navigation vers ConfessionDetail pour confession #$confessionId');
+        } else {
+          print('⚠️ [DEEPLINK] ID de confession manquant dans le query param');
         }
       }
 

@@ -5,6 +5,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/verified_badge.dart';
 import 'package:weylo/app/widgets/gift_icon_image.dart';
+import 'package:weylo/app/widgets/linkable_text_message.dart';
 import 'package:weylo/app/data/models/chat_message_model.dart';
 import '../controllers/chat_detail_controller.dart';
 import 'widgets/chat_image_picker_bottom_sheet.dart';
@@ -197,12 +198,12 @@ class ChatDetailView extends GetView<ChatDetailController> {
             ),
           ],
         )),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert_rounded),
-            onPressed: () {},
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.more_vert_rounded),
+        //     onPressed: () {},
+        //   ),
+        // ],
       ),
       body: Builder(
         builder: (context) {
@@ -294,6 +295,7 @@ class ChatDetailView extends GetView<ChatDetailController> {
 
                   return ListView.builder(
                     controller: controller.scrollController,
+                    reverse: true, // Messages les plus récents en bas (comme WhatsApp)
                     padding: EdgeInsets.all(context.elementSpacing),
                     itemCount: controller.messages.length + (controller.isLoadingMore.value ? 1 : 0),
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -301,8 +303,8 @@ class ChatDetailView extends GetView<ChatDetailController> {
                     addRepaintBoundaries: true,
                     cacheExtent: 500, // Pré-cache les items pour un scroll fluide
                     itemBuilder: (context, index) {
-                      // Afficher un loader en haut lors du chargement de plus de messages
-                      if (index == 0 && controller.isLoadingMore.value) {
+                      // Avec reverse: true, le loader doit être à la fin (messages plus anciens)
+                      if (index == controller.messages.length && controller.isLoadingMore.value) {
                         return Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Center(
@@ -320,8 +322,8 @@ class ChatDetailView extends GetView<ChatDetailController> {
                         );
                       }
 
-                      // Ajuster l'index si on affiche le loader
-                      final messageIndex = controller.isLoadingMore.value ? index - 1 : index;
+                      // Avec reverse: true, on lit les messages depuis la fin
+                      final messageIndex = controller.messages.length - 1 - index;
                       final message = controller.messages[messageIndex];
                       return _buildMessageBubble(context, message, isDark);
                     },
@@ -785,13 +787,10 @@ class ChatDetailView extends GetView<ChatDetailController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (replyWidget != null) replyWidget,
-            Text(
-              message.content ?? '',
-              style: context.textStyle(FontSizeType.body2).copyWith(
-                color: isSentByMe
-                    ? Colors.white
-                    : (isDark ? Colors.white : AppThemeSystem.blackColor),
-              ),
+            LinkableTextMessage(
+              text: message.content ?? '',
+              isSentByMe: isSentByMe,
+              isDark: isDark,
             ),
             // NOUVEAU: Badge "édité" si message édité
             if (message.isEdited)

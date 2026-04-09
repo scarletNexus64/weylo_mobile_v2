@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:weylo/app/data/core/api_config.dart';
 import 'package:weylo/app/data/core/api_service.dart';
 import 'package:weylo/app/data/services/confession_service.dart';
 import 'package:weylo/app/data/models/confession_model.dart';
@@ -116,8 +117,17 @@ class ConfessionsController extends GetxController {
     _loadContactSyncStatus();
     _loadPremiumStatus();
     _loadStories();
-    loadConfessions();
-    loadSponsoredAds();
+
+    // CORRECTION: Retarder le chargement pour éviter les erreurs au login
+    // Attendre que la page soit complètement montée avant de charger les données
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Attendre un peu plus pour s'assurer que le token est bien configuré
+      Future.delayed(const Duration(milliseconds: 500), () {
+        print('📥 [FEEDS] Chargement des confessions après montage de la page');
+        loadConfessions();
+        loadSponsoredAds();
+      });
+    });
   }
 
   /// Charger le statut de synchronisation des contacts
@@ -774,22 +784,21 @@ class ConfessionsController extends GetxController {
       final confession = confessions.firstWhereOrNull((c) => c.id == id);
       if (confession == null) return;
 
-      // Construire le message de partage
-      String shareText = confession.content;
+      // Construire le lien vers la confession
+      final confessionUrl = '${ApiConfig.frontendUrl}/confessions/$id';
 
-      if (confession.isIdentityRevealed) {
-        shareText += '\n\n- ${confession.authorName}';
-      } else {
-        shareText += '\n\n- Confession anonyme';
-      }
+      // Construire le message de partage avec un aperçu du contenu
+      final contentPreview = confession.content.length > 100
+          ? '${confession.content.substring(0, 100)}...'
+          : confession.content;
 
-      shareText += '\n\nPartagé depuis Weylo';
+      final shareText = 'Découvre cette confession sur Weylo: "$contentPreview"\n\n$confessionUrl';
 
       // Partager via le plugin share_plus
       await SharePlus.instance.share(
         ShareParams(
           text: shareText,
-          subject: 'Confession de ${confession.authorName}',
+          subject: 'Confession Weylo',
         ),
       );
     } catch (e) {
