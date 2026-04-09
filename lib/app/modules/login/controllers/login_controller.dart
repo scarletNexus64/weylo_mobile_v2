@@ -96,14 +96,27 @@ class LoginController extends GetxController {
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(milliseconds: 800),
       );
+
+      // IMPORTANT: Ne PAS réinitialiser isLoading avant navigation
+      // pour éviter les race conditions avec les widgets Obx
+      // Le controller sera supprimé après la navigation de toute façon
 
       // Navigate to home on success
       print('🏠 [LOGIN] Navigation vers HOME');
       await Future.delayed(const Duration(milliseconds: 500));
+
+      // Navigation qui supprime toutes les routes précédentes
+      // Le LoginController sera automatiquement supprimé
       Get.offAllNamed(Routes.HOME);
 
+      // Note: Pas besoin de réinitialiser isLoading car le controller
+      // n'existe plus après Get.offAllNamed()
+
     } on ApiException catch (e) {
+      // Réinitialiser seulement en cas d'erreur (on reste sur la même page)
+      isLoading.value = false;
       print('💥 [LOGIN] Erreur API: ${e.message} (Code: ${e.statusCode})');
       Get.snackbar(
         'Erreur',
@@ -114,6 +127,8 @@ class LoginController extends GetxController {
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
+      // Réinitialiser seulement en cas d'erreur (on reste sur la même page)
+      isLoading.value = false;
       print('💥 [LOGIN] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
@@ -122,9 +137,6 @@ class LoginController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
-    } finally {
-      isLoading.value = false;
-      print('🔓 [LOGIN] Fin de la tentative de connexion');
     }
   }
 
