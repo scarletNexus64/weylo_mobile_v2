@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:video_player/video_player.dart';
 import '../../../data/models/story_model.dart';
 import '../../../widgets/verified_badge.dart';
+import '../../../widgets/app_theme_system.dart';
 import '../controllers/story_controller.dart';
 import 'widgets/story_viewers_bottom_sheet.dart';
 
@@ -23,27 +24,21 @@ class _StoryViewerState extends State<StoryViewer> {
   final _replyController = TextEditingController();
   final _isSendingReply = false.obs;
   final _replyFocusNode = FocusNode();
+  final _isLiking = false.obs;
+  final _hasLiked = false.obs;
+  final _replyText = ''.obs;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize like state from story
+    final currentStory = controller.currentStory;
+    if (currentStory != null) {
+      _hasLiked.value = currentStory.isLiked;
+    }
+
     _startStoryTimer();
-
-    // Pause story when reply field is focused
-    _replyFocusNode.addListener(() {
-      if (_replyFocusNode.hasFocus) {
-        _pauseStory();
-      } else {
-        _resumeStory();
-      }
-    });
-
-    // Pause story when user starts typing
-    _replyController.addListener(() {
-      if (_replyController.text.isNotEmpty && !_isPaused.value) {
-        _pauseStory();
-      }
-    });
   }
 
   @override
@@ -60,6 +55,9 @@ class _StoryViewerState extends State<StoryViewer> {
 
     final currentStory = controller.currentStory;
     if (currentStory == null) return;
+
+    // Update like state for the new story
+    _hasLiked.value = currentStory.isLiked;
 
     // Mark as viewed
     controller.markStoryAsViewed(currentStory.id);
@@ -121,11 +119,11 @@ class _StoryViewerState extends State<StoryViewer> {
     });
   }
 
-  Future<void> _sendReply(StoryModel story) async {
+  Future<void> _sendReply(StoryModel story, {bool closeModal = false}) async {
     final message = _replyController.text.trim();
     if (message.isEmpty || _isSendingReply.value) return;
 
-    // Remove focus to hide keyboard and resume story if needed
+    // Remove focus to hide keyboard
     _replyFocusNode.unfocus();
 
     _isSendingReply.value = true;
@@ -136,10 +134,297 @@ class _StoryViewerState extends State<StoryViewer> {
       // Clear the text field
       _replyController.clear();
 
+      // Close modal if requested
+      if (closeModal && mounted) {
+        Get.back();
+      }
+
       // Resume story after sending
       _resumeStory();
+
+      // Show success message
+      Get.snackbar(
+        'Envoyé',
+        'Votre réponse a été envoyée à ${story.user.username}',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: AppThemeSystem.successColor,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
     } finally {
       _isSendingReply.value = false;
+    }
+  }
+
+  void _showReplyModal(StoryModel story) {
+    // Pause story when modal opens
+    _pauseStory();
+
+    final deviceType = AppThemeSystem.getDeviceType(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Reset reply text
+    _replyText.value = '';
+    _replyController.clear();
+
+    Get.bottomSheet(
+      Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppThemeSystem.getHorizontalPadding(context),
+                  ),
+                  child: Row(
+                    children: [
+                      // User avatar
+                      CircleAvatar(
+                        radius: deviceType == DeviceType.mobile ? 20 : 24,
+                        backgroundColor: const Color(0xFF667eea),
+                        backgroundImage: story.user.avatarUrl.isNotEmpty &&
+                                       !story.user.avatarUrl.contains('ui-avatars.com')
+                            ? NetworkImage(story.user.avatarUrl)
+                            : null,
+                        child: story.user.avatarUrl.isEmpty ||
+                               story.user.avatarUrl.contains('ui-avatars.com')
+                            ? Text(
+                                story.user.username.isNotEmpty
+                                    ? story.user.username[0].toUpperCase()
+                                    : 'U',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: deviceType == DeviceType.mobile ? 18 : 22,
+                                ),
+                              )
+                            : null,
+                      ),
+                      SizedBox(width: AppThemeSystem.getElementSpacing(context)),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  story.user.username,
+                                  style: AppThemeSystem.getTextStyle(
+                                    context,
+                                    FontSizeType.subtitle1,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (story.user.shouldShowBlueBadge) ...{
+                                  const SizedBox(width: 4),
+                                  const VerifiedBadge(size: 16, showBackground: false),
+                                },
+                              ],
+                            ),
+                            Text(
+                              'Répondre à la story',
+                              style: AppThemeSystem.getTextStyle(
+                                context,
+                                FontSizeType.caption,
+                                color: isDark
+                                    ? AppThemeSystem.grey400
+                                    : AppThemeSystem.grey600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                SizedBox(height: AppThemeSystem.getElementSpacing(context)),
+
+                // Text field
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppThemeSystem.getHorizontalPadding(context),
+                  ),
+                  child: TextField(
+                    controller: _replyController,
+                    focusNode: _replyFocusNode,
+                    autofocus: true,
+                    maxLines: 4,
+                    minLines: 1,
+                    maxLength: 500,
+                    onChanged: (value) {
+                      _replyText.value = value;
+                    },
+                    style: AppThemeSystem.getTextStyle(
+                      context,
+                      FontSizeType.body1,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Écrivez votre réponse...',
+                      hintStyle: AppThemeSystem.getTextStyle(
+                        context,
+                        FontSizeType.body2,
+                        color: isDark
+                            ? AppThemeSystem.grey500
+                            : AppThemeSystem.grey500,
+                      ),
+                      filled: true,
+                      fillColor: isDark
+                          ? AppThemeSystem.grey800.withValues(alpha: 0.5)
+                          : AppThemeSystem.grey100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppThemeSystem.grey700
+                              : AppThemeSystem.grey300,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(
+                          color: AppThemeSystem.primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: AppThemeSystem.getHorizontalPadding(context),
+                        vertical: AppThemeSystem.getElementSpacing(context) * 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: AppThemeSystem.getElementSpacing(context) * 1.5),
+
+                // Send button
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppThemeSystem.getHorizontalPadding(context),
+                  ),
+                  child: Obx(() => SizedBox(
+                        width: double.infinity,
+                        height: AppThemeSystem.getButtonHeight(context),
+                        child: ElevatedButton(
+                          onPressed: _isSendingReply.value ||
+                                  _replyText.value.trim().isEmpty
+                              ? null
+                              : () => _sendReply(story, closeModal: true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _replyText.value.trim().isNotEmpty
+                                ? AppThemeSystem.primaryColor
+                                : (isDark
+                                    ? AppThemeSystem.grey800
+                                    : AppThemeSystem.grey300),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: isDark
+                                ? AppThemeSystem.grey800
+                                : AppThemeSystem.grey300,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppThemeSystem.getButtonHeight(context) / 2,
+                              ),
+                            ),
+                            elevation: _replyText.value.trim().isNotEmpty ? 2 : 0,
+                          ),
+                          child: _isSendingReply.value
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: AppThemeSystem.getElementSpacing(context),
+                                    ),
+                                    Text(
+                                      'Envoi en cours...',
+                                      style: AppThemeSystem.getTextStyle(
+                                        context,
+                                        FontSizeType.button,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  'Envoyer',
+                                  style: AppThemeSystem.getTextStyle(
+                                    context,
+                                    FontSizeType.button,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      )),
+                ),
+
+                SizedBox(
+                  height: AppThemeSystem.getElementSpacing(context) * 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+    ).then((_) {
+      // Resume story when modal is closed
+      _replyController.clear();
+      _resumeStory();
+    });
+  }
+
+  Future<void> _likeStory(StoryModel story) async {
+    if (_isLiking.value || _hasLiked.value) return;
+
+    _isLiking.value = true;
+
+    try {
+      await controller.likeStory(story.id);
+      _hasLiked.value = true;
+    } finally {
+      _isLiking.value = false;
     }
   }
 
@@ -200,7 +485,7 @@ class _StoryViewerState extends State<StoryViewer> {
               // Action buttons (only for my stories)
               if (story.isOwner)
                 Positioned(
-                  bottom: 40,
+                  bottom: MediaQuery.of(context).padding.bottom + 40,
                   left: 0,
                   right: 0,
                   child: _buildActionButtons(story),
@@ -269,7 +554,7 @@ class _StoryViewerState extends State<StoryViewer> {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      Colors.black.withOpacity(0.6),
+                      Colors.black.withValues(alpha: 0.6),
                       Colors.transparent,
                     ],
                   ),
@@ -283,7 +568,7 @@ class _StoryViewerState extends State<StoryViewer> {
                     fontWeight: FontWeight.w500,
                     shadows: [
                       Shadow(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         offset: Offset(0, 1),
                         blurRadius: 3,
                       ),
@@ -317,7 +602,7 @@ class _StoryViewerState extends State<StoryViewer> {
                 fontWeight: FontWeight.w600,
                 shadows: [
                   Shadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     offset: Offset(0, 2),
                     blurRadius: 4,
                   ),
@@ -353,7 +638,7 @@ class _StoryViewerState extends State<StoryViewer> {
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(2),
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                     ),
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
@@ -425,7 +710,7 @@ class _StoryViewerState extends State<StoryViewer> {
                 Text(
                   _getTimeAgo(story.createdAt),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 12,
                   ),
                 ),
@@ -443,31 +728,65 @@ class _StoryViewerState extends State<StoryViewer> {
   }
 
   Widget _buildActionButtons(StoryModel story) {
+    final deviceType = AppThemeSystem.getDeviceType(context);
+    final elementSpacing = AppThemeSystem.getElementSpacing(context);
+    final horizontalPadding = AppThemeSystem.getHorizontalPadding(context);
+
+    // Tailles responsive
+    final buttonSize = deviceType == DeviceType.mobile ? 52.0 : 58.0;
+    final iconSize = deviceType == DeviceType.mobile ? 22.0 : 26.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Views count - Left (Clickable)
+          // Views count - Left (Clickable) avec design moderne
           GestureDetector(
             onTap: () => _showViewersBottomSheet(story),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding * 1.2,
+                vertical: elementSpacing,
+              ),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(25),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.5),
+                    Colors.black.withValues(alpha: 0.3),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(buttonSize / 2),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.visibility, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.visibility_rounded,
+                    color: Colors.white,
+                    size: iconSize,
+                  ),
+                  SizedBox(width: elementSpacing * 0.6),
                   Text(
                     '${story.viewsCount}',
-                    style: const TextStyle(
+                    style: AppThemeSystem.getTextStyle(
+                      context,
+                      FontSizeType.body1,
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
                     ),
                   ),
                 ],
@@ -475,43 +794,103 @@ class _StoryViewerState extends State<StoryViewer> {
             ),
           ),
 
-          // Delete button - Right
-          FloatingActionButton(
-            mini: true,
-            backgroundColor: Colors.red.withOpacity(0.8),
-            onPressed: () async {
+          // Delete button - Right avec design moderne
+          GestureDetector(
+            onTap: () async {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               final confirm = await Get.dialog<bool>(
                 AlertDialog(
-                  title: const Text('Supprimer la story ?'),
-                  content: const Text('Cette action est irréversible.'),
+                  backgroundColor: isDark
+                      ? AppThemeSystem.darkCardColor
+                      : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: Text(
+                    'Supprimer la story ?',
+                    style: AppThemeSystem.getTextStyle(
+                      context,
+                      FontSizeType.h6,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  content: Text(
+                    'Cette action est irréversible.',
+                    style: AppThemeSystem.getTextStyle(
+                      context,
+                      FontSizeType.body2,
+                    ),
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () => Get.back(result: false),
-                      child: const Text('Annuler'),
+                      child: Text(
+                        'Annuler',
+                        style: AppThemeSystem.getTextStyle(
+                          context,
+                          FontSizeType.button,
+                          color: isDark
+                              ? AppThemeSystem.grey400
+                              : AppThemeSystem.grey700,
+                        ),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => Get.back(result: true),
-                      child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        'Supprimer',
+                        style: AppThemeSystem.getTextStyle(
+                          context,
+                          FontSizeType.button,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               );
 
               if (confirm == true) {
-                // Delete story first, then close viewer
                 await controller.deleteStory(story.id);
-
-                // If there are still stories left, stay in viewer
-                // Otherwise, close the viewer
                 if (controller.currentUserStories.isEmpty) {
-                  Get.back(); // Close viewer
+                  Get.back();
                 } else {
-                  // Restart timer for the current story (which is now a different one)
                   _startStoryTimer();
                 }
               }
             },
-            child: const Icon(Icons.delete, color: Colors.white),
+            child: Container(
+              width: buttonSize,
+              height: buttonSize,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.red.shade400,
+                    Colors.red.shade600,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.delete_rounded,
+                color: Colors.white,
+                size: iconSize,
+              ),
+            ),
           ),
         ],
       ),
@@ -519,12 +898,20 @@ class _StoryViewerState extends State<StoryViewer> {
   }
 
   Widget _buildReplyInput(StoryModel story) {
+    final deviceType = AppThemeSystem.getDeviceType(context);
+    final elementSpacing = AppThemeSystem.getElementSpacing(context);
+    final horizontalPadding = AppThemeSystem.getHorizontalPadding(context);
+
+    // Tailles responsive pour les boutons
+    final buttonSize = deviceType == DeviceType.mobile ? 52.0 : 58.0;
+    final iconSize = deviceType == DeviceType.mobile ? 24.0 : 28.0;
+
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        top: 16,
-        left: 16,
-        right: 16,
+        bottom: MediaQuery.of(context).padding.bottom + elementSpacing * 3,
+        top: elementSpacing * 2,
+        left: horizontalPadding,
+        right: horizontalPadding,
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -532,72 +919,136 @@ class _StoryViewerState extends State<StoryViewer> {
           end: Alignment.bottomCenter,
           colors: [
             Colors.transparent,
-            Colors.black.withValues(alpha: 0.6),
+            Colors.black.withValues(alpha: 0.7),
+            Colors.black.withValues(alpha: 0.85),
           ],
+          stops: const [0.0, 0.5, 1.0],
         ),
       ),
       child: SafeArea(
         top: false,
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _replyController,
-                focusNode: _replyFocusNode,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Répondre à ${story.user.username}...',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.2),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-                maxLines: null,
-                textInputAction: TextInputAction.send,
-                onTap: () {
-                  // S'assurer que la story est en pause quand on clique sur le champ
-                  _pauseStory();
-                },
-                onSubmitted: (_) => _sendReply(story),
-              ),
-            ),
-            const SizedBox(width: 12),
+            // Bouton Like avec animation
             Obx(() => GestureDetector(
-                  onTap: _isSendingReply.value ? null : () => _sendReply(story),
-                  child: Container(
-                    width: 48,
-                    height: 48,
+                  onTap: _isLiking.value || _hasLiked.value
+                      ? null
+                      : () => _likeStory(story),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: buttonSize,
+                    height: buttonSize,
                     decoration: BoxDecoration(
-                      color: _isSendingReply.value
-                          ? Colors.grey.withValues(alpha: 0.5)
-                          : const Color(0xFF667eea),
+                      gradient: _hasLiked.value
+                          ? LinearGradient(
+                              colors: [
+                                Colors.pink.shade400,
+                                Colors.red.shade500,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: _hasLiked.value
+                          ? null
+                          : Colors.white.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _hasLiked.value
+                            ? Colors.transparent
+                            : Colors.white.withValues(alpha: 0.2),
+                        width: 2,
+                      ),
+                      boxShadow: _hasLiked.value
+                          ? [
+                              BoxShadow(
+                                color: Colors.pink.withValues(alpha: 0.5),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
-                    child: _isSendingReply.value
-                        ? const Center(
+                    child: _isLiking.value
+                        ? Center(
                             child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                              width: iconSize * 0.7,
+                              height: iconSize * 0.7,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2.5,
                                 color: Colors.white,
                               ),
                             ),
                           )
-                        : const Icon(
-                            Icons.send_rounded,
+                        : Icon(
+                            _hasLiked.value ? Icons.favorite : Icons.favorite_border,
                             color: Colors.white,
-                            size: 20,
+                            size: iconSize,
                           ),
                   ),
                 )),
+
+            SizedBox(width: elementSpacing * 2),
+
+            // Bouton Répondre pour ouvrir le modal
+            GestureDetector(
+              onTap: () => _showReplyModal(story),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding * 1.8,
+                  vertical: elementSpacing * 0.9,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppThemeSystem.primaryColor,
+                      AppThemeSystem.secondaryColor,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(buttonSize / 2),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppThemeSystem.primaryColor.withValues(alpha: 0.5),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.reply_rounded,
+                      color: Colors.white,
+                      size: iconSize * 0.9,
+                    ),
+                    SizedBox(width: elementSpacing * 0.6),
+                    Text(
+                      'Répondre à ${story.user.username}',
+                      style: AppThemeSystem.getTextStyle(
+                        context,
+                        FontSizeType.body2,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -609,7 +1060,7 @@ class _StoryViewerState extends State<StoryViewer> {
     final color = _parseHexColor(hexColor);
     return [
       color,
-      color.withOpacity(0.7),
+      color.withValues(alpha: 0.7),
     ];
   }
 
@@ -737,7 +1188,7 @@ class _VideoStoryPlayerState extends State<_VideoStoryPlayer> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withOpacity(0.6),
+                    Colors.black.withValues(alpha: 0.6),
                     Colors.transparent,
                   ],
                 ),
@@ -751,7 +1202,7 @@ class _VideoStoryPlayerState extends State<_VideoStoryPlayer> {
                   fontWeight: FontWeight.w500,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       offset: Offset(0, 1),
                       blurRadius: 3,
                     ),

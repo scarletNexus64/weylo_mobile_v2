@@ -501,15 +501,27 @@ class RegisterController extends GetxController {
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(milliseconds: 1000),
       );
+
+      // IMPORTANT: Ne PAS réinitialiser isLoading avant navigation
+      // pour éviter les race conditions avec les widgets Obx
+      // Le controller sera supprimé après la navigation de toute façon
 
       // Navigate to HOME after success (user is now logged in)
       print('🏠 [REGISTER] Navigation vers HOME (utilisateur connecté)');
       await Future.delayed(const Duration(milliseconds: 800));
+
+      // Navigation qui supprime toutes les routes précédentes
+      // Le RegisterController sera automatiquement supprimé
       Get.offAllNamed(Routes.HOME);
 
+      // Note: Pas besoin de réinitialiser isLoading car le controller
+      // n'existe plus après Get.offAllNamed()
+
     } on ApiException catch (e) {
+      // Réinitialiser seulement en cas d'erreur (on reste sur la même page)
+      isLoading.value = false;
       print('💥 [REGISTER] Erreur API: ${e.message} (Code: ${e.statusCode})');
       Get.snackbar(
         'Erreur',
@@ -520,6 +532,8 @@ class RegisterController extends GetxController {
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
+      // Réinitialiser seulement en cas d'erreur (on reste sur la même page)
+      isLoading.value = false;
       print('💥 [REGISTER] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
@@ -528,9 +542,6 @@ class RegisterController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
-    } finally {
-      isLoading.value = false;
-      print('🔓 [REGISTER] Fin de la tentative d\'inscription');
     }
   }
 

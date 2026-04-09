@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:weylo/app/widgets/app_theme_system.dart';
 import 'package:weylo/app/widgets/gift_icon_image.dart';
+import 'package:weylo/app/widgets/linkable_text_message.dart';
 import 'package:weylo/app/data/models/group_message_model.dart';
 import '../controllers/groupe_detail_controller.dart';
 import 'group_info_view.dart';
@@ -89,10 +90,13 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
                 child: Obx(() {
                   return ListView.builder(
                     controller: controller.scrollController,
+                    reverse: true, // Messages les plus récents en bas (comme WhatsApp)
                     padding: EdgeInsets.all(context.elementSpacing),
                     itemCount: controller.messages.length,
                     itemBuilder: (context, index) {
-                      final message = controller.messages[index];
+                      // Avec reverse: true, on lit les messages depuis la fin
+                      final messageIndex = controller.messages.length - 1 - index;
+                      final message = controller.messages[messageIndex];
                       return _buildMessageBubble(context, message, isDark);
                     },
                   );
@@ -445,13 +449,10 @@ class GroupeDetailView extends GetView<GroupeDetailController> {
     Widget mainContent;
     switch (message.type) {
       case GroupMessageType.text:
-        mainContent = Text(
-          message.content ?? '',
-          style: context.textStyle(FontSizeType.body2).copyWith(
-            color: isSentByMe
-                ? Colors.white
-                : (isDark ? Colors.white : AppThemeSystem.blackColor),
-          ),
+        mainContent = LinkableTextMessage(
+          text: message.content ?? '',
+          isSentByMe: isSentByMe,
+          isDark: isDark,
         );
         break;
 

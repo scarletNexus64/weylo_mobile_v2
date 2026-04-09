@@ -291,48 +291,26 @@ class ChatDetailController extends GetxController {
     hasError.value = false;
 
     try {
-      print('📡 [ChatDetailController] Calling ChatService.getMessages (API)...');
+      print('📡 [ChatDetailController] Loading messages - page: $currentPage, refresh: $refresh');
       final response = await _chatService.getMessages(
         conversationId: conversationId!,
         page: currentPage,
-        perPage: 10,
+        perPage: 50,
       );
 
-      print('✅ [ChatDetailController] Got ${response.messages.length} messages from API');
+      print('📥 [ChatDetailController] Loaded ${response.messages.length} messages from API');
+      print('📊 [ChatDetailController] Meta - current_page: ${response.meta.currentPage}, last_page: ${response.meta.lastPage}, has_more: ${response.meta.hasMorePages}');
 
-      // Backend retourne maintenant ASC (anciens en premier, récents en fin) - ordre chronologique naturel
+      // Backend retourne ASC (anciens en premier, récents en fin) - ordre chronologique naturel
+      // Avec reverse: true ET l'inversion d'index dans itemBuilder:
+      // - Premier élément de la liste (index 0) = affiché EN HAUT = messages anciens
+      // - Dernier élément de la liste = affiché EN BAS = messages récents
       if (refresh) {
         messages.value = response.messages;
       } else {
-        // Pour la pagination: désactiver temporairement le listener
-        final scrollPosition = scrollController.hasClients ? scrollController.position.pixels : 0.0;
-        final oldScrollHeight = scrollController.hasClients ? scrollController.position.maxScrollExtent : 0.0;
-        final oldItemCount = messages.length;
-
-        print('📍 [ChatDetailController] Scroll avant insert: position=$scrollPosition, maxHeight=$oldScrollHeight, items=$oldItemCount');
-
-        // Insérer les anciens messages au début
+        // Pour la pagination: insérer les messages plus anciens au DÉBUT de la liste
         messages.insertAll(0, response.messages);
-
         print('📍 [ChatDetailController] Messages insérés: ${response.messages.length} nouveaux, total=${messages.length}');
-
-        // Attendre 2 frames pour être sûr que le ListView est rebuildé
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (scrollController.hasClients) {
-              final newScrollHeight = scrollController.position.maxScrollExtent;
-              final heightDifference = newScrollHeight - oldScrollHeight;
-              final newPosition = scrollPosition + heightDifference;
-
-              print('📍 [ChatDetailController] Scroll après insert: newHeight=$newScrollHeight, diff=$heightDifference, newPos=$newPosition');
-
-              // Restaurer la position sans animation pour éviter les saccades
-              if (newPosition >= 0 && newPosition <= newScrollHeight) {
-                scrollController.jumpTo(newPosition);
-              }
-            }
-          });
-        });
       }
 
       currentPage = response.meta.currentPage;
@@ -343,6 +321,7 @@ class ChatDetailController extends GetxController {
       await _cacheService.saveMessagesCache(conversationId!, messages.toList(), page: currentPage);
 
       print('📊 [ChatDetailController] Total messages in list: ${messages.length}');
+      print('✅ [ChatDetailController] Pagination state - page: $currentPage/$lastPage, canLoadMore: ${canLoadMore.value}');
 
       // Auto-scroll vers le bas après le premier chargement
       if (refresh || currentPage == 1) {
@@ -391,46 +370,52 @@ class ChatDetailController extends GetxController {
     await loadMessages(refresh: true);
   }
 
-  /// Auto-scroll vers le bas de la liste de messages
+  /// Auto-scroll vers le bas de la liste de messages (position 0 avec reverse: true)
   void scrollToBottom({bool animated = true}) {
-    print('📜 [ChatDetailController] scrollToBottom called - hasClients: ${scrollController.hasClients}');
+    print('📜 [ChatDetailController] scrollToBottom called (reverse mode) - hasClients: ${scrollController.hasClients}');
     if (scrollController.hasClients) {
-      final maxScroll = scrollController.position.maxScrollExtent;
-      print('📜 [ChatDetailController] Scrolling to bottom - maxScrollExtent: $maxScroll');
+      // Avec reverse: true, position 0 = bas de la liste (messages récents)
+      print('📜 [ChatDetailController] Scrolling to position 0 (bottom with reverse)');
 
       if (animated) {
         scrollController.animateTo(
-          maxScroll,
+          0,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
       } else {
-        scrollController.jumpTo(maxScroll);
+        scrollController.jumpTo(0);
       }
     } else {
       print('⚠️ [ChatDetailController] ScrollController has no clients yet, retrying...');
       // Réessayer après un court délai
       Future.delayed(const Duration(milliseconds: 100), () {
         if (scrollController.hasClients) {
-          scrollController.jumpTo(scrollController.position.maxScrollExtent);
+          scrollController.jumpTo(0);
           print('✅ [ChatDetailController] Scrolled to bottom after retry');
         }
       });
     }
   }
 
-  /// Initialiser le listener pour la pagination inverse
+  /// Initialiser le listener pour la pagination avec reverse: true
   void _setupScrollListener() {
     scrollController.addListener(() {
-      // Si on scroll vers le haut et qu'on atteint le début
-      // Déclencher à 200px du haut pour précharger avant d'atteindre vraiment le haut
-      if (scrollController.hasClients &&
-          scrollController.position.pixels <= 200 &&
-          canLoadMore.value &&
-          !isLoadingMore.value &&
-          !isLoading.value) {
-        print('📜 [ChatDetailController] Reached top threshold - loading more messages...');
-        loadMoreMessages();
+      // Avec reverse: true, on scroll vers le bas pour charger les anciens messages
+      // maxScrollExtent représente le bas de la liste (messages les plus anciens)
+      // Déclencher à 200px du bas pour précharger
+      if (scrollController.hasClients) {
+        final maxScroll = scrollController.position.maxScrollExtent;
+        final currentScroll = scrollController.position.pixels;
+        final threshold = maxScroll - 200;
+
+        if (currentScroll >= threshold &&
+            canLoadMore.value &&
+            !isLoadingMore.value &&
+            !isLoading.value) {
+          print('📜 [ChatDetailController] Reached bottom threshold (reverse mode) - loading more messages...');
+          loadMoreMessages();
+        }
       }
     });
   }

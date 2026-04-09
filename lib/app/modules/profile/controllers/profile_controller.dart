@@ -37,7 +37,8 @@ class ProfileController extends GetxController {
   final RxList<ConfessionModel> posts = <ConfessionModel>[].obs;
   final RxList<ConfessionModel> favorites = <ConfessionModel>[].obs;
   final RxList<GiftTransactionModel> sentGifts = <GiftTransactionModel>[].obs;
-  final RxList<GiftTransactionModel> receivedGifts = <GiftTransactionModel>[].obs;
+  final RxList<GiftTransactionModel> receivedGifts =
+      <GiftTransactionModel>[].obs;
   final isLoadingPosts = false.obs;
   final isLoadingFavorites = false.obs;
   final isLoadingGifts = false.obs;
@@ -100,11 +101,7 @@ class ProfileController extends GetxController {
       shareLink.value = data['share_link'] as String;
 
       // Refresh posts, favorites and gifts
-      await Future.wait([
-        loadPosts(),
-        loadFavorites(),
-        loadGifts(),
-      ]);
+      await Future.wait([loadPosts(), loadFavorites(), loadGifts()]);
 
       print('✅ [PROFILE_CONTROLLER] Dashboard rafraîchi');
     } catch (e) {
@@ -155,10 +152,15 @@ class ProfileController extends GetxController {
 
       // Log deleted confessions for debugging
       final deletedCount = favorites.where((c) => c.isDeleted).length;
-      print('✅ [PROFILE_CONTROLLER] ${favorites.length} favoris chargés ($deletedCount supprimés)');
+      print(
+        '✅ [PROFILE_CONTROLLER] ${favorites.length} favoris chargés ($deletedCount supprimés)',
+      );
 
       if (deletedCount > 0) {
-        final deletedIds = favorites.where((c) => c.isDeleted).map((c) => c.id).toList();
+        final deletedIds = favorites
+            .where((c) => c.isDeleted)
+            .map((c) => c.id)
+            .toList();
         print('   IDs supprimés: $deletedIds');
       }
     } catch (e) {
@@ -184,7 +186,9 @@ class ProfileController extends GetxController {
       sentGifts.value = results[0].gifts;
       receivedGifts.value = results[1].gifts;
 
-      print('✅ [PROFILE_CONTROLLER] ${sentGifts.length} cadeaux envoyés, ${receivedGifts.length} reçus');
+      print(
+        '✅ [PROFILE_CONTROLLER] ${sentGifts.length} cadeaux envoyés, ${receivedGifts.length} reçus',
+      );
     } catch (e) {
       print('❌ [PROFILE_CONTROLLER] Erreur chargement cadeaux: $e');
       // Don't show error to user, just log it
@@ -197,10 +201,7 @@ class ProfileController extends GetxController {
   Future<File?> _editImage(String imagePath) async {
     try {
       final editedImage = await Get.to<File?>(
-        () => ImageEditorPage(
-          imagePath: imagePath,
-          showEditOptions: true,
-        ),
+        () => ImageEditorPage(imagePath: imagePath, showEditOptions: true),
         fullscreenDialog: true,
       );
 
@@ -463,7 +464,10 @@ class ProfileController extends GetxController {
               if (user.value?.hasRealCoverPhoto ?? false)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Supprimer la photo', style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Supprimer la photo',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     Get.back();
                     deleteCoverPhoto();
@@ -515,7 +519,10 @@ class ProfileController extends GetxController {
               if (user.value?.hasRealAvatar ?? false)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Supprimer la photo', style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Supprimer la photo',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     Get.back();
                     deleteAvatar();
@@ -604,7 +611,9 @@ class ProfileController extends GetxController {
     if (index != -1) {
       favorites[index] = favorites[index].copyWith(isDeleted: true);
       favorites.refresh();
-      print('⚠️ [PROFILE_CONTROLLER] Favori $confessionId marqué comme supprimé');
+      print(
+        '⚠️ [PROFILE_CONTROLLER] Favori $confessionId marqué comme supprimé',
+      );
     }
   }
 
@@ -650,7 +659,9 @@ class ProfileController extends GetxController {
 
       print('✅ [PROFILE_CONTROLLER] ${views.length} visiteurs chargés');
       if (views.isNotEmpty) {
-        print('👁️ [PROFILE_CONTROLLER] Premier visiteur: ${views.first.viewer.fullName}');
+        print(
+          '👁️ [PROFILE_CONTROLLER] Premier visiteur: ${views.first.viewer.fullName}',
+        );
       }
     } catch (e, stackTrace) {
       print('❌ [PROFILE_CONTROLLER] Erreur chargement visiteurs: $e');
@@ -683,7 +694,7 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
       return url;
     }
     // Use your API base URL here
-    return 'http://10.202.205.28:8001/storage/$url';
+    return 'http://10.144.156.28:8001/storage/$url';
   }
 
   @override
@@ -722,14 +733,16 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Obx(() => Text(
-                        'Visiteurs (${controller.visitorsCount.value})',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : Colors.black,
-                        ),
-                      )),
+                  Obx(
+                    () => Text(
+                      'Visiteurs (${controller.visitorsCount.value})',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
                   IconButton(
                     icon: Icon(
                       Icons.close_rounded,
@@ -746,10 +759,9 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
             // Visitors list
             Expanded(
               child: Obx(() {
-                if (controller.isLoadingVisitors.value && controller.profileViews.isEmpty) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                if (controller.isLoadingVisitors.value &&
+                    controller.profileViews.isEmpty) {
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 if (controller.profileViews.isEmpty) {
@@ -793,14 +805,17 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: controller.profileViews.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final view = controller.profileViews[index];
                       final viewer = view.viewer;
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF2C2C2C) : const Color(0xFFF5F5F5),
+                          color: isDark
+                              ? const Color(0xFF2C2C2C)
+                              : const Color(0xFFF5F5F5),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Material(
@@ -811,7 +826,10 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                 ? null
                                 : () {
                                     Get.back();
-                                    Get.toNamed('/user-profile', arguments: {'username': viewer.username});
+                                    Get.toNamed(
+                                      '/user-profile',
+                                      arguments: {'username': viewer.username},
+                                    );
                                   },
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -824,11 +842,15 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                         ? Colors.grey[400]
                                         : AppThemeSystem.primaryColor,
                                     backgroundImage: viewer.hasRealAvatar
-                                        ? NetworkImage(_buildImageUrl(viewer.avatar!))
+                                        ? NetworkImage(
+                                            _buildImageUrl(viewer.avatar!),
+                                          )
                                         : null,
                                     child: !viewer.hasRealAvatar
                                         ? Icon(
-                                            viewer.isAnonymous ? Icons.person_off_rounded : Icons.person_rounded,
+                                            viewer.isAnonymous
+                                                ? Icons.person_off_rounded
+                                                : Icons.person_rounded,
                                             size: 24,
                                             color: Colors.white,
                                           )
@@ -840,7 +862,8 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                   // User info
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
@@ -852,7 +875,9 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                                   fontWeight: FontWeight.w600,
                                                   color: viewer.isAnonymous
                                                       ? Colors.grey[600]
-                                                      : (isDark ? Colors.white : Colors.black),
+                                                      : (isDark
+                                                            ? Colors.white
+                                                            : Colors.black),
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -861,13 +886,15 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                               const SizedBox(width: 4),
                                               Icon(
                                                 Icons.verified,
-                                                color: AppThemeSystem.primaryColor,
+                                                color:
+                                                    AppThemeSystem.primaryColor,
                                                 size: 14,
                                               ),
                                             ],
                                           ],
                                         ),
-                                        if (!viewer.isAnonymous && viewer.username != null)
+                                        if (!viewer.isAnonymous &&
+                                            viewer.username != null)
                                           Text(
                                             '@${viewer.username}',
                                             style: TextStyle(
@@ -885,7 +912,8 @@ class _ProfileVisitorsBottomSheet extends StatelessWidget {
                                     children: [
                                       Icon(
                                         Icons.visibility_rounded,
-                                        color: AppThemeSystem.primaryColor.withOpacity(0.7),
+                                        color: AppThemeSystem.primaryColor
+                                            .withOpacity(0.7),
                                         size: 18,
                                       ),
                                       const SizedBox(height: 2),

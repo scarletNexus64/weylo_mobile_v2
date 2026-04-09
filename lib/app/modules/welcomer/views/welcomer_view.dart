@@ -274,59 +274,67 @@ class WelcomerView extends GetView<WelcomerController> {
               // Bouton Se connecter - Animation 8
               _AnimatedSlideIn(
                 delay: 1000,
-                child: Obx(() => Container(
-                      width: double.infinity,
-                      height: context.buttonHeight,
-                      decoration: BoxDecoration(
-                        borderRadius: context.borderRadius(BorderRadiusType.circular),
-                        gradient: LinearGradient(
-                          colors: [
-                            AppThemeSystem.primaryColor,
-                            AppThemeSystem.secondaryColor,
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
+                child: Obx(() {
+                  // Protection contre les race conditions lors de la navigation
+                  // Si le controller n'existe plus, afficher un bouton désactivé
+                  final isLoading = Get.isRegistered<WelcomerController>()
+                      ? controller.isLoading.value
+                      : true;
+
+                  return Container(
+                    width: double.infinity,
+                    height: context.buttonHeight,
+                    decoration: BoxDecoration(
+                      borderRadius: context.borderRadius(BorderRadiusType.circular),
+                      gradient: LinearGradient(
+                        colors: [
+                          AppThemeSystem.primaryColor,
+                          AppThemeSystem.secondaryColor,
                         ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                      child: ElevatedButton(
-                        onPressed: controller.isLoading.value
-                            ? null
-                            : controller.signInWithPhonePin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: context.borderRadius(BorderRadiusType.circular),
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppThemeSystem.primaryColor.withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
-                        child: controller.isLoading.value
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                'Se connecter',
-                                style: context.button.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: isLoading
+                          ? null
+                          : controller.signInWithPhonePin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: context.borderRadius(BorderRadiusType.circular),
+                        ),
                       ),
-                    )),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'Se connecter',
+                              style: context.button.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                    ),
+                  );
+                }),
               ),
 
               SizedBox(height: context.elementSpacing),

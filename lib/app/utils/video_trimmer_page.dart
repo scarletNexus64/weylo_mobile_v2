@@ -300,7 +300,15 @@ class _VideoTrimmerPageState extends State<VideoTrimmerPage> {
                 // Contrôles de rognage
                 Container(
                   color: isDark ? AppThemeSystem.darkCardColor : Colors.grey[900],
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    // Ajouter padding pour la barre de navigation système
+                    bottom: MediaQuery.of(context).padding.bottom > 0
+                        ? MediaQuery.of(context).padding.bottom + 8
+                        : 16,
+                  ),
                   child: Column(
                     children: [
                       // Durées

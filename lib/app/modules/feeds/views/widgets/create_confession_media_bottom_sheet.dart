@@ -26,6 +26,11 @@ class _CreateConfessionMediaBottomSheetState
     extends State<CreateConfessionMediaBottomSheet> {
   List<AssetEntity> _mediaList = [];
   bool _isLoadingMedia = true;
+  bool _isLoadingMore = false;
+  int _currentPage = 0;
+  int _pageSize = 30;
+  bool _hasMoreMedia = true;
+  AssetPathEntity? _currentAlbum;
 
   @override
   void initState() {
@@ -36,21 +41,35 @@ class _CreateConfessionMediaBottomSheetState
   Future<void> _loadGallery() async {
     final PermissionState ps = await PhotoManager.requestPermissionExtend();
     if (ps.isAuth) {
-      // Récupérer les albums
+      // Récupérer les albums avec tri par date décroissante
       final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(
         type: RequestType.common, // Photos et vidéos
         onlyAll: true,
+        filterOption: FilterOptionGroup(
+          orders: [
+            const OrderOption(
+              type: OrderOptionType.createDate,
+              asc: false, // false = décroissant (plus récent en premier)
+            ),
+          ],
+        ),
       );
 
       if (albums.isNotEmpty) {
-        // Récupérer les médias du premier album (récents)
-        final List<AssetEntity> media = await albums[0].getAssetListRange(
+        _currentAlbum = albums[0];
+
+        // Récupérer les médias de la première page (les plus récents en premier)
+        final List<AssetEntity> media = await _currentAlbum!.getAssetListRange(
           start: 0,
-          end: 30, // Les 30 derniers médias
+          end: _pageSize,
         );
+
+        // Vérifier s'il y a plus de médias
+        final totalCount = await _currentAlbum!.assetCountAsync;
 
         setState(() {
           _mediaList = media;
+          _hasMoreMedia = media.length < totalCount;
           _isLoadingMedia = false;
         });
       } else {
@@ -69,6 +88,31 @@ class _CreateConfessionMediaBottomSheetState
         snackPosition: SnackPosition.BOTTOM,
       );
     }
+  }
+
+  Future<void> _loadMoreMedia() async {
+    if (_isLoadingMore || !_hasMoreMedia || _currentAlbum == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    _currentPage++;
+    final int start = _currentPage * _pageSize;
+    final int end = start + _pageSize;
+
+    final List<AssetEntity> moreMedia = await _currentAlbum!.getAssetListRange(
+      start: start,
+      end: end,
+    );
+
+    final totalCount = await _currentAlbum!.assetCountAsync;
+
+    setState(() {
+      _mediaList.addAll(moreMedia);
+      _hasMoreMedia = _mediaList.length < totalCount;
+      _isLoadingMore = false;
+    });
   }
 
   @override
@@ -156,7 +200,7 @@ class _CreateConfessionMediaBottomSheetState
                         crossAxisSpacing: context.elementSpacing * 0.5,
                         mainAxisSpacing: context.elementSpacing * 0.5,
                       ),
-                      itemCount: 1 + _mediaList.length, // 1 pour caméra + galerie
+                      itemCount: 2 + _mediaList.length + (_hasMoreMedia ? 1 : 0), // 2 cards (caméra + galerie) + médias + bouton "Voir plus"
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           // Première card : Caméra
@@ -167,8 +211,26 @@ class _CreateConfessionMediaBottomSheetState
                           );
                         }
 
+                        if (index == 1) {
+                          // Deuxième card : Galerie système
+                          return _GalleryPickerCard(
+                            onMediaSelected: widget.onMediaSelected,
+                            isDark: isDark,
+                            deviceType: deviceType,
+                          );
+                        }
+
+                        // Dernière card : Bouton "Voir plus"
+                        if (_hasMoreMedia && index == 2 + _mediaList.length) {
+                          return _LoadMoreCard(
+                            onTap: _loadMoreMedia,
+                            isLoading: _isLoadingMore,
+                            isDark: isDark,
+                          );
+                        }
+
                         // Autres cards : Galerie réelle
-                        final media = _mediaList[index - 1];
+                        final media = _mediaList[index - 2];
                         return _GalleryMediaCard(
                           media: media,
                           onMediaSelected: widget.onMediaSelected,
@@ -183,6 +245,154 @@ class _CreateConfessionMediaBottomSheetState
         ),
       ),
     );
+  }
+}
+
+/// Card pour ouvrir le sélecteur de galerie système
+class _GalleryPickerCard extends StatelessWidget {
+  final Function(File file, String mediaType) onMediaSelected;
+  final bool isDark;
+  final DeviceType deviceType;
+
+  const _GalleryPickerCard({
+    required this.onMediaSelected,
+    required this.isDark,
+    required this.deviceType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _openGalleryPicker(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppThemeSystem.secondaryColor,
+              AppThemeSystem.primaryColor,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.photo_library,
+              color: Colors.white,
+              size: deviceType == DeviceType.mobile ? 32 : 40,
+            ),
+            SizedBox(height: context.elementSpacing * 0.25),
+            Text(
+              'Galerie',
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openGalleryPicker(BuildContext context) async {
+    final picker = ImagePicker();
+
+    // Demander quel type de média
+    final mediaType = await Get.dialog<String>(
+      AlertDialog(
+        backgroundColor: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+        title: Text(
+          'Choisir le type',
+          style: context.textStyle(FontSizeType.h6).copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.photo,
+                color: AppThemeSystem.primaryColor,
+              ),
+              title: Text(
+                'Photo',
+                style: context.textStyle(FontSizeType.body1),
+              ),
+              onTap: () => Get.back(result: 'image'),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.videocam,
+                color: AppThemeSystem.primaryColor,
+              ),
+              title: Text(
+                'Vidéo',
+                style: context.textStyle(FontSizeType.body1),
+              ),
+              onTap: () => Get.back(result: 'video'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (mediaType == null) return;
+
+    try {
+      final XFile? media;
+
+      if (mediaType == 'image') {
+        media = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+        );
+      } else {
+        media = await picker.pickVideo(
+          source: ImageSource.gallery,
+        );
+      }
+
+      if (media != null) {
+        Get.back(); // Fermer le bottomsheet
+
+        // Si c'est une photo, ouvrir l'éditeur d'image d'abord
+        if (mediaType == 'image') {
+          final editedImage = await Get.to<File?>(
+            () => ImageEditorPage(
+              imagePath: media!.path,
+              showEditOptions: false,
+            ),
+          );
+
+          if (editedImage != null) {
+            onMediaSelected(editedImage, 'image');
+          }
+        } else {
+          // Pour les vidéos, ouvrir le trimmer d'abord
+          final trimmedVideo = await Get.to<File?>(
+            () => VideoTrimmerPage(videoPath: media!.path),
+          );
+
+          if (trimmedVideo != null) {
+            onMediaSelected(trimmedVideo, 'video');
+          }
+        }
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Erreur',
+        'Impossible d\'accéder à la galerie',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppThemeSystem.errorColor,
+        colorText: Colors.white,
+      );
+    }
   }
 }
 
@@ -449,5 +659,64 @@ class _GalleryMediaCard extends StatelessWidget {
         colorText: Colors.white,
       );
     }
+  }
+}
+
+/// Card pour charger plus de médias
+class _LoadMoreCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final bool isLoading;
+  final bool isDark;
+
+  const _LoadMoreCard({
+    required this.onTap,
+    required this.isLoading,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: isLoading ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppThemeSystem.grey800 : AppThemeSystem.grey200,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isLoading)
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppThemeSystem.primaryColor,
+                ),
+              )
+            else
+              Icon(
+                Icons.add_circle_outline,
+                color: AppThemeSystem.primaryColor,
+                size: 32,
+              ),
+            SizedBox(height: context.elementSpacing * 0.25),
+            Text(
+              isLoading ? 'Chargement...' : 'Voir plus',
+              style: context.textStyle(FontSizeType.caption).copyWith(
+                color: isDark ? AppThemeSystem.grey400 : AppThemeSystem.grey600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -174,6 +174,7 @@ class _ViewerTile extends StatelessWidget {
     final viewedAt = viewer['viewed_at'] != null
         ? DateTime.parse(viewer['viewed_at'])
         : null;
+    final hasLiked = viewer['has_liked'] ?? false;
 
     final avatarRadius = deviceType == DeviceType.mobile ? 20.0 : 24.0;
 
@@ -193,11 +194,23 @@ class _ViewerTile extends StatelessWidget {
           ),
         ),
       ),
-      title: Text(
-        username,
-        style: context.textStyle(FontSizeType.body1).copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+      title: Row(
+        children: [
+          Text(
+            username,
+            style: context.textStyle(FontSizeType.body1).copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (hasLiked) ...[
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.favorite,
+              color: Colors.red,
+              size: 16,
+            ),
+          ],
+        ],
       ),
       subtitle: viewedAt != null
           ? Text(

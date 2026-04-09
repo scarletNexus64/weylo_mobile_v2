@@ -20,6 +20,7 @@ class StoryModel {
   final DateTime expiresAt;
   final DateTime createdAt;
   final bool? isViewed;
+  final bool isLiked;
 
   // Optional viewers info (only for owner)
   final dynamic viewers;
@@ -46,6 +47,7 @@ class StoryModel {
     required this.expiresAt,
     required this.createdAt,
     this.isViewed,
+    this.isLiked = false,
     this.viewers,
     this.viewersCount,
     this.hasViewerSubscription,
@@ -72,6 +74,7 @@ class StoryModel {
       expiresAt: DateTime.parse(json['expires_at']),
       createdAt: DateTime.parse(json['created_at']),
       isViewed: json['is_viewed'],
+      isLiked: json['is_liked'] ?? false,
       viewers: json['viewers'],
       viewersCount: json['viewers_count'],
       hasViewerSubscription: json['has_viewer_subscription'],
@@ -99,6 +102,7 @@ class StoryModel {
       'expires_at': expiresAt.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'is_viewed': isViewed,
+      'is_liked': isLiked,
       'viewers': viewers,
       'viewers_count': viewersCount,
       'has_viewer_subscription': hasViewerSubscription,

@@ -113,14 +113,26 @@ class WelcomerController extends GetxController {
         backgroundColor: Colors.green.withValues(alpha: 0.8),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(milliseconds: 800),
       );
+
+      // IMPORTANT: Ne PAS réinitialiser isLoading avant navigation
+      // pour éviter les race conditions avec les widgets Obx
+      // Le controller sera supprimé après la navigation de toute façon
 
       // Navigate to home on success
       print('🏠 [WELCOMER] Navigation vers HOME');
       await Future.delayed(const Duration(milliseconds: 500));
+
+      // Navigation qui supprime toutes les routes précédentes
+      // Le WelcomerController sera automatiquement supprimé
       Get.offAllNamed(Routes.HOME);
 
+      // Note: Pas besoin de réinitialiser isLoading car le controller
+      // n'existe plus après Get.offAllNamed()
+
     } on ApiException catch (e) {
+      isLoading.value = false;
       print('💥 [WELCOMER] Erreur API: ${e.message} (Code: ${e.statusCode})');
       Get.snackbar(
         'Erreur',
@@ -131,6 +143,7 @@ class WelcomerController extends GetxController {
         duration: const Duration(seconds: 4),
       );
     } catch (e) {
+      isLoading.value = false;
       print('💥 [WELCOMER] Erreur inattendue: $e');
       Get.snackbar(
         'Erreur',
@@ -139,9 +152,6 @@ class WelcomerController extends GetxController {
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
-    } finally {
-      isLoading.value = false;
-      print('🔓 [WELCOMER] Fin de la tentative de connexion');
     }
   }
 

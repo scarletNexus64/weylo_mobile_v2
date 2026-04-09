@@ -1591,7 +1591,63 @@ class _ConfessionDetailPageState extends State<ConfessionDetailPage> {
   }
 
   void _showOptionsMenu(BuildContext context, ConfessionDetailController controller) {
-    // TODO: Implémenter le menu d'options (partager, signaler, etc.)
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppThemeSystem.darkCardColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppThemeSystem.grey700 : AppThemeSystem.grey300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Partager
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppThemeSystem.primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.share_rounded,
+                      color: AppThemeSystem.primaryColor,
+                    ),
+                  ),
+                  title: const Text(
+                    'Partager',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('Partager cette confession'),
+                  onTap: () {
+                    Navigator.pop(modalContext);
+                    controller.shareConfession();
+                  },
+                ),
+
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _confirmDeleteComment(
