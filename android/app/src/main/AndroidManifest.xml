@@ -81,6 +81,16 @@
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data android:name="flutterEmbedding" android:value="2"/>
 
+        <!-- FCM : Icône par défaut pour les notifications (OBLIGATOIRE) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_white" />
+
+        <!-- FCM : Couleur par défaut pour l'icône de notification -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_color" />
+
         <!-- FCM Service pour notifications locales en foreground -->
         <service
             android:name="com.dexterous.flutterlocalnotifications.ForegroundService"

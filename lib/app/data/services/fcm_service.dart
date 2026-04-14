@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:weylo/app/routes/app_pages.dart';
@@ -24,6 +25,10 @@ class FCMService extends GetxService {
   final _storage = StorageService();
 
   static const String _fcmTokenKey = 'fcm_token';
+
+  // Compteurs pour le groupement des notifications
+  final Map<String, int> _notificationCounts = {};
+  final Map<String, List<String>> _notificationMessages = {};
 
   /// Initialiser le service FCM
   Future<FCMService> init() async {
@@ -241,42 +246,212 @@ class FCMService extends GetxService {
     _handleNotificationData(message.data);
   }
 
-  /// Afficher une notification locale
+  /// Afficher une notification locale avec groupement intelligent
   Future<void> _showLocalNotification(RemoteMessage message) async {
     print('🔔 [FCM_LOCAL_NOTIF] Préparation de la notification...');
 
-    const androidDetails = AndroidNotificationDetails(
+    final type = message.data['type'] ?? 'unknown';
+    final conversationId = message.data['conversation_id'];
+    final title = message.notification?.title ?? 'Weylo';
+    final body = message.notification?.body ?? '';
+
+    // Déterminer le groupe et l'identifiant
+    final groupData = _getNotificationGroup(type, conversationId);
+    final groupKey = groupData['groupKey'] as String;
+    final groupName = groupData['groupName'] as String;
+
+    print('📊 [FCM_LOCAL_NOTIF] Groupe: $groupKey');
+    print('📊 [FCM_LOCAL_NOTIF] Type: $type');
+
+    // Incrémenter le compteur pour ce groupe
+    _notificationCounts[groupKey] = (_notificationCounts[groupKey] ?? 0) + 1;
+
+    // Ajouter le message à la liste pour ce groupe
+    if (!_notificationMessages.containsKey(groupKey)) {
+      _notificationMessages[groupKey] = [];
+    }
+    _notificationMessages[groupKey]!.add(body);
+
+    final count = _notificationCounts[groupKey]!;
+    print('📊 [FCM_LOCAL_NOTIF] Nombre de notifications dans ce groupe: $count');
+
+    // Configuration Android avec groupement
+    final androidDetails = AndroidNotificationDetails(
       'weylo_notifications',
       'Weylo Notifications',
       channelDescription: 'Notifications pour Weylo',
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
+      icon: 'ic_notification_white',
+      largeIcon: const DrawableResourceAndroidBitmap('ic_notification'),
+      color: const Color(0xFFFF1493),
+      groupKey: groupKey,
+      setAsGroupSummary: false,
+      // Style pour les messages multiples
+      styleInformation: count > 1
+          ? _getInboxStyle(groupName, _notificationMessages[groupKey]!)
+          : null,
+    );
+
+    // Configuration iOS avec thread identifier
+    final iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      threadIdentifier: groupKey,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      // Afficher la notification individuelle
+      await _localNotifications.show(
+        message.hashCode,
+        title,
+        body,
+        details,
+        payload: message.data['type'],
+      );
+      print('✅ [FCM_LOCAL_NOTIF] Notification individuelle affichée');
+
+      // Sur Android, créer/mettre à jour la notification de résumé
+      if (Platform.isAndroid && count > 1) {
+        await _showGroupSummary(groupKey, groupName, count);
+      }
+    } catch (e) {
+      print('❌ [FCM_LOCAL_NOTIF] Erreur affichage notification: $e');
+    }
+  }
+
+  /// Déterminer le groupe de notification basé sur le type
+  Map<String, String> _getNotificationGroup(String type, String? conversationId) {
+    switch (type) {
+      case 'new_message':
+        return {
+          'groupKey': 'weylo_messages',
+          'groupName': 'Messages',
+        };
+
+      case 'new_chat_message':
+        // Grouper par conversation si on a l'ID, sinon grouper tous les chats ensemble
+        final key = conversationId != null
+            ? 'weylo_chat_$conversationId'
+            : 'weylo_chats';
+        return {
+          'groupKey': key,
+          'groupName': 'Messages',
+        };
+
+      case 'new_confession':
+      case 'new_public_confession':
+      case 'confession_comment':
+        return {
+          'groupKey': 'weylo_confessions',
+          'groupName': 'Confessions',
+        };
+
+      case 'new_story':
+      case 'story_like':
+      case 'story_reply':
+        return {
+          'groupKey': 'weylo_stories',
+          'groupName': 'Stories',
+        };
+
+      case 'gift_received':
+      case 'withdrawal_processed':
+      case 'withdrawal_rejected':
+      case 'withdrawal_failed':
+      case 'deposit_completed':
+      case 'deposit_failed':
+        return {
+          'groupKey': 'weylo_wallet',
+          'groupName': 'Portefeuille',
+        };
+
+      case 'profile_view':
+        return {
+          'groupKey': 'weylo_profile',
+          'groupName': 'Profil',
+        };
+
+      default:
+        return {
+          'groupKey': 'weylo_general',
+          'groupName': 'Weylo',
+        };
+    }
+  }
+
+  /// Créer le style inbox pour afficher plusieurs messages
+  InboxStyleInformation _getInboxStyle(String groupName, List<String> messages) {
+    return InboxStyleInformation(
+      messages,
+      contentTitle: '$groupName (${messages.length})',
+      summaryText: '${messages.length} nouvelles notifications',
+    );
+  }
+
+  /// Afficher une notification de résumé pour un groupe
+  Future<void> _showGroupSummary(String groupKey, String groupName, int count) async {
+    print('📋 [FCM_SUMMARY] Création de la notification résumé pour $groupKey ($count)');
+
+    final messages = _notificationMessages[groupKey] ?? [];
+
+    final androidDetails = AndroidNotificationDetails(
+      'weylo_notifications',
+      'Weylo Notifications',
+      channelDescription: 'Notifications pour Weylo',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      icon: 'ic_notification_white',
+      largeIcon: const DrawableResourceAndroidBitmap('ic_notification'),
+      color: const Color(0xFFFF1493),
+      groupKey: groupKey,
+      setAsGroupSummary: true,
+      styleInformation: InboxStyleInformation(
+        messages.take(5).toList(), // Limiter à 5 messages pour ne pas surcharger
+        contentTitle: '$groupName ($count)',
+        summaryText: count > 5
+            ? '$count nouvelles notifications'
+            : '${messages.length} nouvelles notifications',
+      ),
     );
 
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: true,
+      presentSound: false, // Pas de son pour le résumé
     );
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
 
     try {
       await _localNotifications.show(
-        message.hashCode,
-        message.notification?.title,
-        message.notification?.body,
+        groupKey.hashCode,
+        groupName,
+        '$count nouvelles notifications',
         details,
-        payload: message.data['type'],
       );
-      print('✅ [FCM_LOCAL_NOTIF] Notification affichée');
+      print('✅ [FCM_SUMMARY] Notification résumé affichée');
     } catch (e) {
-      print('❌ [FCM_LOCAL_NOTIF] Erreur affichage notification: $e');
+      print('❌ [FCM_SUMMARY] Erreur affichage résumé: $e');
     }
+  }
+
+  /// Nettoyer les compteurs de notifications (appelé quand l'utilisateur ouvre l'app)
+  void clearNotificationCounts() {
+    print('🧹 [FCM_SERVICE] Nettoyage des compteurs de notifications');
+    _notificationCounts.clear();
+    _notificationMessages.clear();
   }
 
   /// Gérer le clic sur une notification (notification locale)

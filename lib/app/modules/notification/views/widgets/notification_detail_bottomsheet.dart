@@ -167,34 +167,107 @@ class NotificationDetailBottomSheet extends StatelessWidget {
   }
 
   bool _shouldShowActionButton(String type) {
-    // Afficher le bouton d'action uniquement pour profile_view
-    return type == 'profile_view';
+    // Afficher le bouton d'action pour tous les types avec une action définie
+    const typesWithActions = [
+      // Messages
+      'message',
+      'new_message',
+      'new_chat_message',
+      // Confessions
+      'new_confession',
+      'confession_comment',
+      'new_public_confession',
+      // Cadeaux
+      'gift',
+      'gift_received',
+      'gift_sent',
+      // Wallet
+      'wallet',
+      'wallet_credit',
+      'wallet_debit',
+      'withdrawal_processed',
+      'withdrawal_rejected',
+      'withdrawal_failed',
+      'deposit_completed',
+      'deposit_failed',
+      // Followers
+      'follow',
+      'new_follower',
+      // Stories
+      'story_reply',
+      'story_like',
+      'new_story',
+      // Profil
+      'profile_view',
+      // Abonnement
+      'subscription_expiring',
+      // Bienvenue
+      'welcome',
+    ];
+    return typesWithActions.contains(type);
   }
 
   Color _getNotificationColor(String type) {
     switch (type) {
+      // Messages
       case 'message':
       case 'new_chat_message':
       case 'new_message':
         return AppThemeSystem.primaryColor;
+
+      // Confessions
+      case 'new_confession':
+      case 'confession_comment':
+      case 'new_public_confession':
+        return Colors.purple;
+
+      // Cadeaux
       case 'gift':
       case 'gift_received':
       case 'gift_sent':
         return AppThemeSystem.accentColor;
-      case 'like':
-        return Colors.pink;
-      case 'follow':
-      case 'new_follower':
-        return AppThemeSystem.secondaryColor;
-      case 'premium':
-      case 'premium_upgrade':
-        return AppThemeSystem.tertiaryColor;
+
+      // Wallet
       case 'wallet':
       case 'wallet_credit':
       case 'wallet_debit':
+      case 'deposit_completed':
         return Colors.green;
+      case 'withdrawal_processed':
+      case 'withdrawal_rejected':
+      case 'withdrawal_failed':
+      case 'deposit_failed':
+        return Colors.orange;
+
+      // Likes
+      case 'like':
+      case 'story_like':
+        return Colors.pink;
+
+      // Followers
+      case 'follow':
+      case 'new_follower':
+        return AppThemeSystem.secondaryColor;
+
+      // Stories
+      case 'story_reply':
+      case 'new_story':
+        return Colors.deepPurple;
+
+      // Premium/Abonnement
+      case 'premium':
+      case 'premium_upgrade':
+      case 'subscription_expiring':
+        return AppThemeSystem.tertiaryColor;
+
+      // Profil
       case 'profile_view':
         return AppThemeSystem.primaryColor;
+
+      // Bienvenue
+      case 'welcome':
+        return Colors.blue;
+
       default:
         return AppThemeSystem.primaryColor;
     }
@@ -202,24 +275,62 @@ class NotificationDetailBottomSheet extends StatelessWidget {
 
   String _getActionButtonText(String type) {
     switch (type) {
+      // Messages
+      case 'new_message':
+        return 'Voir le message';
       case 'message':
       case 'new_chat_message':
-      case 'new_message':
         return 'Ouvrir la conversation';
+
+      // Confessions
+      case 'new_confession':
+      case 'confession_comment':
+      case 'new_public_confession':
+        return 'Voir la confession';
+
+      // Cadeaux
       case 'gift':
       case 'gift_received':
         return 'Voir le cadeau';
       case 'gift_sent':
         return 'Voir les détails';
-      case 'follow':
-      case 'new_follower':
-        return 'Voir le profil';
+
+      // Wallet
       case 'wallet':
       case 'wallet_credit':
       case 'wallet_debit':
+      case 'withdrawal_processed':
+      case 'withdrawal_rejected':
+      case 'withdrawal_failed':
+      case 'deposit_completed':
+      case 'deposit_failed':
         return 'Voir le portefeuille';
+
+      // Followers
+      case 'follow':
+      case 'new_follower':
+        return 'Voir le profil';
+
+      // Stories
+      case 'story_reply':
+        return 'Voir la réponse';
+      case 'story_like':
+        return 'Voir ma story';
+      case 'new_story':
+        return 'Voir les stories';
+
+      // Profil
       case 'profile_view':
         return 'Voir mes visiteurs';
+
+      // Abonnement
+      case 'subscription_expiring':
+        return 'Gérer mon abonnement';
+
+      // Bienvenue
+      case 'welcome':
+        return 'Explorer l\'app';
+
       default:
         return 'Voir les détails';
     }
@@ -229,9 +340,24 @@ class NotificationDetailBottomSheet extends StatelessWidget {
     final data = notification.data;
 
     switch (notification.type) {
+      // ========== MESSAGES ==========
+      case 'new_message':
+        // Message anonyme - naviguer vers l'onglet des messages
+        Get.offAllNamed('/home');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          try {
+            final homeController = Get.find<HomeController>();
+            homeController.tabController.animateTo(2); // Messages tab index
+          } catch (e) {
+            print('❌ [NOTIFICATION] Erreur navigation messages: $e');
+          }
+        });
+        break;
+
       case 'message':
       case 'new_chat_message':
-      case 'new_message':
+      case 'story_reply':
+        // Messages de chat - ouvrir la conversation
         if (data != null && data['conversation_id'] != null) {
           Get.toNamed(
             '/chat-detail',
@@ -240,12 +366,47 @@ class NotificationDetailBottomSheet extends StatelessWidget {
         }
         break;
 
+      // ========== CONFESSIONS ==========
+      case 'new_confession':
+      case 'confession_comment':
+      case 'new_public_confession':
+        // Naviguer vers la confession
+        if (data != null && data['confession_id'] != null) {
+          Get.toNamed('/confession/${data['confession_id']}');
+        } else {
+          // Si pas d'ID, aller aux feeds
+          Get.offAllNamed('/home');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            try {
+              final homeController = Get.find<HomeController>();
+              homeController.tabController.animateTo(0); // Feeds tab index
+            } catch (e) {
+              print('❌ [NOTIFICATION] Erreur navigation feeds: $e');
+            }
+          });
+        }
+        break;
+
+      // ========== CADEAUX ==========
       case 'gift':
       case 'gift_received':
       case 'gift_sent':
         Get.toNamed('/my-wallet');
         break;
 
+      // ========== WALLET ==========
+      case 'wallet':
+      case 'wallet_credit':
+      case 'wallet_debit':
+      case 'withdrawal_processed':
+      case 'withdrawal_rejected':
+      case 'withdrawal_failed':
+      case 'deposit_completed':
+      case 'deposit_failed':
+        Get.toNamed('/my-wallet');
+        break;
+
+      // ========== FOLLOWERS ==========
       case 'follow':
       case 'new_follower':
         if (data != null && data['user_id'] != null) {
@@ -253,23 +414,45 @@ class NotificationDetailBottomSheet extends StatelessWidget {
         }
         break;
 
-      case 'wallet':
-      case 'wallet_credit':
-      case 'wallet_debit':
-        Get.toNamed('/my-wallet');
+      // ========== STORIES ==========
+      case 'story_like':
+        // Aller à l'onglet stories
+        Get.offAllNamed('/home');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          try {
+            final homeController = Get.find<HomeController>();
+            homeController.tabController.animateTo(3); // Stories tab index
+          } catch (e) {
+            print('❌ [NOTIFICATION] Erreur navigation stories: $e');
+          }
+        });
         break;
 
+      case 'new_story':
+        // Voir les stories - naviguer vers l'utilisateur si ID fourni
+        if (data != null && data['user_id'] != null) {
+          Get.toNamed('/user-profile', arguments: {'userId': data['user_id']});
+        } else {
+          // Sinon aller à l'onglet stories
+          Get.offAllNamed('/home');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            try {
+              final homeController = Get.find<HomeController>();
+              homeController.tabController.animateTo(3); // Stories tab index
+            } catch (e) {
+              print('❌ [NOTIFICATION] Erreur navigation stories: $e');
+            }
+          });
+        }
+        break;
+
+      // ========== PROFIL ==========
       case 'profile_view':
         print('🧭 [NOTIFICATION] Navigation vers les visiteurs du profil...');
-        // Naviguer vers la page home (qui contient le profil)
         Get.offAllNamed('/home');
-
-        // Attendre que la navigation soit complète
         Future.delayed(const Duration(milliseconds: 1000), () {
           try {
             print('🧭 [NOTIFICATION] Changement vers l\'onglet profil...');
-
-            // Obtenir le HomeController et changer l'onglet vers Profile (index 4)
             final homeController = Get.find<HomeController>();
             homeController.tabController.animateTo(4); // Profile tab index
 
@@ -278,7 +461,6 @@ class NotificationDetailBottomSheet extends StatelessWidget {
             );
             final profileController = Get.find<ProfileController>();
 
-            // Recharger les visiteurs et ouvrir le bottomsheet
             profileController.loadProfileVisitors().then((_) {
               print(
                 '🧭 [NOTIFICATION] Visiteurs rechargés, ouverture du bottomsheet...',
@@ -289,6 +471,18 @@ class NotificationDetailBottomSheet extends StatelessWidget {
             print('❌ [NOTIFICATION] Erreur affichage visiteurs: $e');
           }
         });
+        break;
+
+      // ========== ABONNEMENT ==========
+      case 'subscription_expiring':
+        // Naviguer vers les paramètres ou page premium
+        Get.toNamed('/seeting');
+        break;
+
+      // ========== BIENVENUE ==========
+      case 'welcome':
+        // Retourner à l'accueil
+        Get.offAllNamed('/home');
         break;
 
       default:

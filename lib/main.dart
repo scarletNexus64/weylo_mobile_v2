@@ -13,6 +13,7 @@ import 'app/data/services/conversation_state_service.dart';
 import 'app/data/services/conversation_story_service.dart';
 import 'app/data/services/auth_service.dart';
 import 'app/data/services/fcm_service.dart';
+import 'app/data/services/shorebird_update_service.dart';
 
 void main() async {
   print('🚀 [MAIN] Démarrage de l\'application Weylo');
@@ -22,6 +23,15 @@ void main() async {
   print('💾 [MAIN] Initialisation du StorageService...');
   await StorageService.init();
   print('✅ [MAIN] StorageService initialisé');
+
+  // Initialize Shorebird Update Service (silencieux)
+  print('🚀 [MAIN] Initialisation du ShorebirdUpdateService...');
+  try {
+    await Get.putAsync(() => ShorebirdUpdateService().onInit(), permanent: true);
+    print('✅ [MAIN] ShorebirdUpdateService initialisé (vérification en arrière-plan)');
+  } catch (e) {
+    print('⚠️ [MAIN] Shorebird non disponible (normal en dev): $e');
+  }
 
   // Initialize Firebase
   print('🔥 [MAIN] ========================================');

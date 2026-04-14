@@ -1,23 +1,23 @@
 class ApiConfig {
   // PRODUCTION CONFIGURATION
-  // static const String baseUrl = 'https://weylo-adminpanel.space/api/v1';
+  static const String baseUrl = 'https://weylo-adminpanel.space/api/v1';
 
-  // // Frontend base URL (for sharing links, deep links, etc.)
-  // static const String frontendUrl = 'https://weylo.app';
+  // Frontend base URL (for sharing links, deep links, etc.)
+  static const String frontendUrl = 'https://weylo.app';
 
-  // // Anonymous link base URL (without trailing slash, will be appended with /username)
-  // static const String anonymousLinkUrl = 'https://weylo.app/u';
+  // Anonymous link base URL (without trailing slash, will be appended with /username)
+  static const String anonymousLinkUrl = 'https://weylo.app/u';
 
-  // // Anonymous link host (extracted from anonymousLinkUrl for deeplink validation)
-  // static const String anonymousLinkHost = 'weylo.app';
+  // Anonymous link host (extracted from anonymousLinkUrl for deeplink validation)
+  static const String anonymousLinkHost = 'weylo.app';
 
-  // // WebSocket/Reverb configuration (Production)
-  // // Connection URL: wss://weylo-adminpanel.space:443/app/1425cdd3ef7425fa6746d2895a233e52
-  // static const String wsHost = 'weylo-adminpanel.space';
-  // static const int wsPort = 443;
-  // static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
-  // static const String wsAppId = 'Weylo-app';
-  // static const bool forceTLS = true;
+  // WebSocket/Reverb configuration (Production)
+  // Connection URL: wss://weylo-adminpanel.space:443/app/1425cdd3ef7425fa6746d2895a233e52
+  static const String wsHost = 'weylo-adminpanel.space';
+  static const int wsPort = 443;
+  static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
+  static const String wsAppId = 'Weylo-app';
+  static const bool forceTLS = true;
 
   // DEVELOPMENT CONFIGURATION (Uncomment for local development)
   // Pour le développement local, utilisez:
@@ -25,23 +25,23 @@ class ApiConfig {
   // 127.0.0.1 pour iOS Simulator
   // nonhedonic-slung-aura.ngrok-free.dev pour un vrai téléphone sur le même WiFi
   // Changez cette ligne selon votre device de test
-  static const String baseUrl = 'http://10.144.156.28:8001/api/v1';
+  // static const String baseUrl = 'http://10.30.89.28:8001/api/v1';
 
-  // Frontend base URL (for sharing links, deep links, etc.)
-  static const String frontendUrl = 'http://10.144.156.28:3000';
+  // // Frontend base URL (for sharing links, deep links, etc.)
+  // static const String frontendUrl = 'http://10.30.89.28:3000';
 
-  // Anonymous link base URL (without trailing slash, will be appended with /username)
-  static const String anonymousLinkUrl = 'http://10.144.156.28:3000/u';
+  // // Anonymous link base URL (without trailing slash, will be appended with /username)
+  // static const String anonymousLinkUrl = 'http://10.30.89.28:3000/u';
 
-  // Anonymous link host (extracted from anonymousLinkUrl for deeplink validation)
-  static const String anonymousLinkHost = '10.144.156.28:3000';
+  // // Anonymous link host (extracted from anonymousLinkUrl for deeplink validation)
+  // static const String anonymousLinkHost = '10.30.89.28:3000';
 
-  // WebSocket/Reverb configuration (Development)
-  static const String wsHost = '10.144.156.28';
-  static const int wsPort = 8080;
-  static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
-  static const String wsAppId = 'Weylo-app';
-  static const bool forceTLS = false;
+  // // WebSocket/Reverb configuration (Development)
+  // static const String wsHost = '10.30.89.28';
+  // static const int wsPort = 8080;
+  // static const String wsAppKey = '1425cdd3ef7425fa6746d2895a233e52';
+  // static const String wsAppId = 'Weylo-app';
+  // static const bool forceTLS = false;
 
   // Auth endpoints
   static const String register = '/auth/register';
